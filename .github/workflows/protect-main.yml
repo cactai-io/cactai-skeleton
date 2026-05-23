@@ -1,0 +1,87 @@
+name: Protect main branch
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# This workflow enforces that DevShell does not leak into the production
+# branch. DevShell ships as the @cactai-io/devshell package, dynamically
+# imported by the skeleton's /dev/page.tsx stub. The package belongs in
+# devDependencies; the stubs must remain thin.
+#
+# Three checks:
+#   1. /src/app/dev contains only the canonical stub files. No additional
+#      .tsx/.ts files (which would mean DevShell code was added back).
+#   2. The two stub files are unchanged from canonical (size + first-line
+#      heuristic). A full content-match would be ideal but is harder to
+#      maintain — file-size + presence-of-key-strings is a reasonable
+#      proxy that catches accidental edits.
+#   3. @cactai-io/devshell is in devDependencies, NOT in dependencies, in
+#      package.json. Production npm install --omit=dev skips it.
+#
+# When these layers all pass, the production deploy carries no DevShell
+# code and the /dev routes return 404 via the layout's runtime guard.
+
+jobs:
+  protect-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify /src/app/dev contents are stubs only
+        run: |
+          set -euo pipefail
+          # Canonical files allowed under src/app/dev/
+          ALLOWED="src/app/dev/layout.tsx src/app/dev/page.tsx src/app/dev/preferences/page.tsx"
+          # Find every .ts/.tsx under src/app/dev
+          FOUND=$(find src/app/dev -type f \( -name '*.ts' -o -name '*.tsx' \) | sort)
+          for f in $FOUND; do
+            case " $ALLOWED " in
+              *" $f "*) ;;
+              *) echo "::error file=$f::Unexpected DevShell file present in main branch — DevShell lives in the @cactai-io/devshell package, not in the skeleton's source tree."; exit 1 ;;
+            esac
+          done
+
+      - name: Verify stubs are thin
+        run: |
+          set -euo pipefail
+          # Each stub should be small (under 60 lines). A bloated stub means
+          # someone re-inlined DevShell logic.
+          for f in src/app/dev/layout.tsx src/app/dev/page.tsx; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::Required DevShell stub is missing."
+              exit 1
+            fi
+            LINES=$(wc -l < "$f")
+            if [ "$LINES" -gt 60 ]; then
+              echo "::error file=$f::Stub has grown to $LINES lines — keep DevShell stubs minimal (under 60 lines)."
+              exit 1
+            fi
+          done
+
+      - name: Verify @cactai-io/devshell placement
+        run: |
+          set -euo pipefail
+          # The package must be in devDependencies and NOT in dependencies.
+          if jq -e '.dependencies["@cactai-io/devshell"]' package.json > /dev/null 2>&1; then
+            echo "::error file=package.json::@cactai-io/devshell is in dependencies — it must be in devDependencies only so production installs skip it."
+            exit 1
+          fi
+          if ! jq -e '.devDependencies["@cactai-io/devshell"]' package.json > /dev/null 2>&1; then
+            echo "::error file=package.json::@cactai-io/devshell is missing from devDependencies."
+            exit 1
+          fi
+
+      - name: Verify production guard in stubs
+        run: |
+          set -euo pipefail
+          # Each stub must contain the NEXT_PUBLIC_VERCEL_ENV production check.
+          # This is a defense-in-depth layer; the package being absent from
+          # production installs is the primary safeguard.
+          for f in src/app/dev/layout.tsx src/app/dev/page.tsx; do
+            if ! grep -q "NEXT_PUBLIC_VERCEL_ENV.*production" "$f"; then
+              echo "::error file=$f::Stub is missing the production guard — must call notFound() when NEXT_PUBLIC_VERCEL_ENV === 'production'."
+              exit 1
+            fi
+          done

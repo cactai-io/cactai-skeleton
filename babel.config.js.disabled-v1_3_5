@@ -1,0 +1,38 @@
+// babel.config.js
+// Skeleton Babel config (v1.3 Phase 13, Gap 131).
+//
+// Next.js defaults to SWC for compilation. Adding a babel.config.js
+// opts back into Babel — slower but necessary to run our source-location
+// plugin (Gap 130). The plugin is the only reason this file exists.
+//
+// The plugin is a no-op in production (gated by NODE_ENV inside the
+// plugin), so production builds pay only the Babel-vs-SWC cost without
+// any attribute injection.
+//
+// Roadmap: an equivalent SWC plugin would restore SWC's faster builds
+// in development. Authoring a Rust SWC plugin is a larger lift than
+// Phase 13 needed; the Babel path ships first.
+
+// v1.3.5 — `next/babel` preset is required so Babel can parse TypeScript +
+// JSX. The source-location plugin only runs in development. We also exclude
+// modern third-party code that breaks under preset-env's regex transforms
+// (estree-util-is-identifier-name's Unicode property escapes) by skipping
+// node_modules; Next still transpiles workspace packages via
+// transpilePackages declared in next.config.mjs.
+module.exports = {
+  presets: ['next/babel'],
+  plugins:
+    process.env.NODE_ENV === 'development'
+      ? [
+          ['@cactai-io/babel-plugin-source-location', {
+            attribute:           'data-source-location',
+            includePathContains: ['/src/'],
+            excludePathContains: ['/node_modules/', '/.next/', '/dist/'],
+          }],
+        ]
+      : [],
+  // Don't run Babel transforms on node_modules — Next handles
+  // transpilePackages separately. This sidesteps preset-env breaking on
+  // libraries that use modern Unicode regex (e.g. estree-util-is-identifier-name).
+  exclude: [/node_modules[\\/](?!@cactai)/],
+};
