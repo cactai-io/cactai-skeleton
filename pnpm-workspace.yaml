@@ -1,0 +1,24 @@
+allowBuilds:
+  # Next.js build pipeline needs esbuild (bundler) and sharp (image
+  # optimization) to actually compile their native binaries at install
+  # time. pnpm 11 added the ignore-by-default policy; we opt in for both
+  # since they're required for the customer Vercel build to succeed.
+  esbuild: true
+  sharp: true
+
+# Even though the skeleton is a single-package repo (not a multi-package
+# workspace), pnpm 11 moved its policy/config keys here as the canonical
+# location. The .npmrc kebab-case form is no longer reliably honored for
+# array values like minimum-release-age-exclude. This file holds only the
+# policy settings; no `packages:` block — pnpm reads the settings without
+# treating the repo as a workspace.
+
+# pnpm 11 ships a supply-chain freshness check (minimumReleaseAge) that
+# rejects packages published within the configured window. The default
+# protection is appropriate for third-party deps. Our own @cactai-io
+# scope is first-party — we publish it ourselves — so it shouldn't be
+# blocked by the delay; every fresh publish would otherwise stall every
+# customer Vercel build. First-party scope only; third-party protection
+# stays intact.
+minimumReleaseAgeExclude:
+  - '@cactai-io/*'
