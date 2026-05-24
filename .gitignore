@@ -13,3 +13,13 @@ node_modules
 # (cactai-launch/lib/github.mjs:initAndPush) so the published
 # skeleton fork carries the compiled vendored copies.
 vendor/
+node_modules/
+dist/
+.next/
+.turbo/
+build/
+.env.*.local
+.cactai-launch.json
+.cactai-launch-logs/
+*.tsbuildinfo
+.DS_Store

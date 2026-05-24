@@ -1,0 +1,31 @@
+{
+  "name": "@cactai-io/mui",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cactai MUI implementation — agentic UI rendering system.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./sdk-manifest": {
+      "import": "./dist/sdk-manifest.js",
+      "types": "./dist/sdk-manifest.d.ts"
+    }
+  },
+  "dependencies": {
+    "@cactai-io/types": "workspace:*",
+    "@cactai-io/themes": "workspace:*",
+    "@cactai-io/brand-tokens": "workspace:*",
+    "react": "^19.0.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "dompurify": "^3.0.0",
+    "monaco-editor": "^0.52.0",
+    "@monaco-editor/react": "^4.6.0",
+    "diff": "^5.2.0",
+    "react-diff-viewer-continued": "^3.4.0"
+  }
+}

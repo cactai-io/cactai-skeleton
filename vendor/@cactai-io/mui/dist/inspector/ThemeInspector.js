@@ -1,0 +1,205 @@
+'use client';
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+// packages/mui/src/inspector/ThemeInspector.tsx
+//
+// Visual Theme Inspector — three-column UI for editing src/lib/theme.ts.
+//
+// Layout:
+//   Left   — token tree, grouped by category (color, typography, spacing,
+//            radii, shadows, transitions, breakpoints, zIndex). Locked
+//            tokens render dimmed with a lock glyph. A dirty dot marks
+//            paths the dev has edited since open.
+//   Middle — type-appropriate control for the selected token. Pulls from
+//            ColorControl / FontControl / NumericControl / ShadowControl /
+//            TransitionControl based on inferControlKind().
+//   Right  — live preview iframe pointing at the skeleton's _studio/preview
+//            route. The iframe receives delta updates via postMessage so the
+//            dev sees changes before saving.
+//
+// Data flow:
+//   1. On mount, GET /v1/projects/:id/files/theme → ParsedTheme.
+//   2. Each control change updates a local `deltas` map keyed by dotted path.
+//      The change is also broadcast to the preview iframe via postMessage so
+//      the preview reflects the unsaved state.
+//   3. Save → PATCH same endpoint with `{ deltas }`. On success, the server
+//      returns the new parsed_tokens; we replace local state and clear deltas.
+//
+// Locked tokens:
+//   - Filtered out of the deltas map at change time — controls already
+//     disable interaction, but the filter is the defense-in-depth.
+//   - A header banner shows the count of locked tokens; clicking sends a
+//     postMessage to DevShell asking it to open the brand_lock workflow
+//     revisit dialog. The inspector does not own that flow.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { injectInspectorStyles } from './ThemeInspector.styles.js';
+import { ColorControl } from './controls/ColorControl.js';
+import { FontControl } from './controls/FontControl.js';
+import { NumericControl } from './controls/NumericControl.js';
+import { ShadowControl } from './controls/ShadowControl.js';
+import { TransitionControl } from './controls/TransitionControl.js';
+import { inferControlKind, splitValueUnit, composeDelta } from './controls/types.js';
+export function ThemeInspector({ projectId, apiBaseUrl, onClose, previewUrl, }) {
+    useEffect(() => { injectInspectorStyles(); }, []);
+    const [data, setData] = useState(null);
+    const [deltas, setDeltas] = useState({});
+    const [selected, setSelected] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null);
+    const iframeRef = useRef(null);
+    // ── Initial load ────────────────────────────────────────────────────────
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${apiBaseUrl}/v1/projects/${projectId}/files/theme`, {
+                    credentials: 'include',
+                });
+                if (!res.ok)
+                    throw new Error(`load_failed: ${res.status}`);
+                const json = await res.json();
+                if (!cancelled) {
+                    setData(json);
+                    // Pick a sensible default selection — first non-locked leaf.
+                    const firstLeaf = flattenLeaves(json.parsed_tokens, new Set(json.locked_paths)).find(l => !l.locked);
+                    if (firstLeaf)
+                        setSelected(firstLeaf.path);
+                }
+            }
+            catch (err) {
+                if (!cancelled)
+                    setError(err instanceof Error ? err.message : 'unknown_error');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [apiBaseUrl, projectId]);
+    // ── Derived state ───────────────────────────────────────────────────────
+    const leaves = useMemo(() => data ? flattenLeaves(data.parsed_tokens, new Set(data.locked_paths)) : [], [data]);
+    const grouped = useMemo(() => groupByCategory(leaves), [leaves]);
+    const selectedLeaf = useMemo(() => leaves.find(l => l.path === selected) ?? null, [leaves, selected]);
+    const lockedCount = data?.locked_paths.length ?? 0;
+    const dirtyPaths = useMemo(() => new Set(Object.keys(deltas)), [deltas]);
+    // ── Change handler ──────────────────────────────────────────────────────
+    // Controls emit raw values via onChange (string for color/font/shadow,
+    // number-or-string for numeric/transition). At this boundary we split
+    // each raw value into the structured wire format { value, unit? } used by:
+    //   - the deltas map (saved to the server in the PATCH body),
+    //   - the postMessage payload to the preview iframe (so the preview
+    //     reassembles `${value}${unit}` for CSS setProperty),
+    //   - the server-side ts-morph writer (preserves the unit when rewriting
+    //     the theme.ts numeric literal).
+    const handleChange = useCallback((path, newValue) => {
+        if (!data)
+            return;
+        if (data.locked_paths.includes(path))
+            return; // defense in depth
+        const raw = typeof newValue === 'number' || typeof newValue === 'string'
+            ? newValue
+            : String(newValue);
+        const delta = splitValueUnit(raw);
+        setDeltas(prev => ({ ...prev, [path]: delta }));
+        // Broadcast to the preview iframe so the dev sees the change live.
+        iframeRef.current?.contentWindow?.postMessage({ type: 'cactai:theme-delta', path, value: delta.value, unit: delta.unit }, '*');
+    }, [data]);
+    // ── Save ────────────────────────────────────────────────────────────────
+    const save = useCallback(async () => {
+        if (!data || Object.keys(deltas).length === 0)
+            return;
+        setSaving(true);
+        setError(null);
+        try {
+            const res = await fetch(`${apiBaseUrl}/v1/projects/${projectId}/files/theme`, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deltas }),
+            });
+            const body = await res.json();
+            if (!res.ok) {
+                setError(body.error ?? `save_failed: ${res.status}`);
+                return;
+            }
+            // Replace the parsed tree with the server's freshly-parsed version.
+            setData({
+                parsed_tokens: body.parsed_tokens,
+                raw_text: data.raw_text, // server didn't echo raw — keep stale; next open re-fetches
+                locked_paths: data.locked_paths,
+            });
+            setDeltas({});
+        }
+        catch (err) {
+            setError(err instanceof Error ? err.message : 'unknown_error');
+        }
+        finally {
+            setSaving(false);
+        }
+    }, [apiBaseUrl, projectId, data, deltas]);
+    // ── Render ──────────────────────────────────────────────────────────────
+    return (_jsxs("section", { "data-theme-inspector": true, role: "dialog", "aria-label": "Theme inspector", children: [_jsxs("header", { className: "ti-header", children: [_jsx("h2", { className: "ti-title", children: "Theme" }), lockedCount > 0 && (_jsxs("button", { className: "ti-locked-banner", onClick: () => window.parent?.postMessage({ type: 'cactai:open-brand-lock' }, '*'), children: [_jsx(LockGlyph, { className: "ti-lock-glyph" }), lockedCount, " token", lockedCount === 1 ? '' : 's', " locked by brand settings. Unlock in workflow \u2192 brand."] })), _jsx("div", { className: "ti-spacer" }), _jsx("button", { className: "ti-cancel", onClick: onClose, disabled: saving, children: "Cancel" }), _jsx("button", { className: "ti-save", onClick: save, disabled: saving || Object.keys(deltas).length === 0, children: saving ? 'Saving…' : `Save${Object.keys(deltas).length > 0 ? ` (${Object.keys(deltas).length})` : ''}` })] }), _jsxs("div", { className: "ti-body", children: [_jsx("div", { className: "ti-col", children: _jsxs("div", { className: "ti-tree", children: [error && (_jsx("p", { style: { padding: '12px 18px', color: 'var(--c-accent)', fontSize: 12 }, children: error })), !data && !error && (_jsx("p", { style: { padding: '12px 18px', color: 'var(--c-text-3)', fontSize: 12 }, children: "Loading theme\u2026" })), Object.entries(grouped).map(([group, items]) => (_jsxs("div", { className: "ti-tree-group", children: [_jsx("div", { className: "ti-tree-group-label", children: group }), items.map(leaf => (_jsxs("button", { className: "ti-tree-leaf", "data-selected": selected === leaf.path, "data-locked": leaf.locked, onClick: () => setSelected(leaf.path), title: leaf.path, children: [isColorLeaf(leaf) && (_jsx("span", { className: "ti-tree-leaf-swatch", style: { background: (deltas[leaf.path] ? composeDelta(deltas[leaf.path]) : leaf.value) } })), !isColorLeaf(leaf) && (_jsx("span", { className: "ti-tree-leaf-dot", "data-dirty": dirtyPaths.has(leaf.path) })), _jsx("span", { className: "ti-tree-leaf-path", children: leaf.path }), leaf.locked && _jsx(LockGlyph, { className: "ti-tree-leaf-lock" })] }, leaf.path)))] }, group)))] }) }), _jsx("div", { className: "ti-col", children: _jsx("div", { className: "ti-control", children: selectedLeaf ? (_jsx(ControlForLeaf, { leaf: selectedLeaf, value: deltas[selectedLeaf.path] ? composeDelta(deltas[selectedLeaf.path]) : selectedLeaf.value, onChange: v => handleChange(selectedLeaf.path, v), siblings: leaves.filter(l => isColorLeaf(l) && l.path !== selectedLeaf.path).map(l => ({
+                                    path: l.path,
+                                    value: (deltas[l.path] ? composeDelta(deltas[l.path]) : l.value),
+                                })) })) : (_jsx("div", { className: "ti-control-empty", children: "Pick a token from the tree to edit." })) }) }), _jsx("div", { className: "ti-col", children: _jsxs("div", { className: "ti-preview", children: [_jsx("div", { className: "ti-preview-label", children: "Live preview" }), previewUrl ? (_jsx("iframe", { ref: iframeRef, className: "ti-preview-iframe", src: previewUrl, title: "Theme preview", 
+                                    // Both allow-scripts and allow-same-origin are intentional.
+                                    // The iframe loads from a different origin than the platform
+                                    // (the dev's Vercel preview), so allow-same-origin treats the
+                                    // iframe origin as its own actual origin rather than escaping
+                                    // the sandbox to parent context. Removing either flag breaks
+                                    // the preview: drop allow-scripts and the postMessage handler
+                                    // can't run; drop allow-same-origin and the iframe can't read
+                                    // its own cookies or storage, so any future auth-dependent
+                                    // preview features fail. The "both flags together is a smell"
+                                    // rule applies to *same-origin* iframes — not this one.
+                                    sandbox: "allow-scripts allow-same-origin" })) : (_jsxs("div", { className: "ti-preview-empty", children: ["Preview unavailable \u2014 set ", _jsx("code", { children: "STUDIO_PREVIEW_ENABLED=true" }), " on the skeleton deployment to enable the preview iframe."] }))] }) })] })] }));
+}
+// ── Internal helpers ───────────────────────────────────────────────────────
+function flattenLeaves(tree, locked, prefix = '') {
+    const out = [];
+    for (const [k, v] of Object.entries(tree)) {
+        const path = prefix ? `${prefix}.${k}` : k;
+        if (v && typeof v === 'object' && !('__raw' in v)) {
+            out.push(...flattenLeaves(v, locked, path));
+        }
+        else {
+            out.push({
+                path,
+                value: v,
+                locked: locked.has(path),
+                group: path.split('.')[0],
+            });
+        }
+    }
+    return out;
+}
+function groupByCategory(leaves) {
+    const order = ['color', 'typography', 'spacing', 'radii', 'shadows', 'transitions', 'breakpoints', 'zIndex'];
+    const out = {};
+    for (const k of order)
+        out[k] = [];
+    const extras = {};
+    for (const leaf of leaves) {
+        const g = leaf.group;
+        if (g in out)
+            out[g].push(leaf);
+        else {
+            (extras[g] ??= []).push(leaf);
+        }
+    }
+    // Drop empty known groups, append extras in insertion order
+    const final = {};
+    for (const k of order)
+        if (out[k].length)
+            final[k] = out[k];
+    for (const [k, v] of Object.entries(extras))
+        final[k] = v;
+    return final;
+}
+function isColorLeaf(leaf) {
+    return inferControlKind(leaf.path, leaf.value) === 'color';
+}
+function ControlForLeaf({ leaf, value, onChange, siblings, }) {
+    const kind = inferControlKind(leaf.path, leaf.value);
+    return (_jsxs(_Fragment, { children: [_jsxs("div", { className: "ti-control-header", children: [_jsx("span", { className: "ti-control-path", children: leaf.path }), _jsx("span", { className: "ti-spacer" }), _jsx("span", { className: "ti-control-kind", children: kind })] }), leaf.locked && (_jsxs("div", { className: "ti-control-locked-note", children: [_jsx(LockGlyph, { style: { width: 12, height: 12 } }), "Locked by brand settings. Unlock in workflow \u2192 brand to edit."] })), kind === 'color' && (_jsx(ColorControl, { path: leaf.path, value: value, locked: leaf.locked, onChange: onChange, siblings: siblings })), kind === 'font' && (_jsx(FontControl, { path: leaf.path, value: value, locked: leaf.locked, onChange: onChange })), kind === 'numeric' && (_jsx(NumericControl, { path: leaf.path, value: value, locked: leaf.locked, onChange: onChange })), kind === 'shadow' && (_jsx(ShadowControl, { path: leaf.path, value: value, locked: leaf.locked, onChange: onChange })), kind === 'transition' && (_jsx(TransitionControl, { path: leaf.path, value: value, locked: leaf.locked, onChange: onChange })), kind === 'unknown' && (_jsxs("div", { className: "ti-control-body", children: [_jsx("input", { type: "text", className: "ti-input", value: String(value ?? ''), onChange: e => onChange(e.target.value), disabled: leaf.locked, spellCheck: false }), _jsx("p", { style: { fontSize: 11, color: 'var(--c-text-2)', margin: 0 }, children: "Unknown token kind \u2014 edit as raw value." })] }))] }));
+}
+function LockGlyph({ className, style }) {
+    return (_jsxs("svg", { className: className, style: style, viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true", children: [_jsx("rect", { x: "3", y: "7", width: "10", height: "7", rx: "1.5" }), _jsx("path", { d: "M5 7 V5 a3 3 0 0 1 6 0 V7" })] }));
+}
+//# sourceMappingURL=ThemeInspector.js.map

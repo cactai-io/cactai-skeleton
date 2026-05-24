@@ -1,0 +1,185 @@
+import { type ReactNode } from 'react';
+import type { MUIShell } from './MUIShell.js';
+import type { MorphState } from '@cactai-io/types';
+import type { PersonalityCharacter } from '@cactai-io/types';
+import type { ChatMessage } from '../components/DevChatPanel.js';
+import type { FileNode } from '../components/FileTree.js';
+import type { WorkspacePanelProps, BuildPanelProps, SchemaPanelProps, ProjectSettingsPanelProps } from '../panels/index.js';
+import type { SkillDescriptor } from '../types/mui.types.js';
+import type { SprintRecord, GoalBacklogEntry, SurfaceFormField, WorkflowDecisionRecord } from '@cactai-io/types';
+import type { CommitListItem } from '../commit/CommitHistoryModal.js';
+import type { Resolution } from '../commit/CommitConflictModal.js';
+import type { SyncState, PendingFileSummary } from '../commit/types.js';
+export type DevShellView = 'dev' | 'plan' | 'role_view';
+export type RoleViewRole = string;
+export type RailSection = 'workspace' | 'build' | 'schema' | 'project-settings';
+/**
+ * Optional second argument to onCommitToDev. Allows the shell to pass
+ * conflict resolutions (Thread 11) and revert metadata (Thread 12)
+ * without changing the primary signature for hosts that don't use
+ * those flows.
+ *
+ * - `resolutions`: per-path resolution map from CommitConflictModal.
+ *   When present, the host should construct the commit body with
+ *   per-file `content` set to the resolved content, the matching
+ *   `resolved: true` flag, and `paths` reflecting only files that
+ *   weren't dropped via 'keep_remote'.
+ * - `reverts_sha`: original SHA being reverted. Host sets this on
+ *   the commit body so commit_log.reverts_sha is populated.
+ * - `message`: optional commit message override. The revert flow uses
+ *   `Revert "<original message>"` per git convention; if omitted the
+ *   host falls back to its default.
+ * - `simulateConflict`: dev-only test fixture. Host appends
+ *   `?simulateCommitConflict=1` to the commit URL when true.
+ */
+export interface CommitInvocationOptions {
+    resolutions?: Map<string, Resolution>;
+    /** Map of path → content used by the revert flow. The host fills the
+     *  commit body's `files[].content` from this map; values must match
+     *  the inverse of the original commit's snapshots. */
+    contentByPath?: Map<string, string | null>;
+    /** Pre-computed inverse file set produced by the revert flow. When
+     *  set, the host should use these as the commit body's `files`
+     *  instead of resolving from `paths` + pending_files. */
+    fileSet?: ReadonlyArray<{
+        path: string;
+        operation: 'edit' | 'create' | 'delete' | 'rename' | 'move';
+        new_path?: string | null;
+        content?: string | null;
+        last_edited_at: string;
+        lines_added: number;
+        lines_removed: number;
+    }>;
+    reverts_sha?: string;
+    message?: string;
+    simulateConflict?: boolean;
+}
+export interface DevShellRole {
+    role: RoleViewRole;
+    label: string;
+    session_id: string;
+}
+export interface DevShellProps {
+    shell: MUIShell;
+    projectId: string;
+    projectName: string;
+    branch: string;
+    /** Current sync state. The DevShell uses this to drive the SyncIndicator,
+     *  the per-file modified dots, the file-tree panel header's pending-edits
+     *  trigger, and the action button inside the PendingEditsModal.
+     *  v1.2 commit-flow rebuild: only the 'local' and 'dev' variants remain. */
+    syncState: SyncState;
+    /** Per-file pending-edits detail. Required when `syncState.branch ===
+     *  'local'`; the modal pulls its file list and `+N / -N` summaries from
+     *  here. When the state is `dev · synced` this can be an empty array. */
+    pendingFiles: PendingFileSummary[];
+    developerInitials: string;
+    developerName: string;
+    agentDisplayName: string;
+    agentState: MorphState;
+    character?: PersonalityCharacter;
+    messages: ChatMessage[];
+    streamingContent?: string;
+    availableRoles: DevShellRole[];
+    /** Cactai API base URL used by the Theme Inspector to read/write theme.ts.
+     *  Typically the same value passed to the skeleton's API client. */
+    apiBaseUrl: string;
+    /** Optional URL pointing at the skeleton's _studio/preview route. When
+     *  unset, the Theme Inspector renders without a live preview iframe. */
+    studioPreviewUrl?: string;
+    onRoleSwitch: (role: RoleViewRole) => void;
+    /** Commit the given file paths to the dev branch. Resolves once the
+     *  commit has succeeded (or rejects on failure — the shell surfaces the
+     *  error inline in the modal). The shell handles closing the modal on
+     *  success; consumers should not optimistically clear local state until
+     *  this resolves.
+     *
+     *  v1.2 commit-flow rebuild: the parallel onCommitToMain prop is gone —
+     *  developers merge dev to main manually in GitHub.
+     *
+     *  Thread 11 — when /api/github/commit returns 409 with a conflict
+     *  payload, host code should throw a `CommitConflictError` carrying
+     *  the parsed `files` array. The shell catches that specifically and
+     *  opens CommitConflictModal. The shell then calls back into
+     *  `onCommitToDev(paths, opts)` with `opts.resolutions` populated so
+     *  the host can build the resolved-retry body.
+     *
+     *  Thread 12 — set `opts.reverts_sha` and `opts.message` when the
+     *  revert flow drives a commit via this same callback. */
+    onCommitToDev: (paths: string[], opts?: CommitInvocationOptions) => Promise<void>;
+    /** Thread 12 — revert a single past commit. Optional. When omitted,
+     *  the per-commit "Revert this commit" menu item is hidden in
+     *  CommitHistoryModal. Wires through /api/github/revert/[sha]. The
+     *  shell handles the confirmation modal; the host only performs the
+     *  network call and refreshes pending state on success.
+     *
+     *  The promise resolves when the revert commit has been recorded; it
+     *  rejects with an Error whose message surfaces in the shell's
+     *  inline error banner. A CommitConflictError can be thrown to route
+     *  through the CommitConflictModal exactly like a normal commit
+     *  conflict — the revert's inverse changeset is processed as a
+     *  regular multi-file commit body. */
+    onRevertCommit?: (commit: CommitListItem) => Promise<void>;
+    /** Discard a single pending row. The host wires this to
+     *  PendingFilesManager.discardPendingFile. Optional — when omitted the
+     *  pending-edits modal's per-row discard button is hidden and the
+     *  file-tree's right-click "Restore" menu is hidden. */
+    onDiscardPendingFile?: (path: string) => void;
+    /** Discard every pending row. The host wires this to
+     *  PendingFilesManager.discardAll(). Optional, same nuance as above. */
+    onDiscardAllPending?: () => void;
+    /** Bearer token for the DeployIndicator's SSE subscription. Typically
+     *  the developer's session-scoped API key. Optional — when omitted,
+     *  the DeployIndicator is not rendered. */
+    deployBearerToken?: string;
+    /** Platform base URL for the deploy-events SSE endpoint. Defaults to
+     *  same-origin. */
+    platformBaseUrl?: string;
+    vercelPreviewUrl?: string;
+    githubRepoUrl?: string;
+    vercelDashUrl?: string;
+    treeNodes: FileNode[];
+    activeFilePath?: string;
+    fileContent?: string | null;
+    fileLoading?: boolean;
+    onFileSelect: (path: string) => void;
+    onExitFileView: () => void;
+    workflowStep: string;
+    workflowForm?: {
+        stage: string;
+        fields: SurfaceFormField[];
+    };
+    decisions: Record<string, WorkflowDecisionRecord>;
+    backlog: GoalBacklogEntry[];
+    sprints: SprintRecord[];
+    onWorkflowFormSubmit: (choices: Record<string, unknown>) => void;
+    onRevisitDecision: (key: string) => void;
+    onResolveBacklog: (id: string) => void;
+    /** Workspace panel props — projectName, githubRepoUrl, vercelDashUrl,
+     *  vercelPreviewUrl, syncState, and onViewPendingEdits are injected by
+     *  the shell. */
+    workspaceProps: Omit<WorkspacePanelProps, 'projectName' | 'githubRepoUrl' | 'vercelDashUrl' | 'vercelPreviewUrl' | 'syncState' | 'onViewPendingEdits'>;
+    /** Build panel props — skills is injected from the top-level prop. */
+    buildProps: Omit<BuildPanelProps, 'skills'>;
+    skills: SkillDescriptor[];
+    schemaProps: SchemaPanelProps;
+    /** Project settings panel props — dashboardUrl is injected by the shell. */
+    settingsProps: Omit<ProjectSettingsPanelProps, 'dashboardUrl'>;
+    /** v1.2 Thread 06: catalogue + devshell-scope config + patch callback
+     *  used by the "DevShell preferences" entry in the avatar menu. When
+     *  omitted, the avatar menu falls back to a stub message ("DevShell
+     *  preferences data is loading…"). */
+    devshellPreferences?: {
+        catalogue: import('@cactai-io/types').CapabilityCatalogueItem[];
+        config: import('@cactai-io/types').CapabilityScopeConfig;
+        onPatch: (patch: import('@cactai-io/types').CapabilityConfigPatch) => Promise<void>;
+    };
+    /** URL of the Cactai platform dashboard. White-label operators MUST pass
+     *  their own. No default — shipping a default would silently point users
+     *  at the Cactai-hosted dashboard from a non-Cactai deployment. */
+    dashboardUrl: string;
+    children?: ReactNode;
+    onSectionChange?: (section: RailSection) => void;
+    onViewChange?: (view: DevShellView) => void;
+}
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
