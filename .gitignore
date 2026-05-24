@@ -6,3 +6,10 @@ node_modules
 
 # Never commit secrets
 .env
+
+# Wizard-vendored private @cactai-io/* packages (devshell, mui).
+# Ignored locally because local dev uses pnpm.overrides against the
+# workspace; the launch wizard force-adds this dir at push time
+# (cactai-launch/lib/github.mjs:initAndPush) so the published
+# skeleton fork carries the compiled vendored copies.
+vendor/
