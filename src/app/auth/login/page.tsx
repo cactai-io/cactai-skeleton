@@ -15,8 +15,10 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useActionState, useState, useTransition } from 'react';
+import { useActionState, useEffect, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase';
+import { installCaptureHandlers } from '@/lib/capture-thumbnail';
+import { endpoints } from '@/lib/endpoints';
 
 interface LoginState {
   error: string | null;
@@ -45,6 +47,23 @@ async function signInWithPassword(_prev: LoginState, formData: FormData): Promis
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(signInWithPassword, INITIAL);
+
+  // Thumbnail capture for the dashboard's project card.
+  // Per the locked spec: capture once on sign-on (mount) + once on
+  // sign-off / tab close. The production-environment login page IS the
+  // deployed app's public face, so we tag the upload kind='production'
+  // and the dashboard renders it next to the DevShell preview tile.
+  // Only fires in production-tier deployments since preview-tier
+  // visitors are normally the dev themselves; we don't want preview
+  // login screens overwriting the production thumbnail.
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production') return;
+    return installCaptureHandlers({
+      cactaiBase: endpoints.cactaiBase,
+      projectId:  endpoints.projectId,
+      kind:       'production',
+    });
+  }, []);
 
   // Google OAuth flow runs outside the password form. useTransition gives the
   // Google button its own pending indicator without conflating with the form's

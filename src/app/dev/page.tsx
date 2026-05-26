@@ -11,24 +11,25 @@
 import { notFound } from 'next/navigation';
 import { requireDevRole } from '@/lib/auth';
 import { endpoints } from '@/lib/endpoints';
+import { DevShellWithThumbnail } from './_with-thumbnail';
 
 export default async function DevPage() {
   if (process.env.NEXT_PUBLIC_VERCEL_ENV === 'production') {
     notFound();
   }
   const user = await requireDevRole();
-  const { DevShellPage } = await import('@cactai-io/devshell');
+  // The DevShellPage import + thumbnail capture both live in a client
+  // wrapper component — server components can't mount effects, and
+  // dynamic-import-of-DevShell must happen client-side so the bundle
+  // tree-shakes correctly for production builds.
   return (
-    <DevShellPage
+    <DevShellWithThumbnail
       userId={user.id}
       userEmail={user.email}
       userRole={user.platform_role ?? user.active_lens ?? 'user'}
       allRoles={user.all_roles}
-      endpoints={{
-        cactaiBase: endpoints.cactaiBase,
-        projectId:  endpoints.projectId,
-      }}
-      preferencesHref="/dev/preferences"
+      cactaiBase={endpoints.cactaiBase}
+      projectId={endpoints.projectId}
     />
   );
 }
