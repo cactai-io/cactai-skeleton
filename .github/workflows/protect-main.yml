@@ -32,8 +32,12 @@ jobs:
       - name: Verify /src/app/dev contents are stubs only
         run: |
           set -euo pipefail
-          # Canonical files allowed under src/app/dev/
-          ALLOWED="src/app/dev/layout.tsx src/app/dev/page.tsx src/app/dev/preferences/page.tsx"
+          # Canonical files allowed under src/app/dev/. `_with-thumbnail.tsx`
+          # is a thin client wrapper (dynamic-imports @cactai-io/devshell +
+          # installs thumbnail capture handlers); production tree-shaking
+          # still drops the dep because the import is async and the file is
+          # only mounted by page.tsx, which carries the production guard.
+          ALLOWED="src/app/dev/layout.tsx src/app/dev/page.tsx src/app/dev/_with-thumbnail.tsx src/app/dev/preferences/page.tsx"
           # Find every .ts/.tsx under src/app/dev
           FOUND=$(find src/app/dev -type f \( -name '*.ts' -o -name '*.tsx' \) | sort)
           for f in $FOUND; do
