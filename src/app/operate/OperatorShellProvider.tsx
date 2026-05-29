@@ -199,6 +199,7 @@ export function OperatorShellProvider({ user, availableRoles, appIdentity, child
         </div>
         <NavItem href="/operate"             label="Overview" />
         <NavItem href="/operate/customers"   label="Customers" />
+        <NavItem href="/operate/providers"   label="Providers" />
         <NavItem href="/operate/email-invitations" label="Email & invitations" />
         <NavItem href="/operate/signup-policy"     label="Signup policy" />
         <NavItem href="/operate/auth-providers"    label="Auth providers" />
