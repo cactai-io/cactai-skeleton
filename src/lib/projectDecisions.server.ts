@@ -274,12 +274,25 @@ export async function saveModelSelections(selections: ModelSelectionsDecision): 
 }
 
 // ── BYOK toggle (Thread 08) ─────────────────────────────────────────────────
+//
+// 2026-05-29 — `encrypted` is now a real v2 envelope, not a plaintext
+// placeholder. See secrets.server.ts for the envelope format. Both the
+// platform (writes during provision via setCustomerByokKey on the platform
+// side) and the skeleton (writes via /api/settings/byok) MUST encrypt
+// before storing; both decrypt on read with the shared SECRETS_ENCRYPTION_KEY.
+
+import { encryptSecret, decryptSecret, isEncrypted } from './secrets.server';
 
 export interface BYOKBlob {
   enabled:   boolean;
+  /** value: v2 envelope (encryptSecret output). Never plaintext. */
   providers: Record<string, { encrypted: string; updated_at: string }>;
 }
 
+/** Load the BYOK blob WITHOUT decrypting — callers that just need
+ *  presence + masked-display use this. The masked display uses the
+ *  last 4 chars of the envelope ciphertext, which is fine for "do we
+ *  have a key for this provider" UI; not the actual key tail. */
 export async function loadBYOK(): Promise<BYOKBlob> {
   const d = await loadDecisions();
   const v = d[DECISION_KEYS.byok];
@@ -291,18 +304,45 @@ export async function loadBYOK(): Promise<BYOKBlob> {
   };
 }
 
+/** Resolve a single provider's plaintext key for use at runtime (turn
+ *  execution, etc.). Returns null when the provider isn't configured.
+ *  Throws on a malformed / unreadable envelope so callers don't
+ *  silently fall through to a wrong-provider path. */
+export async function getBYOKPlaintext(providerId: string): Promise<string | null> {
+  const blob = await loadBYOK();
+  const rec  = blob.providers[providerId];
+  if (!rec || !rec.encrypted) return null;
+  if (!isEncrypted(rec.encrypted)) {
+    // Backward-compat: any value written before the encryption upgrade
+    // (pre-2026-05-29) was stored as plaintext. Treat as plaintext but
+    // log a warning so we know it should be re-saved to upgrade format.
+    console.warn(`[byok] provider=${providerId} stored unencrypted; please re-save to upgrade format`);
+    return rec.encrypted;
+  }
+  return await decryptSecret(rec.encrypted);
+}
+
+/** Write a single provider's key. Always encrypts before storing — the
+ *  caller passes plaintext, never an envelope. */
+export async function setBYOKKey(providerId: string, plaintextKey: string): Promise<void> {
+  const envelope = await encryptSecret(plaintextKey);
+  const blob = await loadBYOK();
+  blob.providers[providerId] = { encrypted: envelope, updated_at: new Date().toISOString() };
+  await saveBYOK(blob);
+}
+
+/** Persist the full blob. Callers should normally use setBYOKKey for
+ *  per-provider writes; saveBYOK is exposed for the toggle path
+ *  (enabled: true/false) and bulk replacement. */
 export async function saveBYOK(blob: BYOKBlob): Promise<void> {
   await patchDecisions({ [DECISION_KEYS.byok]: blob });
 }
 
-// Cheap last-4-only masking. The decisions JSONB is not a secrets vault —
-// real secret material is intended to be stored in Vercel env vars (see
-// the existing /api/settings/credentials route). The BYOK section stores
-// the masked form for display and is suitable for low-sensitivity values
-// where the developer prefers convenience over rotation. The "encrypted"
-// field name on disk preserves room for an envelope encryption upgrade.
-export function maskBYOKValue(value: string): string {
-  if (!value) return '';
-  const tail = value.slice(-4);
+// Cheap last-4-only masking on the ENVELOPE for the display UI.
+// Different from the actual key tail (which would require decryption);
+// this is just "is something there" affordance for the settings page.
+export function maskBYOKValue(envelope: string): string {
+  if (!envelope) return '';
+  const tail = envelope.slice(-4);
   return `••••${tail}`;
 }

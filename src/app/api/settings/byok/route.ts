@@ -1,5 +1,11 @@
 // src/app/api/settings/byok/route.ts
 // v1.2 Thread 08 — BYOK toggle and per-provider key write surface.
+// v1.3.5 2026-05-29 — values are now v2-envelope encrypted via
+//   encryptSecret() before storing. The PATCH handler accepts a
+//   plaintext `value` from the client (over TLS) and encrypts before
+//   writing to project_state.decisions.byok. Reads return the envelope
+//   directly in the masked display form; runtime consumers that need
+//   the plaintext use getBYOKPlaintext() in projectDecisions.server.ts.
 //
 // "Bring your own key" is the per-project switch between developer-supplied
 // provider API keys and Cactai-supplied ones. The toggle moved out of the
@@ -7,7 +13,9 @@
 // access; this route is what the Project Settings panel reads and writes.
 //
 // Sensitive note: provider key values are stored on the developer's own
-// Supabase (which is the developer's own infrastructure, not Cactai's).
+// Supabase (which is the developer's own infrastructure, not Cactai's),
+// envelope-encrypted with the shared SECRETS_ENCRYPTION_KEY that the
+// platform forwarded into the customer's Vercel env at provision time.
 // The masked display form is returned on every GET; the raw value is
 // accepted on PATCH and never echoed back.
 //
@@ -20,6 +28,7 @@ import {
   saveBYOK,
   maskBYOKValue,
 } from '@/lib/projectDecisions.server';
+import { encryptSecret } from '@/lib/secrets.server';
 import type {
   ProjectBYOKResponse,
   ProjectBYOKPatch,
@@ -69,8 +78,10 @@ export async function PATCH(req: NextRequest) {
       if (value === '') {
         delete blob.providers[id];
       } else {
+        // Always encrypt before storing. The PATCH client sends plaintext
+        // over TLS; we never persist plaintext to the JSONB column.
         blob.providers[id] = {
-          encrypted:  value,
+          encrypted:  await encryptSecret(value),
           updated_at: new Date().toISOString(),
         };
       }
