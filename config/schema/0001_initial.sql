@@ -77,18 +77,11 @@ CREATE TABLE IF NOT EXISTS tenants (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenants_member_read ON tenants FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM tenant_members tm
-      WHERE tm.user_id = auth.uid()
-        AND tm.tenant_id = tenants.id
-        AND tm.status = 'active'
-    )
-    OR EXISTS (
-      SELECT 1 FROM platform_roles pr WHERE pr.user_id = auth.uid()
-    )
-  );
+-- tenants_member_read is defined after tenant_members below so the
+-- referenced relation exists at CREATE POLICY time. Postgres validates
+-- the policy expression's relations eagerly, so forward-referencing
+-- tenant_members here would fail with "relation tenant_members does
+-- not exist" and abort the whole bootstrap.
 
 -- tenant_members: one user can hold multiple roles on a tenant simultaneously.
 -- The developer holds all three roles (super_admin, admin, user) on the default
@@ -129,6 +122,23 @@ CREATE POLICY tenant_members_admin_read  ON tenant_members FOR SELECT
         AND tm.tenant_id = tenant_members.tenant_id
         AND tm.role IN ('super_admin', 'admin')
         AND tm.status = 'active'
+    )
+  );
+
+-- Now that tenant_members exists, define the deferred tenants policy that
+-- depends on it. DROP-IF-EXISTS lets re-applying this file be idempotent
+-- on databases where a prior run already created it.
+DROP POLICY IF EXISTS tenants_member_read ON tenants;
+CREATE POLICY tenants_member_read ON tenants FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM tenant_members tm
+      WHERE tm.user_id = auth.uid()
+        AND tm.tenant_id = tenants.id
+        AND tm.status = 'active'
+    )
+    OR EXISTS (
+      SELECT 1 FROM platform_roles pr WHERE pr.user_id = auth.uid()
     )
   );
 
