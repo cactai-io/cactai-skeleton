@@ -92,16 +92,62 @@ export async function GET(req: Request) {
   // Ensure the auth user exists. createUser is idempotent-ish — it
   // throws "User already registered" when the email is present, which
   // we treat as success. Any other error is fatal.
+  let authUserId: string | null = null;
   try {
-    await admin.auth.admin.createUser({
+    const created = await admin.auth.admin.createUser({
       email:         consumed.developer_email,
       email_confirm: true,
     });
+    if (created.data?.user?.id) authUserId = created.data.user.id;
   } catch (err) {
     const msg = (err as Error).message ?? '';
     if (!/already (registered|exists)/i.test(msg)) {
       console.error('[preview-auth] admin.createUser failed:', msg);
       return new NextResponse('Could not provision auth user', { status: 500 });
+    }
+  }
+
+  // Resolve the auth user id when createUser didn't return one (e.g. the
+  // already-exists path swallowed the error). admin.listUsers paginates;
+  // for a brand-new customer Supabase a single page is enough to find
+  // the developer by email. Soft-fail: if we can't resolve the id we
+  // still mint a magic-link (DevShell sign-in works), but the
+  // platform_role grant below is skipped.
+  if (!authUserId) {
+    try {
+      const list = await admin.auth.admin.listUsers({ perPage: 200 });
+      const u = list.data?.users?.find((row) => row.email === consumed.developer_email);
+      if (u) authUserId = u.id;
+    } catch (err) {
+      console.warn('[preview-auth] listUsers fallback failed:', (err as Error).message);
+    }
+  }
+
+  // Grant platform_role='dev' so requireDevRole() at /dev recognises the
+  // session, plus an app_users row so any RLS that joins app_users sees
+  // them. The platform-side customer-bootstrap intentionally does NOT
+  // pre-seed these rows — first sign-in (this path OR the production
+  // OAuth callback) is what materialises them. ON CONFLICT DO NOTHING
+  // keeps it idempotent across multiple DevShell opens.
+  if (authUserId) {
+    try {
+      const { error: auError } = await admin
+        .from('app_users')
+        .upsert(
+          { id: authUserId, email: consumed.developer_email },
+          { onConflict: 'id' },
+        );
+      if (auError) console.warn('[preview-auth] app_users upsert error:', auError.message);
+
+      const { error: prError } = await admin
+        .from('platform_roles')
+        .upsert(
+          { user_id: authUserId, role: 'dev' },
+          { onConflict: 'user_id,role' },
+        );
+      if (prError) console.warn('[preview-auth] platform_roles upsert error:', prError.message);
+    } catch (err) {
+      console.warn('[preview-auth] role-grant threw:', (err as Error).message);
     }
   }
 

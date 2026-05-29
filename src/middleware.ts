@@ -46,7 +46,31 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // On Vercel preview deployments only (the dev-branch deploys the wizard
+  // captures into projects.preview_url), bounce unauthenticated navigation
+  // back to the platform so the developer lands in DevShell instead of the
+  // public app's sign-in. Paths that would interrupt the handoff itself
+  // (the inbound /api/preview-auth carrying the token, /auth/* callbacks
+  // that finish OAuth, and Next internals) are exempt. Production deploys
+  // (VERCEL_ENV='production') keep their normal sign-in flow — end users
+  // land on /, log in, and bootstrap claims tenant ownership the first
+  // time.
+  if (process.env.VERCEL_ENV === 'preview' && !user) {
+    const path = request.nextUrl.pathname;
+    const isExempt =
+      path.startsWith('/api/preview-auth') ||
+      path.startsWith('/auth') ||
+      path.startsWith('/api/auth') ||
+      path === '/favicon.ico';
+    if (!isExempt) {
+      const dashboardBounce =
+        `${endpoints.cactaiBase.replace(/\/$/, '')}/v1/projects/${endpoints.projectId}/devshell-redirect`;
+      return NextResponse.redirect(dashboardBounce, 302);
+    }
+  }
+
   return response;
 }
 
