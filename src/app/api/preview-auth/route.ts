@@ -1,10 +1,14 @@
 // src/app/api/preview-auth/route.ts
 //
-// Cross-origin DevShell auto-auth entry point. The platform's dashboard
-// mints a short-lived signed token; we receive it as ?token=..., verify
-// + consume it on the platform side, then mint a real Supabase session
-// for the matching auth user (creating that user with the service-role
-// admin API if absent) and redirect to /dev.
+// Cross-origin DevShell auto-auth entry point. The Cactai dashboard mints
+// a short-lived signed token; we receive it as ?token=..., verify +
+// consume it on the platform side, mint a Supabase magic link for the
+// developer's email (creating the auth user with the service-role admin
+// API if absent + seeding their app_users / platform_roles rows on
+// first sign-in), then redirect to /auth/handoff. That client page
+// extracts the session tokens Supabase returns in the URL hash, sets
+// the SSR session cookies on this origin, and lands the developer in
+// /dev signed in.
 //
 // SECURITY GATES
 //   - Production hard-gate: VERCEL_ENV === 'production' → 404. The
@@ -16,8 +20,8 @@
 //
 // FAIL CLOSED
 //   Any failure (no token, malformed token, platform rejected, missing
-//   service-role key) returns 401/404 plain text; the user lands on a
-//   stub page and can fall through to the normal Supabase login flow.
+//   service-role key) returns 4xx plain text; the user lands on a stub
+//   page and can fall through to the normal Supabase login flow.
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -151,19 +155,22 @@ export async function GET(req: Request) {
     }
   }
 
-  // Mint a magic link with redirect_to pointing at /auth/callback?next=/dev.
-  // This is critical for SSR: Supabase's magic-link verify endpoint sets
-  // session cookies on the supabase.co origin, NOT on the app's Vercel
-  // origin. If we redirected straight to /dev, the next request's
-  // middleware (createServerClient + getUser) would see no session,
-  // bounce to the platform devshell-redirect, mint another token, loop.
+  // Mint a magic link with redirect_to pointing at /auth/handoff.
+  // admin.generateLink({ type: 'magiclink' }) returns IMPLICIT-flow links:
+  // the verify endpoint redirects back to redirect_to with tokens in the
+  // URL HASH FRAGMENT (#access_token=...&refresh_token=...). Hash fragments
+  // never reach the server, so a route handler can't see them — only
+  // client-side JS can. /auth/callback was the wrong target because it
+  // only handles ?code= (PKCE flow); it 'callback_failed' on the implicit
+  // path, dropping the user on /auth/login with the tokens stranded in
+  // the URL.
   //
-  // /auth/callback's exchangeCodeForSession() call IS what writes the
-  // session cookies onto THIS origin — once that runs, subsequent
-  // requests to /dev see a valid session and the middleware passes
-  // through.
+  // /auth/handoff is a tiny client page that extracts the hash, calls
+  // supabase.auth.setSession() (writing cookies to this origin), then
+  // hard-redirects to /dev. From there middleware sees the session and
+  // the IDE renders.
   const origin     = url.origin;
-  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent('/dev')}`;
+  const redirectTo = `${origin}/auth/handoff?next=${encodeURIComponent('/dev')}`;
   const linkRes    = await admin.auth.admin.generateLink({
     type:    'magiclink',
     email:   consumed.developer_email,
