@@ -151,14 +151,19 @@ export async function GET(req: Request) {
     }
   }
 
-  // Mint a magic link with redirect_to = /dev. The action_link, when
-  // followed by the browser, sets Supabase auth cookies on this app's
-  // origin and then redirects to /dev. From there requireDevRole() in
-  // src/app/dev/layout.tsx finds a valid session and lets the IDE
-  // render. This is the standard Supabase pattern for server-initiated
-  // sign-in across an origin boundary.
+  // Mint a magic link with redirect_to pointing at /auth/callback?next=/dev.
+  // This is critical for SSR: Supabase's magic-link verify endpoint sets
+  // session cookies on the supabase.co origin, NOT on the app's Vercel
+  // origin. If we redirected straight to /dev, the next request's
+  // middleware (createServerClient + getUser) would see no session,
+  // bounce to the platform devshell-redirect, mint another token, loop.
+  //
+  // /auth/callback's exchangeCodeForSession() call IS what writes the
+  // session cookies onto THIS origin — once that runs, subsequent
+  // requests to /dev see a valid session and the middleware passes
+  // through.
   const origin     = url.origin;
-  const redirectTo = `${origin}/dev`;
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent('/dev')}`;
   const linkRes    = await admin.auth.admin.generateLink({
     type:    'magiclink',
     email:   consumed.developer_email,
