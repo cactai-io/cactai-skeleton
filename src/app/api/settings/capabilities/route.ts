@@ -109,12 +109,44 @@ export async function PATCH(req: NextRequest) {
     }
 
     await saveCapabilityConfig(config);
+
+    // v1.3.5 2026-05-29 — Push cache invalidation to the platform so the
+    // 60s-TTL routing snapshot is replaced with fresh data on the very
+    // next turn. Fire-and-forget: a failed invalidation just means the
+    // platform's cache TTL takes over, which is the pre-2026-05-29
+    // behaviour and still correct (just slower to react).
+    void invalidatePlatformRoutingSnapshot(patch.scope).catch(err => {
+      // eslint-disable-next-line no-console
+      console.warn('[capabilities] routing invalidation push failed; cache will catch up on TTL', err);
+    });
+
     return NextResponse.json({ ok: true, config });
   } catch (err) {
     return NextResponse.json(
       { error: 'capabilities_update_failed', detail: err instanceof Error ? err.message : 'unknown' },
       { status: 500 },
     );
+  }
+}
+
+// v1.3.5 2026-05-29 — Notify the platform to drop its in-memory routing
+// snapshot cache entry for this project + shell, so the next turn loads
+// the freshly-written capability_config_v2 instead of waiting for the
+// 60s TTL to expire. Paired with /v1/internal/routing/invalidate on the
+// platform side. Silent on every failure — the platform cache TTL is the
+// floor; this is just a "wake up early" signal.
+async function invalidatePlatformRoutingSnapshot(scope: 'devshell' | 'appshell'): Promise<void> {
+  const apiKey  = endpoints.cactaiApiKey;
+  const baseUrl = endpoints.cactaiBase;
+  const projectId = endpoints.projectId;
+  if (!apiKey || !baseUrl || !projectId) return;
+  const res = await fetch(`${baseUrl}/v1/internal/routing/invalidate`, {
+    method:  'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ project_id: projectId, shell: scope }),
+  });
+  if (!res.ok) {
+    throw new Error(`platform invalidate failed: HTTP ${res.status}`);
   }
 }
 
