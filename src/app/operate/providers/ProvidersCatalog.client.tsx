@@ -1,23 +1,33 @@
 // src/app/operate/providers/ProvidersCatalog.client.tsx
 //
-// Client component for /operate/providers. Iterates PROVIDER_REGISTRY,
-// groups by ProviderCategory, renders expandable sections per category
-// with a credential editor per provider. Save → PATCH /api/settings/byok
-// (the route encrypts before persisting to project_state.decisions.byok).
+// v1.3.5 2026-05-29 — refactored to per-tool dropdown selection.
 //
-// Status indicators per provider:
-//   - "Configured" pill (with last-4 of envelope) when a key is set
-//   - "Not configured" pill when absent
-//   - "Built-in (no key required)" when the provider has no required_inputs
-//     (pgvector, isolated-vm, etc.)
+// Two sections on this page:
+//   (1) "Credentials" — collapsible per-category list with credential
+//       editors for each provider. The developer adds / rotates / clears
+//       API keys here. Writes via PATCH /api/settings/byok (encrypted on
+//       the route).
+//   (2) "Tool routing" — for each tool in the catalogue that has 2+
+//       capability-matching providers configured, a dropdown to pin
+//       that tool to a specific provider. Writes via PATCH
+//       /api/settings/capabilities with set_tool_override.
+//
+// Why per-tool here (and priority list in /devshell/providers/): app
+// runtime is repetitive — the developer wants a tool to consistently
+// route to a specific provider regardless of category defaults. The
+// priority-chain model that works for non-repetitive DevShell work is
+// the wrong abstraction here.
 
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   PROVIDER_REGISTRY,
   type ProviderDefinition,
   type ProviderCategory,
+  type CapabilityConfig,
+  type CapabilityConfigResponse,
+  type CapabilityCatalogueItem,
 } from '@cactai-io/types';
 
 interface ByokResponse {
@@ -51,8 +61,6 @@ const CATEGORY_LABELS: Partial<Record<ProviderCategory, string>> = {
   deployment:           'Deployment',
 };
 
-// Category display order — matches the wizard so developers see the
-// same grouping in both surfaces.
 const CATEGORY_ORDER: ProviderCategory[] = [
   'ai',
   'media_generation', 'video_generation', 'avatar_generation', 'audio_generation',
@@ -66,16 +74,25 @@ const CATEGORY_ORDER: ProviderCategory[] = [
 ];
 
 export function ProvidersCatalogClient(): React.JSX.Element {
-  const [status, setStatus] = useState<ByokResponse | null>(null);
-  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [byok,      setByok]      = useState<ByokResponse | null>(null);
+  const [config,    setConfig]    = useState<CapabilityConfig | null>(null);
+  const [catalogue, setCatalogue] = useState<CapabilityCatalogueItem[] | null>(null);
+  const [loadErr,   setLoadErr]   = useState<string | null>(null);
 
-  const reload = React.useCallback(async () => {
+  const reload = useCallback(async () => {
     try {
-      const r = await fetch('/api/settings/byok');
-      if (!r.ok) throw new Error(`byok load failed: HTTP ${r.status}`);
-      setStatus(await r.json());
+      const [byokRes, capRes] = await Promise.all([
+        fetch('/api/settings/byok'),
+        fetch('/api/settings/capabilities'),
+      ]);
+      if (!byokRes.ok) throw new Error(`byok load failed: ${byokRes.status}`);
+      if (!capRes.ok)  throw new Error(`capabilities load failed: ${capRes.status}`);
+      setByok(await byokRes.json());
+      const capJson: CapabilityConfigResponse = await capRes.json();
+      setConfig(capJson.config);
+      setCatalogue(capJson.catalogue);
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'Unknown error.');
+      setLoadErr(e instanceof Error ? e.message : String(e));
     }
   }, []);
 
@@ -91,16 +108,53 @@ export function ProvidersCatalogClient(): React.JSX.Element {
   }, []);
 
   if (loadErr) {
-    return (
-      <div style={errorBoxStyle}>
-        <strong>Couldn't load provider status:</strong> {loadErr}
-      </div>
-    );
+    return <div style={errorBoxStyle}><strong>Couldn't load provider data:</strong> {loadErr}</div>;
   }
-  if (!status) {
+  if (!byok || !config || !catalogue) {
     return <div style={{ color: 'var(--c-text-3)', fontSize: 13 }}>Loading…</div>;
   }
 
+  const appshellOverrides = config.appshell.tool_overrides ?? {};
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <section>
+        <h2 style={sectionHeaderStyle}>Credentials</h2>
+        <p style={sectionDescStyle}>
+          Add / rotate / clear provider keys. Keys are stored encrypted on your
+          Supabase instance using the shared <code>SECRETS_ENCRYPTION_KEY</code>.
+        </p>
+        <CredentialsSection grouped={grouped} byok={byok} onSaved={reload} />
+      </section>
+
+      <section>
+        <h2 style={sectionHeaderStyle}>Tool routing</h2>
+        <p style={sectionDescStyle}>
+          For each tool that has multiple capability-matching providers configured,
+          pin it to a specific provider. Tools without overrides follow your
+          DevShell priority list (set in <code>/devshell/providers/</code>) for
+          DevShell calls, and the category default for app-runtime calls. To
+          override at call time, pass <code>provider</code> in the tool input.
+        </p>
+        <ToolRoutingSection
+          grouped={grouped}
+          byok={byok}
+          catalogue={catalogue}
+          overrides={appshellOverrides}
+          onSaved={reload}
+        />
+      </section>
+    </div>
+  );
+}
+
+// ── Credentials section ─────────────────────────────────────────────────────
+
+const CredentialsSection: React.FC<{
+  grouped: Partial<Record<ProviderCategory, ProviderDefinition[]>>;
+  byok:    ByokResponse;
+  onSaved: () => void;
+}> = ({ grouped, byok, onSaved }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {CATEGORY_ORDER.map(category => {
@@ -108,71 +162,32 @@ export function ProvidersCatalogClient(): React.JSX.Element {
         if (!providers || providers.length === 0) return null;
         const label = CATEGORY_LABELS[category] ?? String(category);
         const configuredCount = providers.filter(p =>
-          status.providers[p.id] !== undefined || p.required_inputs.length === 0,
+          byok.providers[p.id] !== undefined || p.required_inputs.length === 0,
         ).length;
         return (
-          <CategorySection
-            key={category}
-            label={label}
-            configuredCount={configuredCount}
-            totalCount={providers.length}
-          >
-            {providers.map(p => (
-              <ProviderRow
-                key={p.id}
-                provider={p}
-                statusEntry={status.providers[p.id]}
-                onSaved={() => void reload()}
-              />
-            ))}
-          </CategorySection>
+          <details key={category} style={{
+            border: '1px solid var(--c-border)', borderRadius: 8, background: 'var(--c-surface)',
+          }}>
+            <summary style={{
+              cursor: 'pointer', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8,
+              listStyle: 'none', fontWeight: 600, fontSize: 14,
+            }}>
+              <span>{label}</span>
+              <span style={{ fontSize: 11, color: 'var(--c-text-3)', fontWeight: 500, marginLeft: 'auto' }}>
+                {configuredCount} / {providers.length} configured
+              </span>
+            </summary>
+            <div style={{ padding: '0 14px 12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {providers.map(p => <CredentialRow key={p.id} provider={p} statusEntry={byok.providers[p.id]} onSaved={onSaved} />)}
+            </div>
+          </details>
         );
       })}
     </div>
   );
-}
+};
 
-// ── Category section (collapsible) ──────────────────────────────────────────
-
-const CategorySection: React.FC<{
-  label:           string;
-  configuredCount: number;
-  totalCount:      number;
-  children:        React.ReactNode;
-}> = ({ label, configuredCount, totalCount, children }) => (
-  <details style={{
-    border:       '1px solid var(--c-border)',
-    borderRadius: 8,
-    background:   'var(--c-surface)',
-  }}>
-    <summary style={{
-      cursor:       'pointer',
-      padding:      '12px 16px',
-      display:      'flex',
-      alignItems:   'center',
-      gap:          10,
-      listStyle:    'none',
-      fontWeight:   600,
-    }}>
-      <span>{label}</span>
-      <span style={{
-        fontSize:    11,
-        color:       'var(--c-text-3)',
-        fontWeight:  500,
-        marginLeft:  'auto',
-      }}>
-        {configuredCount} / {totalCount} configured
-      </span>
-    </summary>
-    <div style={{ padding: '0 16px 12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {children}
-    </div>
-  </details>
-);
-
-// ── Per-provider row + inline credential editor ─────────────────────────────
-
-const ProviderRow: React.FC<{
+const CredentialRow: React.FC<{
   provider:    ProviderDefinition;
   statusEntry: { masked: string; updated_at: string } | undefined;
   onSaved:     () => void;
@@ -180,128 +195,138 @@ const ProviderRow: React.FC<{
   const isBuiltIn  = provider.required_inputs.length === 0;
   const configured = !!statusEntry;
   const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState('');
+  const [busy,    setBusy]    = useState(false);
+  const [err,     setErr]     = useState<string | null>(null);
 
-  return (
-    <div style={{
-      border:       '1px solid var(--c-border)',
-      borderRadius: 6,
-      padding:      '10px 12px',
-      background:   configured ? 'color-mix(in srgb, var(--c-success, #3FA86E) 4%, transparent)' : 'transparent',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{provider.name}</span>
-        {isBuiltIn
-          ? <Pill tone="info">Built-in (no key required)</Pill>
-          : configured
-          ? <Pill tone="success">Configured</Pill>
-          : <Pill tone="muted">Not configured</Pill>
-        }
-        {statusEntry && (
-          <span style={{ fontSize: 11, color: 'var(--c-text-3)', fontFamily: 'monospace' }}>
-            {statusEntry.masked}
-          </span>
-        )}
-        {!isBuiltIn && (
-          <button
-            type="button"
-            onClick={() => setEditing(e => !e)}
-            style={editButtonStyle}
-          >
-            {editing ? 'Cancel' : configured ? 'Rotate' : 'Add key'}
-          </button>
-        )}
-      </div>
-      <p style={{ fontSize: 12, color: 'var(--c-text-2)', margin: '4px 0 0', lineHeight: 1.4 }}>
-        {provider.description}
-      </p>
-      {editing && (
-        <CredentialEditor
-          provider={provider}
-          onSaved={() => { setEditing(false); onSaved(); }}
-        />
-      )}
-    </div>
-  );
-};
-
-// ── Credential editor (handles single + multi-input providers) ──────────────
-
-const CredentialEditor: React.FC<{
-  provider: ProviderDefinition;
-  onSaved:  () => void;
-}> = ({ provider, onSaved }) => {
-  const [busy, setBusy] = useState(false);
-  const [err,  setErr]  = useState<string | null>(null);
-  // Per-provider, providers with multiple required inputs (Twilio, OAuth
-  // pairs) need each value collected. For the v1 of this page we only
-  // wire single-input providers (the common case). Multi-input rendering
-  // is in the wizard's StepProviders.tsx — port that here when needed.
-  const [draft, setDraft] = useState('');
-
-  const singleInput = provider.required_inputs.length === 1 ? provider.required_inputs[0] : null;
-
-  if (!singleInput) {
+  if (isBuiltIn) {
     return (
-      <div style={{ ...notesStyle, marginTop: 8 }}>
-        This provider has multiple required inputs ({provider.required_inputs.map(i => i.label).join(', ')}).
-        Multi-input editing isn't wired in this page yet — configure via Vercel env vars for now,
-        or hold for the multi-input editor port.
+      <div style={rowStyle}>
+        <span style={{ fontWeight: 600, flex: 1 }}>{provider.name}</span>
+        <Pill tone="info">Built-in (no key required)</Pill>
       </div>
     );
   }
 
   const submit = async (): Promise<void> => {
-    if (draft.length < 8) {
-      setErr('Key looks too short. Paste the full secret.');
-      return;
-    }
+    if (draft.length < 8) { setErr('Key looks too short.'); return; }
     setBusy(true); setErr(null);
     try {
       const r = await fetch('/api/settings/byok', {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          set_provider: { id: provider.id, value: draft },
-        }),
+        body:    JSON.stringify({ set_provider: { id: provider.id, value: draft } }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.detail || j.error || `HTTP ${r.status}`);
       }
-      setDraft('');
+      setDraft(''); setEditing(false); onSaved();
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Save failed.'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ ...rowStyle, flexDirection: 'column', alignItems: 'stretch' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontWeight: 600, flex: 1 }}>{provider.name}</span>
+        {configured ? <Pill tone="success">Configured</Pill> : <Pill tone="muted">Not configured</Pill>}
+        {statusEntry && <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--c-text-3)' }}>{statusEntry.masked}</span>}
+        <button type="button" onClick={() => setEditing(e => !e)} style={editButtonStyle}>
+          {editing ? 'Cancel' : configured ? 'Rotate' : 'Add key'}
+        </button>
+      </div>
+      {editing && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <input
+            type="password" value={draft} onChange={e => { setDraft(e.target.value); setErr(null); }}
+            placeholder={provider.required_inputs[0]?.env_key ?? ''}
+            autoComplete="off" style={inputStyle}
+          />
+          <button type="button" onClick={() => void submit()} disabled={busy || draft.length < 8} style={primaryButtonStyle(busy || draft.length < 8)}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      )}
+      {err && <div style={{ color: 'var(--c-error, #E33)', fontSize: 12, marginTop: 4 }}>{err}</div>}
+    </div>
+  );
+};
+
+// ── Tool routing section ────────────────────────────────────────────────────
+
+const ToolRoutingSection: React.FC<{
+  grouped:   Partial<Record<ProviderCategory, ProviderDefinition[]>>;
+  byok:      ByokResponse;
+  catalogue: CapabilityCatalogueItem[];
+  overrides: Record<string, string>;
+  onSaved:   () => void;
+}> = ({ grouped, byok, catalogue, overrides, onSaved }) => {
+  // Only tools (not skills) and only those that have a category we know
+  // about and 2+ capability-matching providers configured.
+  const tools = catalogue.filter(c => c.kind === 'tool');
+
+  // For each tool, compute the candidate providers: configured providers
+  // in the tool's category (we can't read the platform's required_capability
+  // field directly here; the category is the best proxy on the deployed
+  // side). Tools with <2 candidates don't need a dropdown.
+  const rows = tools.map(t => {
+    const providers = grouped[t.category as ProviderCategory] ?? [];
+    const candidates = providers.filter(p =>
+      p.required_inputs.length === 0 || !!byok.providers[p.id],
+    );
+    return { tool: t, candidates };
+  }).filter(({ candidates }) => candidates.length >= 2);
+
+  if (rows.length === 0) {
+    return (
+      <div style={{ ...rowStyle, fontSize: 13, color: 'var(--c-text-3)' }}>
+        No tools have multiple capability-matching providers configured yet.
+        Add more keys above; this list populates automatically.
+      </div>
+    );
+  }
+
+  const saveOverride = async (toolId: string, providerId: string): Promise<void> => {
+    try {
+      const r = await fetch('/api/settings/capabilities', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          scope: 'appshell',
+          set_tool_override: { tool_id: toolId, provider_id: providerId },
+        }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       onSaved();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Save failed.');
-    } finally {
-      setBusy(false);
+      console.error('Tool override save failed', e);
     }
   };
 
   return (
-    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 11, color: 'var(--c-text-3)' }}>
-        {singleInput.label}
-        {singleInput.help && <span style={{ marginLeft: 6, fontStyle: 'italic' }}>· {singleInput.help}</span>}
-      </label>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input
-          type="password"
-          value={draft}
-          onChange={e => { setDraft(e.target.value); setErr(null); }}
-          placeholder={singleInput.env_key ?? singleInput.id}
-          autoComplete="off"
-          style={inputStyle}
-        />
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={busy || draft.length < 8}
-          style={primaryButtonStyle(busy || draft.length < 8)}
-        >
-          {busy ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-      {err && <div style={{ color: 'var(--c-error, #E33)', fontSize: 12 }}>{err}</div>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {rows.map(({ tool, candidates }) => {
+        const current = overrides[tool.id] ?? '';
+        return (
+          <div key={tool.id} style={rowStyle}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{tool.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--c-text-3)', fontFamily: 'monospace' }}>{tool.id}</div>
+            </div>
+            <select
+              value={current}
+              onChange={e => void saveOverride(tool.id, e.target.value)}
+              style={selectStyle}
+            >
+              <option value="">(follow category default)</option>
+              {candidates.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -314,70 +339,49 @@ const Pill: React.FC<{ tone: 'success' | 'info' | 'muted'; children: React.React
     tone === 'info'    ? 'var(--c-text-2)' :
                          'var(--c-text-3)';
   const border =
-    tone === 'success' ? 'var(--c-success, #3FA86E)' :
-                         'var(--c-border)';
+    tone === 'success' ? 'var(--c-success, #3FA86E)' : 'var(--c-border)';
   return (
     <span style={{
-      fontSize:    10,
-      color,
-      border:      `1px solid ${border}`,
-      borderRadius: 4,
-      padding:     '2px 6px',
-      fontWeight:  500,
-      textTransform: 'uppercase',
-      letterSpacing: '0.04em',
-      whiteSpace:  'nowrap',
+      fontSize: 10, color, border: `1px solid ${border}`, borderRadius: 4,
+      padding: '2px 6px', fontWeight: 500, textTransform: 'uppercase',
+      letterSpacing: '0.04em', whiteSpace: 'nowrap',
     }}>{children}</span>
   );
 };
 
+const sectionHeaderStyle: React.CSSProperties = {
+  fontSize: 16, fontWeight: 700, marginTop: 0, marginBottom: 6, color: 'var(--c-text)',
+};
+const sectionDescStyle: React.CSSProperties = {
+  fontSize: 13, color: 'var(--c-text-2)', lineHeight: 1.5, marginTop: 0, marginBottom: 14,
+};
+const rowStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10,
+  padding: '8px 12px', borderRadius: 6,
+  background: 'var(--c-bg)', border: '1px solid var(--c-border)',
+};
 const editButtonStyle: React.CSSProperties = {
-  marginLeft:    'auto',
-  background:    'transparent',
-  color:         'var(--c-text-2)',
-  border:        '1px solid var(--c-border)',
-  borderRadius:  4,
-  padding:       '4px 10px',
-  fontSize:      12,
-  cursor:        'pointer',
+  background: 'transparent', color: 'var(--c-text-2)',
+  border: '1px solid var(--c-border)', borderRadius: 4,
+  padding: '4px 10px', fontSize: 12, cursor: 'pointer',
 };
-
 const inputStyle: React.CSSProperties = {
-  flex:          1,
-  padding:       '6px 10px',
-  fontSize:      12,
-  fontFamily:    'monospace',
-  background:    'var(--c-bg)',
-  color:         'var(--c-text)',
-  border:        '1px solid var(--c-border)',
-  borderRadius:  4,
+  flex: 1, padding: '6px 10px', fontSize: 12, fontFamily: 'monospace',
+  background: 'var(--c-surface)', color: 'var(--c-text)',
+  border: '1px solid var(--c-border)', borderRadius: 4,
 };
-
 const primaryButtonStyle = (disabled: boolean): React.CSSProperties => ({
-  padding:       '6px 12px',
-  fontSize:      12,
-  fontWeight:    600,
-  background:    'var(--c-accent, #5856E5)',
-  color:         '#fff',
-  border:        'none',
-  borderRadius:  4,
-  cursor:        disabled ? 'not-allowed' : 'pointer',
-  opacity:       disabled ? 0.5 : 1,
+  padding: '6px 12px', fontSize: 12, fontWeight: 600,
+  background: 'var(--c-accent, #5856E5)', color: '#fff',
+  border: 'none', borderRadius: 4,
+  cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
 });
-
-const notesStyle: React.CSSProperties = {
-  fontSize:    12,
-  color:       'var(--c-text-3)',
-  fontStyle:   'italic',
-  padding:     '6px 8px',
-  background:  'var(--c-bg)',
-  borderRadius: 4,
+const selectStyle: React.CSSProperties = {
+  padding: '6px 10px', fontSize: 12,
+  background: 'var(--c-surface)', color: 'var(--c-text)',
+  border: '1px solid var(--c-border)', borderRadius: 4, minWidth: 200,
 };
-
 const errorBoxStyle: React.CSSProperties = {
-  padding:     12,
-  border:      '1px solid var(--c-error, #E33)',
-  borderRadius: 6,
-  color:       'var(--c-error, #E33)',
-  fontSize:    13,
+  padding: 12, border: '1px solid var(--c-error, #E33)', borderRadius: 6,
+  color: 'var(--c-error, #E33)', fontSize: 13,
 };

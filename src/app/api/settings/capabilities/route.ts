@@ -85,6 +85,24 @@ export async function PATCH(req: NextRequest) {
         [patch.set_default.category]: patch.set_default.id,
       };
     }
+    // v1.3.5 — Per-category priority chain (DevShell routing UI).
+    if (patch.set_priority) {
+      scope.priority_by_category = {
+        ...(scope.priority_by_category ?? {}),
+        [patch.set_priority.category]: patch.set_priority.ordered_provider_ids,
+      };
+    }
+    // v1.3.5 — Per-tool provider override (operator-panel routing UI).
+    // Empty provider_id clears the override.
+    if (patch.set_tool_override) {
+      const next = { ...(scope.tool_overrides ?? {}) };
+      if (patch.set_tool_override.provider_id) {
+        next[patch.set_tool_override.tool_id] = patch.set_tool_override.provider_id;
+      } else {
+        delete next[patch.set_tool_override.tool_id];
+      }
+      scope.tool_overrides = next;
+    }
     if (patch.reset_to_defaults) {
       const empty: CapabilityScopeConfig = { enabled: {}, defaults_by_category: {} };
       config[patch.scope] = empty;
