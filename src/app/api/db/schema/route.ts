@@ -199,9 +199,27 @@ export async function GET() {
       supabase_project_url: supabaseProjectUrlFromRest(),
     });
   } catch (err) {
+    const msg = (err as Error).message ?? '';
+    // ENOTFOUND on the direct DB hostname is the most common failure
+    // mode on newer Supabase projects — Supabase no longer provisions
+    // `db.<ref>.supabase.co` IPv4 records by default, and Vercel
+    // functions often can't reach the IPv6-only direct host either.
+    // The fix is environmental: the deployed app needs
+    // SUPABASE_DATABASE_URL pointed at the shared pooler hostname (the
+    // value lives in the Supabase project's Connect → Transaction pooler
+    // panel, format: postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:6543/postgres).
+    // Surface that actionable hint instead of a raw stack-style detail
+    // so the diagnostics badge gives the developer something to fix.
+    if (/ENOTFOUND|EAI_AGAIN/.test(msg)) {
+      return NextResponse.json({
+        error:  'schema_db_host_unreachable',
+        detail: 'The configured Supabase database host can\'t be resolved. Update SUPABASE_DATABASE_URL in your Vercel project env vars to your Supabase project\'s pooler URL (Supabase dashboard → Project Settings → Database → Connect → Transaction pooler).',
+        host:   /host (?:has)?\s*=?\s*([^\s,]+)/.exec(msg)?.[1] ?? null,
+      }, { status: 412 });
+    }
     return NextResponse.json({
       error:  'schema_query_failed',
-      detail: (err as Error).message,
+      detail: msg,
     }, { status: 502 });
   }
 }
