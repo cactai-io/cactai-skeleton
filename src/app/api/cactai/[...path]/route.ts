@@ -34,6 +34,13 @@ import { endpoints } from '@/lib/endpoints';
 import { createServiceSupabaseClient } from '@/lib/supabase.server';
 import { decryptSecret } from '@/lib/secrets.server';
 
+// SSE pass-through requires no buffering. Node runtime + force-dynamic
+// ensures Next won't try to cache or convert the body to a fixed-length
+// response. Without these, /v1/outputs/:rid/stream would buffer to EOF
+// and only deliver after turn.complete — collapsing the chat stream.
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 /**
  * Read + decrypt the wizard-collected AI provider key for DevShell agent
  * runs. Wizard writes these to project_state.decisions.byok.providers
@@ -99,11 +106,24 @@ async function forward(
     return NextResponse.json({ error: 'missing_path' }, { status: 400 });
   }
 
-  // Inject the wizard-collected AI provider key for /v1/shell/* and
-  // /v1/skills/* JSON mutations. Other paths pass through unchanged.
+  // Inject the wizard-collected AI provider key for any path that drives
+  // an LLM call on the platform:
+  //   - /v1/shell/{sessions,event,turn}              — DevShell agent
+  //   - /v1/skills/regenerate                        — skill rebuilds
+  //   - /v1/sessions/:session_id/turns               — the InputRouter
+  //     chat turn endpoint (this is what the rich DevShell's chat panel
+  //     actually hits — its absence here is why early chat submits
+  //     returned 412 no_provider_configured even though the UI looked
+  //     wired)
   const isAgentMutation =
     (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') &&
-    path[0] === 'v1' && (path[1] === 'shell' || path[1] === 'skills');
+    path[0] === 'v1' && (
+      path[1] === 'shell'  ||
+      path[1] === 'skills' ||
+      // /v1/sessions/<sid>/turns — match by shape so future suffixes
+      // (e.g. /turns/<turn_id>/regenerate) flow through the same gate.
+      (path[1] === 'sessions' && path[3] === 'turns')
+    );
 
   let outgoingBody: string | undefined;
   if (req.method !== 'GET' && req.method !== 'DELETE') {
@@ -152,8 +172,21 @@ async function forward(
   const respHeaders = new Headers();
   const ct = upstream.headers.get('content-type');
   if (ct) respHeaders.set('content-type', ct);
-  const cl = upstream.headers.get('content-length');
-  if (cl) respHeaders.set('content-length', cl);
+
+  // SSE streams (text/event-stream) must NOT carry a content-length and
+  // must signal no-cache so intermediaries don't buffer to EOF before
+  // releasing the body. EventSource on the browser side will close the
+  // stream on the first chunk if either header is wrong.
+  const isStream = (ct ?? '').toLowerCase().startsWith('text/event-stream');
+  if (isStream) {
+    respHeaders.set('cache-control', 'no-cache, no-transform');
+    respHeaders.set('connection',    'keep-alive');
+    // Vercel/Next: opt out of any proxy buffering for this response.
+    respHeaders.set('x-accel-buffering', 'no');
+  } else {
+    const cl = upstream.headers.get('content-length');
+    if (cl) respHeaders.set('content-length', cl);
+  }
 
   return new NextResponse(upstream.body, {
     status:  upstream.status,
