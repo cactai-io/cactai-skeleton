@@ -126,6 +126,8 @@ export { WorkspacePanel, BuildPanel, SchemaPanel, ProjectSettingsPanel, } from '
 export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';
 export { PersonalityEditor } from './panels/PersonalityEditor.js';
+export { MCPManager } from './panels/MCPManager.js';
+export { MCP_CATALOGS, MCP_EXPLAINERS } from './panels/mcpCatalogs.js';
 export { WorkflowSection } from './panels/WorkflowSection.js';
 export { BYOKSection } from './panels/BYOKSection.js';
 export { DevShellPreferencesModal } from './panels/DevShellPreferencesModal.js';

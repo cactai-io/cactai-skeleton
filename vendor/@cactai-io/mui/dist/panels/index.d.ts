@@ -115,7 +115,8 @@ export interface SchemaPanelProps {
     supabaseProjectUrl?: string;
 }
 export declare function SchemaPanel({ tables, migrations, onAddTable, onEditTable, supabaseProjectUrl }: SchemaPanelProps): import("react/jsx-runtime").JSX.Element;
-import type { CapabilityCatalogueItem, CapabilityConfig, CapabilityConfigPatch, DevAuthoredPersonalityRecord, DevAuthoredPersonalityEditPatch, ProductPersonality, ProjectBYOKResponse, ProjectBYOKPatch, ProjectPersonalityResponse, ProjectPersonalityPatch, ProjectWorkflowResponse, ProjectWorkflowPatch } from '@cactai-io/types';
+import type { CapabilityCatalogueItem, CapabilityConfig, CapabilityConfigPatch, DevAuthoredPersonalityRecord, DevAuthoredPersonalityEditPatch, ProductPersonality, ProjectBYOKResponse, ProjectBYOKPatch, ProjectPersonalityResponse, ProjectPersonalityPatch, ProjectWorkflowResponse, ProjectWorkflowPatch, MCPServerPublic, MCPAuthType } from '@cactai-io/types';
+import { type MCPCatalogEntry } from './MCPManager.js';
 export interface ProjectSettingsPanelProps {
     credentials: Partial<CredentialsRecord>;
     billingEnabled: boolean;
@@ -140,5 +141,17 @@ export interface ProjectSettingsPanelProps {
     byok?: ProjectBYOKResponse;
     onBYOKPatch?: (patch: ProjectBYOKPatch) => Promise<void>;
     marketplaceWorkflowsUrl?: string;
+    mcpServers?: MCPServerPublic[];
+    mcpCatalog?: MCPCatalogEntry[];
+    mcpExplainer?: string[];
+    mcpLoading?: boolean;
+    onMCPAdd?: (input: {
+        label: string;
+        endpoint_url: string;
+        auth_type: MCPAuthType;
+        auth_token?: string;
+    }) => Promise<void> | void;
+    onMCPRemove?: (id: string) => Promise<void> | void;
+    onMCPToggle?: (id: string, enabled: boolean) => Promise<void> | void;
 }
 export declare function ProjectSettingsPanel({ credentials, billingEnabled, collaborators, dashboardUrl, onSaveCredential, onInviteCollaborator, onRemoveCollaborator, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, }: ProjectSettingsPanelProps): import("react/jsx-runtime").JSX.Element;

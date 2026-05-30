@@ -125,10 +125,14 @@ export function ProjectSettingsPanel({ credentials, billingEnabled, collaborator
         setEditingKey(null);
         setEditingVal('');
     }
+    // The Integrations (MCP) tab only appears when the host wires MCP
+    // handlers — sprint-1 UI surface, persisted-but-inert.
+    const mcpAvailable = !!(onMCPAdd && onMCPRemove && onMCPToggle);
     const tabs = [
         { key: 'configuration', label: 'Configuration' },
         { key: 'credentials', label: 'Credentials' },
         { key: 'team', label: 'Team' },
+        ...(mcpAvailable ? [{ key: 'integrations', label: 'Integrations' }] : []),
         { key: 'account', label: 'Account' },
     ];
     return (_jsxs("div", { className: "ds-panel", children: [_jsx("div", { style: { display: 'flex', gap: 4 }, children: tabs.map((t) => (_jsx("button", { className: `ds-view-btn${tab === t.key ? ' ds-view-active' : ''}`, onClick: () => setTab(t.key), style: { fontSize: 11.5 }, children: t.label }, t.key))) }), tab === 'configuration' && (_jsxs(_Fragment, { children: [workflow && onWorkflowPatch
