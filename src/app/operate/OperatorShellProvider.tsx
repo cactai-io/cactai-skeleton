@@ -197,12 +197,14 @@ export function OperatorShellProvider({ user, availableRoles, appIdentity, child
           {brandMark}
           <div style={{ fontSize: 14, fontWeight: 600 }}>{identity.app_name}</div>
         </div>
-        <NavItem href="/operate"             label="Overview" />
-        <NavItem href="/operate/customers"   label="Customers" />
-        <NavItem href="/operate/providers"   label="Providers" />
+        <NavItem href="/operate"                   label="Overview" />
+        <NavItem href="/operate/customers"         label="Customers" />
+        <NavItem href="/operate/providers"         label="Providers" />
+        <NavItem href="/operate/ai-configuration"  label="AI configuration" />
         <NavItem href="/operate/email-invitations" label="Email & invitations" />
         <NavItem href="/operate/signup-policy"     label="Signup policy" />
         <NavItem href="/operate/auth-providers"    label="Auth providers" />
+        <NavItem href="/operate/build-status"      label="Build status" />
       </nav>
 
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>

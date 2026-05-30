@@ -14,6 +14,7 @@
 //     cactai.io.
 
 import Link from 'next/link';
+import { DevShellEnvStatusCard } from './DevShellEnvStatusCard';
 
 export default function PreferencesPage() {
   return (
@@ -45,6 +46,8 @@ export default function PreferencesPage() {
           IDE-scoped settings will live here as they're added. Application-level
           settings have moved to make them easier to find.
         </p>
+
+        <DevShellEnvStatusCard />
 
         <section style={cardStyle}>
           <h2 style={cardTitleStyle}>App-running settings</h2>
