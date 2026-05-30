@@ -28,5 +28,5 @@ export interface SelfDrivenDevShellProps {
     productionUrl?: string;
     children?: ReactNode;
 }
-export declare function SelfDrivenDevShell({ cactaiBase, projectId, projectName, userId, userEmail, dashboardUrl, productionUrl, }: SelfDrivenDevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function SelfDrivenDevShell({ cactaiBase, projectId, projectName, userId, userEmail, userRole, dashboardUrl, productionUrl, }: SelfDrivenDevShellProps): import("react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=SelfDrivenDevShell.d.ts.map

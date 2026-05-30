@@ -32,7 +32,7 @@ import React, { useEffect, useState } from 'react';
 import { CactaiClient } from '@cactai-io/client';
 import { SAMTheme } from '@cactai-io/themes';
 import { DevShell, injectDevShellStyles, MUIShell, } from '@cactai-io/mui';
-export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
+export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, userRole, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
     const [shell, setShell] = useState(null);
     const [sessionId, setSessionId] = useState(null);
     const [error, setError] = useState(null);
@@ -146,6 +146,13 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     skills_packages: [],
                     generation_bounds: { composition_rules: {} },
                     ssr: false,
+                    // Identifies the operator for per-turn server-side handling
+                    // (turn submission requires user_id, embedding ctx per-user,
+                    // capability scoping). The session already has it; pass it
+                    // explicitly so InputRouter doesn't have to re-derive on
+                    // every dispatch.
+                    end_user_id: userId,
+                    role: userRole,
                 });
                 // Discard render output for Phase 1 — DevShell renders its own
                 // panel tree, MUI's per-turn render callback isn't wired into

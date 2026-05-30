@@ -50,8 +50,10 @@ export class MUIShell {
         this.surfaceRegistry = new SurfaceRegistry();
         // Initialize stream controller with handoff handler
         this.streamController = new StreamController(this.store, config.api_base_url, (signal) => this.handleHandoff(signal));
-        // Initialize input router
-        this.inputRouter = new InputRouter(this.store, this.streamController, config.api_base_url);
+        // Initialize input router. end_user_id flows through to every
+        // turn POST so the platform's submitTurnSchema (user_id required)
+        // gets a value without forcing the proxy to inject identity.
+        this.inputRouter = new InputRouter(this.store, this.streamController, config.api_base_url, config.end_user_id);
         // Load configured Skills packages
         for (const manifest of config.skills_packages) {
             this.skillRegistry.loadPackage(manifest);

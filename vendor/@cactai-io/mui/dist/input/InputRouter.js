@@ -20,10 +20,16 @@ export class InputRouter {
     store;
     streamController;
     apiBaseUrl;
-    constructor(store, streamController, apiBaseUrl) {
+    // Per-session identity captured at MUIShell construction; threaded
+    // into every turn POST so the platform's submitTurnSchema (which
+    // requires user_id) is satisfied without forcing the proxy to
+    // re-derive identity per request.
+    endUserId;
+    constructor(store, streamController, apiBaseUrl, endUserId) {
         this.store = store;
         this.streamController = streamController;
         this.apiBaseUrl = apiBaseUrl;
+        this.endUserId = endUserId;
     }
     // Translation path for nl_text (v1 primary path)
     // 1. Read turn_count — becomes TurnRequest.turn_number
@@ -41,7 +47,12 @@ export class InputRouter {
         const turnNumber = this.store.incrementTurnCount();
         // Step 3: Set pending
         this.store.setPending(true);
-        // Step 4: Construct TurnRequest
+        // Step 4: Construct TurnRequest. The platform's submitTurnSchema
+        // requires user_id (operator identity, threaded into executeTurn
+        // for tenant/role scoping + per-user embedding context). The
+        // /api/cactai proxy injects provider + model_api_key from the
+        // wizard's BYOK secret, but it doesn't know the operator's
+        // identity — that's our responsibility.
         const turnRequest = {
             input: payload.content,
             turn_number: turnNumber,
@@ -49,6 +60,7 @@ export class InputRouter {
                 input_type: payload.input_type,
                 timestamp: payload.timestamp,
             },
+            ...(this.endUserId ? { user_id: this.endUserId } : {}),
         };
         // Step 5: POST to API
         const sessionId = this.store.getState().session.session_id;

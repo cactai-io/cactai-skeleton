@@ -5,6 +5,7 @@ export declare class InputRouter {
     private store;
     private streamController;
     private apiBaseUrl;
-    constructor(store: MUIStore, streamController: StreamController, apiBaseUrl: string);
+    private endUserId;
+    constructor(store: MUIStore, streamController: StreamController, apiBaseUrl: string, endUserId?: string);
     dispatch(payload: GASInputPayload): Promise<void>;
 }
