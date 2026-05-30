@@ -46,6 +46,15 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [messages, setMessages] = useState([]);
     const [streamingContent, setStreamingContent] = useState('');
     const [agentState, setAgentState] = useState('idle');
+    // Phase 2b — workflow state from the platform. Polls every 5s while
+    // DevShell is mounted so agent-side changes (purpose recorded, plan
+    // approved, sprint started, backlog item added) surface in the rail
+    // without manual refresh. The endpoint is server-side + bearer-gated;
+    // the proxy handles auth.
+    const [workflowStep, setWorkflowStep] = useState('name_and_intent');
+    const [decisions, setDecisions] = useState({});
+    const [backlog, setBacklog] = useState([]);
+    const [sprints, setSprints] = useState([]);
     // One-shot session open + MUIShell.init. Runs once on mount per project.
     useEffect(() => {
         injectDevShellStyles();
@@ -133,6 +142,36 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         sync();
         return store.subscribe(sync);
     }, [shell]);
+    // Phase 2b — poll workflow state from the platform. Same-origin fetch
+    // through /api/cactai → platform's /v1/projects/:id/devshell/workflow.
+    // 5s cadence is a deliberate compromise: agent-side changes surface
+    // within a sprint cycle without hammering the customer DB. A future
+    // SSE channel would replace polling, but isn't needed yet.
+    useEffect(() => {
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/workflow`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    cache: 'no-store',
+                });
+                if (!res.ok)
+                    return;
+                const body = await res.json();
+                if (cancelled)
+                    return;
+                setWorkflowStep(body.workflow_step);
+                setDecisions(body.decisions ?? {});
+                setSprints(body.sprints ?? []);
+                setBacklog(body.backlog ?? []);
+            }
+            catch { /* transient — next tick will retry */ }
+        };
+        void tick();
+        const interval = setInterval(tick, 5000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [cactaiBase, projectId]);
     if (error) {
         return (_jsxs("div", { style: {
                 height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -158,10 +197,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const syncState = { branch: 'dev', synced: true }; // Phase 3: GET /api/git/status
     const pendingFiles = []; // Phase 3: GET /api/git/pending
     const treeNodes = []; // Phase 3: GET /api/git/tree
-    const decisions = {}; // Phase 2 (next): GET /api/cactai/v1/projects/:id/workflow
-    const backlog = []; // Phase 2 (next): GET /api/cactai/v1/projects/:id/backlog
-    const sprints = []; // Phase 2 (next): GET /api/cactai/v1/projects/:id/sprints
-    const skills = []; // Phase 2 (next): GET /api/cactai/v1/projects/:id/skills
+    // decisions / backlog / sprints / workflowStep are stateful (set by
+    // the polling effect above).
+    // Skills come from MUIShell's own registry — already populated when
+    // MUIShell.init ran (and re-populated as new packages register).
+    const skills = shell.getStore().getSkillsLibrary();
     return (_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async () => { }, treeNodes: treeNodes, onFileSelect: () => { }, onExitFileView: () => { }, workflowStep: "purpose_capture", decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
             onOpenApp: () => { },
         }, buildProps: {
