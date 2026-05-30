@@ -21,7 +21,12 @@ export interface SelfDrivenDevShellProps {
     /** Optional dashboard URL — for the avatar menu's "Dashboard" link.
      *  Defaults to the standard Cactai dashboard. */
     dashboardUrl?: string;
+    /** Production URL of the deployed customer app (NEXT_PUBLIC_SITE_URL
+     *  on the skeleton side). Wired through to workspaceProps.onOpenApp
+     *  so the Workspace panel's "Open app" button lands the developer
+     *  on the live deployment in a new tab. */
+    productionUrl?: string;
     children?: ReactNode;
 }
-export declare function SelfDrivenDevShell({ cactaiBase, projectId, projectName, userId, userEmail, dashboardUrl, }: SelfDrivenDevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function SelfDrivenDevShell({ cactaiBase, projectId, projectName, userId, userEmail, dashboardUrl, productionUrl, }: SelfDrivenDevShellProps): import("react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=SelfDrivenDevShell.d.ts.map

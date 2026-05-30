@@ -32,7 +32,7 @@ import React, { useEffect, useState } from 'react';
 import { CactaiClient } from '@cactai-io/client';
 import { SAMTheme } from '@cactai-io/themes';
 import { DevShell, injectDevShellStyles, MUIShell, } from '@cactai-io/mui';
-export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, dashboardUrl = 'https://dashboard.cactai.io', }) {
+export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
     const [shell, setShell] = useState(null);
     const [sessionId, setSessionId] = useState(null);
     const [error, setError] = useState(null);
@@ -503,7 +503,17 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     await fetch('/api/git/pending', { method: 'DELETE' });
                     setPendingFiles([]);
                 }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
-                    onOpenApp: () => { },
+                    // productionUrl comes from the skeleton wrapper, which has
+                    // NEXT_PUBLIC_SITE_URL inlined at build time (Next's static
+                    // analysis only matches dot-notation on process.env, so the
+                    // skeleton-side wrapper does the read and passes it in).
+                    // Falls back to window.location.origin so the button still
+                    // does something when productionUrl wasn't provided.
+                    onOpenApp: () => {
+                        const url = productionUrl ?? (typeof window !== 'undefined' ? window.location.origin : '');
+                        if (url)
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                    },
                 }, buildProps: {
                     tools: [],
                     onActivateSkill: () => { },

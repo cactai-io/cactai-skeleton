@@ -50,14 +50,15 @@ export const DevShellWithThumbnail: React.FC<Props> = (props) => {
   // — setShell(MyComp) would call MyComp() with the prev state because
   // a React component IS a function.
   type SelfDrivenDevShellType = React.ComponentType<{
-    cactaiBase:   string;
-    projectId:    string;
-    projectName?: string;
-    userId:       string;
-    userEmail:    string;
-    userRole:     string;
-    allRoles:     Array<{ role: string; tenant_id: string | null }>;
+    cactaiBase:    string;
+    projectId:     string;
+    projectName?:  string;
+    userId:        string;
+    userEmail:     string;
+    userRole:      string;
+    allRoles:      Array<{ role: string; tenant_id: string | null }>;
     dashboardUrl?: string;
+    productionUrl?: string;
   }>;
   const [shell, setShell] = useState<{ Comp: SelfDrivenDevShellType } | null>(null);
 
@@ -104,6 +105,10 @@ export const DevShellWithThumbnail: React.FC<Props> = (props) => {
     role:      r.role,
     tenant_id: (r as { tenant_id?: string | null }).tenant_id ?? null,
   }));
+  // NEXT_PUBLIC_SITE_URL is inlined at build time by Next when read via
+  // dot-notation. The wrapper uses this to wire the Workspace panel's
+  // "Open app" button to the live deployment.
+  const productionUrl = process.env.NEXT_PUBLIC_SITE_URL;
   return (
     <Comp
       cactaiBase="/api/cactai"
@@ -112,6 +117,7 @@ export const DevShellWithThumbnail: React.FC<Props> = (props) => {
       userEmail={props.userEmail}
       userRole={props.userRole}
       allRoles={richRoles}
+      productionUrl={productionUrl}
     />
   );
 };
