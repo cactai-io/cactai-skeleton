@@ -20,7 +20,7 @@ import type {
   MCPAuthType,
   MCPCapabilities,
   MCPServerPublic,
-} from '@cactai-io/types';
+} from '@/lib/mcp-types';
 
 interface ServerRow {
   id:            string;
