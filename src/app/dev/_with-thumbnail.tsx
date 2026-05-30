@@ -1,12 +1,21 @@
 // src/app/dev/_with-thumbnail.tsx
-// Client wrapper that mounts the @cactai-io/devshell page AND installs
-// the platform thumbnail capture handlers. The server-side dev/page.tsx
-// can't do either (effects need a client component; the dynamic import
-// must run client-side for production tree-shaking to drop the bundle).
 //
-// Capture cadence per locked spec: once at sign-on (mount), once on
-// sign-off / tab close. No periodic re-capture. See ../../lib/
-// capture-thumbnail.ts for the actual capture + upload logic.
+// Client wrapper that mounts the rich DevShell IDE AND installs the
+// platform thumbnail capture handlers. The server-side dev/page.tsx
+// can't do either — effects need a client component, and the dynamic
+// import must run client-side so the prod tree-shake can drop the
+// devshell bundle entirely.
+//
+// Mount target: SelfDrivenDevShell from @cactai-io/devshell. That
+// wrapper internally initializes MUIShell, opens a platform session,
+// and renders the full DevShell IDE chrome (top bar, rail, panels)
+// from @cactai-io/mui. The customer app passes only auth + identity;
+// everything else (file tree, commits, panels) is fetched by the
+// wrapper from the platform via the /api/cactai same-origin proxy.
+//
+// Thumbnail capture cadence per locked spec: once at sign-on (mount),
+// once at sign-off / tab close. No periodic re-capture. See
+// ../../lib/capture-thumbnail.ts for the upload logic.
 
 'use client';
 
@@ -18,13 +27,13 @@ interface Props {
   userEmail:  string;
   userRole:   string;
   allRoles:   Array<{ role: string }>;
-  cactaiBase: string;
+  cactaiBase: string;   // real api.cactai.io URL — used only by the thumbnail uploader
   projectId:  string;
 }
 
 export const DevShellWithThumbnail: React.FC<Props> = (props) => {
-  // Install thumbnail capture handlers. Runs only client-side; SSR
-  // mount returns null and useEffect attaches on hydration.
+  // Install thumbnail capture handlers. SSR mount returns null; the
+  // effect attaches on hydration.
   useEffect(() => {
     return installCaptureHandlers({
       cactaiBase: props.cactaiBase,
@@ -33,30 +42,30 @@ export const DevShellWithThumbnail: React.FC<Props> = (props) => {
     });
   }, [props.cactaiBase, props.projectId]);
 
-  // Lazy-load DevShellPage on the client. We can't statically import
-  // @cactai-io/devshell here because the package is a devDependency
-  // gated to non-production; the dynamic import is what lets the
-  // production bundle tree-shake the dep entirely.
+  // Lazy-load the IDE on the client. @cactai-io/devshell is gated to
+  // non-production via the layout's notFound() guard; importing
+  // dynamically lets the production bundle tree-shake it.
   //
-  // Wrapped in an object holder because React's useState setter treats a
-  // function argument as an updater, and a component IS a function — so
-  // setComponent(MyComp) would call MyComp() with the prev state. The
-  // {Comp} wrapper sidesteps that ambiguity.
-  type DevShellPageType = React.ComponentType<{
-    userId:           string;
-    userEmail:        string;
-    userRole:         string;
-    allRoles:         Array<{ role: string }>;
-    endpoints:        { cactaiBase: string; projectId: string };
-    preferencesHref?: string;
+  // Holder shape ({ Comp }) sidesteps React's useState updater overload
+  // — setShell(MyComp) would call MyComp() with the prev state because
+  // a React component IS a function.
+  type SelfDrivenDevShellType = React.ComponentType<{
+    cactaiBase:   string;
+    projectId:    string;
+    projectName?: string;
+    userId:       string;
+    userEmail:    string;
+    userRole:     string;
+    allRoles:     Array<{ role: string; tenant_id: string | null }>;
+    dashboardUrl?: string;
   }>;
-  const [shell, setShell] = useState<{ Comp: DevShellPageType } | null>(null);
+  const [shell, setShell] = useState<{ Comp: SelfDrivenDevShellType } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const mod = await import('@cactai-io/devshell');
-      if (!cancelled) setShell({ Comp: mod.DevShellPage as DevShellPageType });
+      if (!cancelled) setShell({ Comp: mod.SelfDrivenDevShell as SelfDrivenDevShellType });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -72,27 +81,37 @@ export const DevShellWithThumbnail: React.FC<Props> = (props) => {
     );
   }
 
+  // Pass minimal props. The wrapper opens the platform session, builds
+  // MUIShell, and supplies its own empty defaults for the panel data
+  // surfaces until Phase 2 wires those to real fetches.
+  //
+  // cactaiBase here is the SAME-ORIGIN PROXY mount, not the real
+  // api.cactai.io URL: every platform call from DevShell lands at
+  // /api/cactai/<path> on this Vercel deploy, the route attaches the
+  // project's CACTAI_API_KEY server-side, and forwards to the
+  // platform with the AI provider key (from customer DB BYOK)
+  // injected into the body. That keeps CACTAI_API_KEY and the AI
+  // provider key out of the browser bundle.
+  //
+  // The thumbnail uploader above uses the REAL cactaiBase prop
+  // because /v1/project-thumbnails/* is permissive-CORS'd and uses
+  // the project_id as the credential (no Bearer needed).
   const { Comp } = shell;
+  // Pass-through cast of allRoles to satisfy the wrapper's tenant_id
+  // shape — the skeleton's session_user.all_roles already carries
+  // tenant_id, the wrapper interface just spells it explicitly.
+  const richRoles = (props.allRoles ?? []).map(r => ({
+    role:      r.role,
+    tenant_id: (r as { tenant_id?: string | null }).tenant_id ?? null,
+  }));
   return (
     <Comp
+      cactaiBase="/api/cactai"
+      projectId={props.projectId}
       userId={props.userId}
       userEmail={props.userEmail}
       userRole={props.userRole}
-      allRoles={props.allRoles}
-      endpoints={{
-        // Same-origin proxy. DevShell's CactaiClient hits
-        // /api/cactai/v1/shell/... and the server-side route attaches
-        // the CACTAI_API_KEY Bearer + forwards to the real platform.
-        // Direct cross-origin calls to api.cactai.io would fail CORS
-        // (no Allow-Credentials for *.vercel.app origins) and 401
-        // (CactaiClient sends no Bearer when no api_key is configured).
-        // The thumbnail capture above uses the real cactaiBase
-        // because /v1/project-thumbnails/* is permissive-CORS'd and
-        // takes the project_id as the credential.
-        cactaiBase: '/api/cactai',
-        projectId:  props.projectId,
-      }}
-      preferencesHref="/dev/preferences"
+      allRoles={richRoles}
     />
   );
 };

@@ -17,6 +17,11 @@
 export { DevShellProvider } from './DevShellProvider.js';
 export { DevShellPage } from './DevShellPage.js';
 export { ProviderKeyModal } from './ProviderKeyModal.js';
+// Phase 1 — self-driven wrapper around mui's rich DevShell. Customer apps
+// mount this with auth + identity only; it handles MUIShell construction
+// and supplies empty defaults for the panel data props. Phase 2 swaps
+// each default for a real fetcher (CactaiClient through /api/cactai).
+export { SelfDrivenDevShell } from './SelfDrivenDevShell.js';
 // Re-exports from @cactai-io/mui — the IDE chrome travels with this package
 // so consumers don't need to know about @cactai-io/mui directly.
 export { DevShell, injectDevShellStyles, DEVSHELL_CSS } from '@cactai-io/mui';
