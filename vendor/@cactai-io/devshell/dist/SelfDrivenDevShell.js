@@ -516,8 +516,46 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     },
                 }, buildProps: {
                     tools: [],
-                    onActivateSkill: () => { },
-                    onDeactivateSkill: () => { },
+                    // Capability config lives on the customer DB. The skeleton's
+                    // /api/settings/capabilities PATCH handles read-modify-write
+                    // on project_state.decisions.capability_config_v2 + pushes a
+                    // platform-side cache invalidation so the next turn sees the
+                    // change without waiting 60s. Both handlers refresh the
+                    // settings panel optimistically by re-fetching after success
+                    // (the existing 10s settings poll picks it up regardless;
+                    // explicit refresh is just snappier).
+                    onActivateSkill: async (skillId) => {
+                        // Optimistic local flip via MUIShell so the BuildPanel
+                        // toggle reflects the new state immediately (the settings
+                        // poll would catch up within 10s anyway, but the snap
+                        // beats waiting).
+                        shell?.activateSkill(skillId);
+                        const res = await fetch('/api/settings/capabilities', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ scope: 'devshell', set_enabled: { id: skillId, enabled: true } }),
+                        });
+                        if (!res.ok) {
+                            // Roll back the optimistic flip so the UI matches the
+                            // server's actual state, and surface the error.
+                            shell?.deactivateSkill(skillId);
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('settings', { status: res.status, code: body.error ?? 'capability_patch_failed', detail: body.detail });
+                        }
+                    },
+                    onDeactivateSkill: async (skillId) => {
+                        shell?.deactivateSkill(skillId);
+                        const res = await fetch('/api/settings/capabilities', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ scope: 'devshell', set_enabled: { id: skillId, enabled: false } }),
+                        });
+                        if (!res.ok) {
+                            shell?.activateSkill(skillId);
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('settings', { status: res.status, code: body.error ?? 'capability_patch_failed', detail: body.detail });
+                        }
+                    },
                     // Build-my-own: route the request into the agent. The agent then
                     // walks the developer through the scaffold (purpose, interface,
                     // capabilities), generates a draft, and stages files into
@@ -552,7 +590,30 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             recordFetchError('install_post', { status: res.status, code: body.error, detail: body.detail });
                         }
                     },
-                    onUninstall: () => { },
+                    // DELETE /v1/marketplace/:id/install — soft-uninstall on the
+                    // shared marketplace_installs table. The install row stays
+                    // (stamped uninstalled_at) so a future reinstall doesn't
+                    // re-bill paid items. Optimistic local state flip + rollback
+                    // on failure.
+                    onUninstall: async (itemId) => {
+                        setInstalledIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(itemId);
+                            return next;
+                        });
+                        setMarketItems(prev => prev.map(i => i.id === itemId ? { ...i, installed: false } : i));
+                        const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/marketplace/${itemId}/install`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                        });
+                        if (!res.ok) {
+                            // Roll back.
+                            setInstalledIds(prev => new Set(prev).add(itemId));
+                            setMarketItems(prev => prev.map(i => i.id === itemId ? { ...i, installed: true } : i));
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('install_post', { status: res.status, code: body.error ?? 'uninstall_failed', detail: body.detail });
+                        }
+                    },
                     // Publish flow lives on the marketplace storefront (auth via the
                     // cactai.io SSO cookie). Open it in a new tab; the storefront's
                     // /publish form recognises the signed-in developer.
