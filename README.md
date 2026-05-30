@@ -29,6 +29,7 @@ src/
       history/         Commit history endpoints
       workflow/        Workflow state and backlog management
       settings/        Credentials and collaborators
+      mcp/             Per-end-user MCP (Model Context Protocol) CRUD — scoped by session.id
       preview-url/     Server-side proxy for Vercel preview URL
       preview-auth/    Cross-origin DevShell sign-in handoff from the Cactai dashboard
   lib/
@@ -37,6 +38,7 @@ src/
     supabase.server.ts Server-side Supabase client (server-only)
     tokens.ts          Design-token live-preview system (localStorage-backed, cross-tab)
     pendingFiles.ts    Shared validators for pending-edits routes + multi-file commits
+    mcp-types.ts       Local MCP type shim (remove once @cactai-io/types ships v1.4 MCP types)
 ```
 
 ## Environment variables
@@ -68,7 +70,9 @@ Two role layers, each on a different table on your Supabase:
 Route-to-role mapping:
 
 - `/dev` — DevShell IDE. Requires `platform_role IN ('dev','collaborator')`.
+- `/dev/mcp` — AppShell MCP (shared) configuration page. Owner-side surface for `app_default`-scoped MCP integrations that every end-user session can use. Persists via the `/api/cactai` proxy to the platform's `/v1/projects/:id/mcp/app_default`.
 - `/operate` — Operator panel. Requires `platform_role = 'dev'`.
+- `/operate/mcp` — AppShell MCP (personal) page. Per-user MCP integrations (the API at `/api/mcp/servers` is scoped by `session.id` and works for any authenticated user; the page sits under `/operate` for sprint-1 owner-side UX testing — a future placement decision may move it out of the operator gate so real end users can reach it).
 - `/app` — End-user routes. Gated by `tenant_members` membership.
 
 ## DevShell
