@@ -13,9 +13,10 @@
     }
   },
   "dependencies": {
-    "@cactai-io/client": "^1.3.7",
-    "@cactai-io/primitives": "^1.3.7",
-    "@cactai-io/themes": "^1.3.7",
+    "@cactai-io/client": "^1.3.10",
+    "@cactai-io/primitives": "^1.3.10",
+    "@cactai-io/themes": "^1.3.10",
+    "@cactai-io/types": "^1.3.10",
     "@cactai-io/mui": "file:../mui"
   },
   "peerDependencies": {
