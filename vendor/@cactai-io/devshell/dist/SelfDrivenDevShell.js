@@ -410,7 +410,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         }, onDiscardAllPending: async () => {
             await fetch('/api/git/pending', { method: 'DELETE' });
             setPendingFiles([]);
-        }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: "purpose_capture", decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
+        }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
             onOpenApp: () => { },
         }, buildProps: {
             tools: [],

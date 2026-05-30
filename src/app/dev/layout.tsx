@@ -8,9 +8,15 @@
 //      route — both layers fail closed.
 //   2. Run the developer role-check once at the layout boundary so child
 //      pages don't repeat it.
+//   3. Load brand-tokens CSS so DevShell's --c-* variables resolve. The
+//      shell's surfaces, borders, text, and motion all read from these
+//      vars; without them the IDE renders with browser defaults (flat
+//      white, no borders, no depth).
 
 import { notFound } from 'next/navigation';
 import { requireDevRole } from '@/lib/auth';
+import '@cactai-io/brand-tokens/tokens.css';
+import '@cactai-io/brand-tokens/motion.css';
 
 export default async function DevLayout({ children }: { children: React.ReactNode }) {
   if (process.env.NEXT_PUBLIC_VERCEL_ENV === 'production') {
