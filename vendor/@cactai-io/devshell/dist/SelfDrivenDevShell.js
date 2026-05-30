@@ -62,10 +62,23 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [activeFilePath, setActiveFilePath] = useState(undefined);
     const [fileContent, setFileContent] = useState(null);
     const [fileLoading, setFileLoading] = useState(false);
+    // Phase 3b-2 — pending edits from the customer DB pending_files table
+    // via /api/git/pending. Polled every 4s so the file tree's modified
+    // dots + the pending-edits modal stay in sync with the agent's
+    // staging-layer writes. Commits are batched server-side (the route
+    // reads current_content from pending_files per path) so the wrapper
+    // never needs to ferry blob bytes through the browser.
+    const [pendingFiles, setPendingFiles] = useState([]);
     // Phase 3d — customer DB schema introspection. Loaded once on mount;
     // not polled because schema rarely changes mid-session and the agent
     // would surface a refresh prompt when migrations land.
     const [schemaTables, setSchemaTables] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterKind, setFilterKind] = useState('all');
+    const [marketItems, setMarketItems] = useState([]);
+    const [marketLoading, setMarketLoading] = useState(false);
+    const [installedIds, setInstalledIds] = useState(new Set());
+    const [settings, setSettings] = useState(null);
     // One-shot session open + MUIShell.init. Runs once on mount per project.
     useEffect(() => {
         injectDevShellStyles();
@@ -227,6 +240,24 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         setActiveFilePath(undefined);
         setFileContent(null);
     };
+    // Phase 3b-2 — pending files: poll every 4s.
+    useEffect(() => {
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const res = await fetch('/api/git/pending', { cache: 'no-store' });
+                if (!res.ok)
+                    return;
+                const body = await res.json();
+                if (!cancelled)
+                    setPendingFiles(body.files ?? []);
+            }
+            catch { /* transient */ }
+        };
+        void tick();
+        const interval = setInterval(tick, 4000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, []);
     // Phase 3d — customer DB schema, fetched once on mount.
     useEffect(() => {
         let cancelled = false;
@@ -243,6 +274,70 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, []);
+    // Phase 3c — marketplace browse: refetch when search / filter changes.
+    // The platform endpoint accepts q + kind query params. installed flag
+    // gets joined from /v1/installs.
+    useEffect(() => {
+        let cancelled = false;
+        setMarketLoading(true);
+        (async () => {
+            try {
+                const params = new URLSearchParams();
+                if (searchQuery)
+                    params.set('q', searchQuery);
+                if (filterKind !== 'all')
+                    params.set('kind', filterKind);
+                const [browseRes, installRes] = await Promise.all([
+                    fetch(`${cactaiBase.replace(/\/$/, '')}/v1/marketplace?${params.toString()}`, { cache: 'no-store' }),
+                    fetch(`${cactaiBase.replace(/\/$/, '')}/v1/installs`, { cache: 'no-store' }),
+                ]);
+                if (cancelled)
+                    return;
+                const browseBody = browseRes.ok ? await browseRes.json() : { items: [] };
+                const installBody = installRes.ok ? await installRes.json() : { installs: [] };
+                const installed = new Set((installBody.installs ?? []).map(i => i.item_id));
+                setInstalledIds(installed);
+                setMarketItems((browseBody.items ?? []).map(it => ({
+                    id: it.id,
+                    slug: it.slug,
+                    display_name: it.display_name,
+                    description: it.description ?? '',
+                    kind: it.kind,
+                    price_cents: it.price_usd_cents ?? 0,
+                    installed: installed.has(it.id),
+                    author: it.author_name ?? '',
+                    semver: it.latest_semver ?? '0.0.0',
+                })));
+            }
+            catch { /* transient */ }
+            finally {
+                if (!cancelled)
+                    setMarketLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [cactaiBase, searchQuery, filterKind]);
+    // Phase 2d — settings, polled every 10s. The endpoint lives at
+    // /api/cactai/v1/projects/:id/devshell/settings on the platform.
+    useEffect(() => {
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/settings`, {
+                    cache: 'no-store',
+                });
+                if (!res.ok)
+                    return;
+                const body = await res.json();
+                if (!cancelled)
+                    setSettings(body);
+            }
+            catch { /* transient */ }
+        };
+        void tick();
+        const interval = setInterval(tick, 10000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [cactaiBase, projectId]);
     if (error) {
         return (_jsxs("div", { style: {
                 height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -265,36 +360,56 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const agentDisplayName = 'Ember'; // Phase 2 (next): read from project personality
     // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
     const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
-    const syncState = { branch: 'dev', synced: true }; // Phase 3b: derived from pendingFiles count
-    const pendingFiles = []; // Phase 3b: GET /api/git/pending
+    // syncState derives from pendingFiles count: any pending row means
+    // we're in the 'local · N uncommitted' state, otherwise 'dev · synced'.
+    const syncState = pendingFiles.length > 0
+        ? { branch: 'local', uncommittedFiles: pendingFiles.map(f => f.path) }
+        : { branch: 'dev', synced: true };
     // decisions / backlog / sprints / workflowStep are stateful (set by
     // the polling effect above).
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
     return (_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
-            // Phase 3b — POST /api/git/commit. paths is the list of changed
-            // files from the staging layer; the commit route stages each via
-            // GitHub's Git Data API + creates one commit + moves the
-            // dev-branch ref. Content for each path must come from the
-            // staging layer — Phase 3b-2 will wire a pending-files store
-            // that the DevShell maintains for staged edits.
-            await fetch('/api/git/commit', {
+            // Phase 3b — POST /api/git/commit. The route reads file
+            // content from pending_files server-side (per the user's
+            // RLS-scoped rows), so we don't need to ferry blob bytes
+            // through the browser. paths optionally narrows which pending
+            // rows to commit; omitting commits all of them.
+            const res = await fetch('/api/git/commit', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     branch: 'dev',
-                    message: opts?.message ?? `DevShell: update ${paths.length} file(s)`,
-                    files: paths.map(p => ({ path: p, operation: 'update', content: '' })),
+                    message: opts?.message ?? `DevShell: ${paths.length} file(s)`,
+                    paths,
                     reverts_sha: opts?.reverts_sha,
                 }),
             });
-            // Refresh file tree so the new commit's tree is reflected.
-            const r = await fetch('/api/git/tree?branch=dev', { cache: 'no-store' });
-            if (r.ok) {
-                const b = await r.json();
+            if (!res.ok) {
+                // Surface the route's error to the modal so the developer
+                // sees the actual reason (auth, GitHub API, conflict, etc.)
+                // instead of a silent fail.
+                const body = await res.json().catch(() => ({}));
+                throw new Error(`Commit failed: ${body.error ?? res.status} ${body.detail ?? ''}`);
+            }
+            // Refresh file tree so the new commit + cleared pending state
+            // shows immediately, ahead of the next 4s pending poll.
+            const treeRes = await fetch('/api/git/tree?branch=dev', { cache: 'no-store' });
+            if (treeRes.ok) {
+                const b = await treeRes.json();
                 setTreeNodes(b.tree ?? []);
             }
+            setPendingFiles([]);
+        }, onDiscardPendingFile: async (path) => {
+            // Phase 3b-2 — direct DELETE on pending_files for one path.
+            // The route uses the customer's SUPABASE_SERVICE_KEY; RLS
+            // would also constrain to the caller's own row via auth.uid().
+            await fetch(`/api/git/pending?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+            setPendingFiles(prev => prev.filter(f => f.path !== path));
+        }, onDiscardAllPending: async () => {
+            await fetch('/api/git/pending', { method: 'DELETE' });
+            setPendingFiles([]);
         }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: "purpose_capture", decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
             onOpenApp: () => { },
         }, buildProps: {
@@ -302,26 +417,56 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             onActivateSkill: () => { },
             onDeactivateSkill: () => { },
             onBuildOwn: () => { },
-            items: [],
-            loading: false,
-            searchQuery: '',
-            onSearch: () => { },
-            onInstall: () => { },
+            items: marketItems,
+            loading: marketLoading,
+            searchQuery,
+            onSearch: (q) => setSearchQuery(q),
+            onInstall: async (itemId) => {
+                // POST /v1/marketplace/:id/install. The platform records the
+                // install and (for skills) flips the SkillRegistry so the next
+                // turn can reference the new component.
+                const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/marketplace/${itemId}/install`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                if (res.ok) {
+                    setInstalledIds(prev => new Set(prev).add(itemId));
+                    setMarketItems(prev => prev.map(i => i.id === itemId ? { ...i, installed: true } : i));
+                }
+            },
             onUninstall: () => { },
             onPublish: () => { },
-            filterKind: 'all',
-            onFilterKind: () => { },
+            filterKind,
+            onFilterKind: (k) => setFilterKind(k),
         }, skills: skills, schemaProps: {
             tables: schemaTables,
             migrations: [],
             onAddTable: () => { },
             onEditTable: () => { },
         }, settingsProps: {
-            credentials: {},
+            // CredentialsRecord shape: a flat record of provider → string.
+            // We map the endpoint's *_set booleans into the panel-expected
+            // shape; values are intentionally empty strings (the panel
+            // shows masked tails — full plaintext is never round-tripped
+            // through the browser).
+            credentials: settings ? {
+                ...(settings.credentials.anthropic_set ? { anthropic_api_key: '••••' } : {}),
+                ...(settings.credentials.openai_set ? { openai_api_key: '••••' } : {}),
+                ...(settings.credentials.google_oauth_set ? { google_oauth: '••••' } : {}),
+            } : {},
             billingEnabled: false,
-            collaborators: [],
+            collaborators: (settings?.collaborators ?? []),
             onSaveCredential: () => { },
             onInviteCollaborator: () => { },
             onRemoveCollaborator: () => { },
+            // Personality / workflow / BYOK use the endpoint's raw values
+            // when present; the panel sections render fallback "data not
+            // available yet" copy when these are null.
+            personality: settings?.personality,
+            workflow: settings?.workflow,
+            byok: settings?.byok_providers
+                ? { providers: settings.byok_providers }
+                : undefined,
+            capabilityConfig: settings?.capability_config,
         }, dashboardUrl: dashboardUrl }));
 }
