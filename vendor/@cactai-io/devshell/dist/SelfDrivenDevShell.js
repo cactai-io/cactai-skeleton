@@ -102,7 +102,13 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             (err.code ? ` [${err.code}]` : '') +
             (err.detail ? `: ${err.detail}` : ''));
     }).current;
-    const [settings, setSettings] = useState(null);
+    const [byok, setByok] = useState(null);
+    const [personality, setPersonality] = useState(null);
+    const [workflowSettings, setWorkflowSettings] = useState(null);
+    const [capabilityConfig, setCapabilityConfig] = useState(null);
+    const [capabilityCat, setCapabilityCat] = useState([]);
+    const [credentialsState, setCredentialsState] = useState(null);
+    const [collaborators, setCollaborators] = useState([]);
     // One-shot session open + MUIShell.init. Runs once on mount per project.
     useEffect(() => {
         injectDevShellStyles();
@@ -402,29 +408,68 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, [cactaiBase, searchQuery, filterKind, recordFetchError]);
-    // Settings — polled every 10s. The endpoint lives at
-    // /api/cactai/v1/projects/:id/devshell/settings on the platform.
+    // Settings panel data — per-source, polled every 10s. Each surface
+    // (byok, personality, workflow, capabilities, credentials,
+    // collaborators) is fetched directly from the skeleton's
+    // /api/settings/* routes which already return panel-correct shapes
+    // (ProjectBYOKResponse, ProjectPersonalityResponse, etc.). One
+    // failing source doesn't poison the others — each gets its own
+    // diagnostics entry.
     useEffect(() => {
         let cancelled = false;
         const tick = async () => {
-            try {
-                const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/settings`, {
-                    cache: 'no-store',
-                });
-                if (!res.ok) {
-                    const body = await res.json().catch(() => ({}));
-                    recordFetchError('settings', { status: res.status, code: body.error, detail: body.detail });
-                    return;
+            const settle = async (url, source) => {
+                try {
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        recordFetchError(source, { status: res.status, code: body.error, detail: body.detail });
+                        return null;
+                    }
+                    recordFetchError(source, null);
+                    return await res.json();
                 }
-                const body = await res.json();
-                if (cancelled)
-                    return;
-                setSettings(body);
-                recordFetchError('settings', null);
+                catch (err) {
+                    recordFetchError(source, { detail: err.message });
+                    return null;
+                }
+            };
+            const [byokBody, personalityBody, workflowBody, capsBody, credsBody, collabBody, platformSettings] = await Promise.all([
+                settle('/api/settings/byok', 'byok'),
+                settle('/api/settings/personality', 'personality'),
+                settle('/api/settings/workflow', 'workflow_settings'),
+                settle('/api/settings/capabilities', 'capabilities'),
+                settle('/api/settings/credentials', 'credentials'),
+                settle('/api/settings/collaborators', 'collaborators'),
+                // Keep the platform call only for the credentials *_set flags
+                // — the skeleton's /credentials route doesn't surface them in
+                // that shape today, and the platform endpoint already gates by
+                // project scope. Migration to a single skeleton source is a
+                // follow-up; both reads are cheap.
+                settle(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/settings`, 'settings'),
+            ]);
+            if (cancelled)
+                return;
+            if (byokBody)
+                setByok(byokBody);
+            if (personalityBody)
+                setPersonality(personalityBody);
+            if (workflowBody)
+                setWorkflowSettings(workflowBody);
+            if (capsBody) {
+                setCapabilityCat(capsBody.catalogue ?? []);
+                setCapabilityConfig(capsBody.config ?? null);
             }
-            catch (err) {
-                recordFetchError('settings', { detail: err.message });
-            }
+            // Prefer the skeleton-side credentials shape when present;
+            // fall back to the platform's *_set flags so the panel can
+            // still render badges in the meantime.
+            const credsResolved = credsBody?.credentials
+                ?? platformSettings?.credentials
+                ?? null;
+            if (credsResolved)
+                setCredentialsState(credsResolved);
+            if (collabBody?.collaborators)
+                setCollaborators(collabBody.collaborators);
         };
         void tick();
         const interval = setInterval(tick, 10000);
@@ -524,11 +569,15 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     // settings panel optimistically by re-fetching after success
                     // (the existing 10s settings poll picks it up regardless;
                     // explicit refresh is just snappier).
+                    // Skill enable/disable writes through the same skeleton route
+                    // as the settings tab's CapabilityListPanel — same source of
+                    // truth (project_state.decisions.capability_config_v2.devshell.
+                    // enabled), same platform-side cache invalidation push so the
+                    // very next agent turn sees the change. Local MUIShell registry
+                    // mirrors the server state for instant UI reflection; the
+                    // settings 10s tick reconciles drift.
                     onActivateSkill: async (skillId) => {
-                        // Optimistic local flip via MUIShell so the BuildPanel
-                        // toggle reflects the new state immediately (the settings
-                        // poll would catch up within 10s anyway, but the snap
-                        // beats waiting).
+                        const prev = capabilityConfig;
                         shell?.activateSkill(skillId);
                         const res = await fetch('/api/settings/capabilities', {
                             method: 'PATCH',
@@ -536,14 +585,22 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             body: JSON.stringify({ scope: 'devshell', set_enabled: { id: skillId, enabled: true } }),
                         });
                         if (!res.ok) {
-                            // Roll back the optimistic flip so the UI matches the
-                            // server's actual state, and surface the error.
                             shell?.deactivateSkill(skillId);
+                            setCapabilityConfig(prev);
                             const body = await res.json().catch(() => ({}));
-                            recordFetchError('settings', { status: res.status, code: body.error ?? 'capability_patch_failed', detail: body.detail });
+                            recordFetchError('capability_patch', { status: res.status, code: body.error ?? 'capability_patch_failed', detail: body.detail });
+                            return;
+                        }
+                        recordFetchError('capability_patch', null);
+                        const refetch = await fetch('/api/settings/capabilities', { cache: 'no-store' });
+                        if (refetch.ok) {
+                            const body = await refetch.json();
+                            setCapabilityCat(body.catalogue ?? []);
+                            setCapabilityConfig(body.config ?? null);
                         }
                     },
                     onDeactivateSkill: async (skillId) => {
+                        const prev = capabilityConfig;
                         shell?.deactivateSkill(skillId);
                         const res = await fetch('/api/settings/capabilities', {
                             method: 'PATCH',
@@ -552,8 +609,17 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         });
                         if (!res.ok) {
                             shell?.activateSkill(skillId);
+                            setCapabilityConfig(prev);
                             const body = await res.json().catch(() => ({}));
-                            recordFetchError('settings', { status: res.status, code: body.error ?? 'capability_patch_failed', detail: body.detail });
+                            recordFetchError('capability_patch', { status: res.status, code: body.error ?? 'capability_patch_failed', detail: body.detail });
+                            return;
+                        }
+                        recordFetchError('capability_patch', null);
+                        const refetch = await fetch('/api/settings/capabilities', { cache: 'no-store' });
+                        if (refetch.ok) {
+                            const body = await refetch.json();
+                            setCapabilityCat(body.catalogue ?? []);
+                            setCapabilityConfig(body.config ?? null);
                         }
                     },
                     // Build-my-own: route the request into the agent. The agent then
@@ -630,30 +696,155 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     // action, keeping the affordance set honest.
                     supabaseProjectUrl,
                 }, settingsProps: {
-                    // CredentialsRecord shape: a flat record of provider → string.
-                    // We map the endpoint's *_set booleans into the panel-expected
-                    // shape; values are intentionally empty strings (the panel
-                    // shows masked tails — full plaintext is never round-tripped
-                    // through the browser).
-                    credentials: settings ? {
-                        ...(settings.credentials.anthropic_set ? { anthropic_api_key: '••••' } : {}),
-                        ...(settings.credentials.openai_set ? { openai_api_key: '••••' } : {}),
-                        ...(settings.credentials.google_oauth_set ? { google_oauth: '••••' } : {}),
+                    // Credentials — mask map derived from the platform's
+                    // visibility flags. Full plaintext never round-trips through
+                    // the browser; the panel shows "••••" badges + an Update
+                    // button per key.
+                    credentials: credentialsState ? {
+                        ...(credentialsState.anthropic_set ? { anthropic_api_key: '••••' } : {}),
+                        ...(credentialsState.openai_set ? { openai_api_key: '••••' } : {}),
+                        ...(credentialsState.google_oauth_set ? { google_oauth: '••••' } : {}),
                     } : {},
                     billingEnabled: false,
-                    collaborators: (settings?.collaborators ?? []),
-                    onSaveCredential: () => { },
-                    onInviteCollaborator: () => { },
-                    onRemoveCollaborator: () => { },
-                    // Personality / workflow / BYOK use the endpoint's raw values
-                    // when present; the panel sections render fallback "data not
-                    // available yet" copy when these are null.
-                    personality: settings?.personality,
-                    workflow: settings?.workflow,
-                    byok: settings?.byok_providers
-                        ? { providers: settings.byok_providers }
-                        : undefined,
-                    capabilityConfig: settings?.capability_config,
+                    collaborators: collaborators,
+                    // onSaveCredential: POST /api/settings/credentials. The route
+                    // refuses values that look like secrets (these belong in
+                    // Vercel env vars per the security stance); the diagnostics
+                    // badge surfaces that 400 so the developer knows where to
+                    // put the secret instead.
+                    onSaveCredential: async (key, value) => {
+                        const res = await fetch('/api/settings/credentials', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key, value }),
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('credential_save', { status: res.status, code: body.error, detail: body.detail });
+                        }
+                        else {
+                            recordFetchError('credential_save', null);
+                        }
+                    },
+                    // POST /api/settings/collaborators — uses Supabase Auth admin
+                    // inviteUserByEmail, upserts app_users + platform_roles
+                    // (role=collaborator). The invitee gets a magic-link email;
+                    // their app_users row exists immediately so the panel shows
+                    // them as Active once they sign in for the first time.
+                    onInviteCollaborator: async (email) => {
+                        const res = await fetch('/api/settings/collaborators', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email }),
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('collaborator_invite', { status: res.status, code: body.error, detail: body.detail });
+                        }
+                        else {
+                            recordFetchError('collaborator_invite', null);
+                        }
+                    },
+                    // DELETE /api/settings/collaborators/:id — refuses on self
+                    // and on dev-role rows (those flow through the platform
+                    // dashboard's owner-transfer surface, not from inside the
+                    // IDE). Diagnostics catches the 400s.
+                    onRemoveCollaborator: async (id) => {
+                        const res = await fetch(`/api/settings/collaborators/${encodeURIComponent(id)}`, {
+                            method: 'DELETE',
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('collaborator_remove', { status: res.status, code: body.error, detail: body.detail });
+                        }
+                        else {
+                            // Optimistic remove already happened? No — the 10s
+                            // settings tick handles refresh. Force one now so the
+                            // panel reflects the change without waiting.
+                            setCollaborators(prev => prev.filter(c => c.id !== id));
+                            recordFetchError('collaborator_remove', null);
+                        }
+                    },
+                    personality: personality ?? undefined,
+                    workflow: workflowSettings ?? undefined,
+                    byok: byok ?? undefined,
+                    capabilityConfig: capabilityConfig ?? undefined,
+                    // Catalogue needed for the CapabilityListPanel's appshell
+                    // section render — without it the panel falls back to a
+                    // "configuration data is loading…" placeholder.
+                    capabilityCatalogue: capabilityCat,
+                    // PATCH callbacks for each settings sub-surface. Each writes
+                    // through the skeleton's per-route handler, then immediately
+                    // re-fetches the same source so the panel doesn't have to
+                    // wait the full 10s for the next poll. Diagnostics catches
+                    // every failed write with its own source key.
+                    onBYOKPatch: async (patch) => {
+                        const res = await fetch('/api/settings/byok', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(patch),
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('byok_patch', { status: res.status, code: body.error, detail: body.detail });
+                            return;
+                        }
+                        recordFetchError('byok_patch', null);
+                        const refetch = await fetch('/api/settings/byok', { cache: 'no-store' });
+                        if (refetch.ok)
+                            setByok(await refetch.json());
+                    },
+                    onPersonalityPatch: async (patch) => {
+                        const res = await fetch('/api/settings/personality', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(patch),
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('personality_patch', { status: res.status, code: body.error, detail: body.detail });
+                            return;
+                        }
+                        recordFetchError('personality_patch', null);
+                        const refetch = await fetch('/api/settings/personality', { cache: 'no-store' });
+                        if (refetch.ok)
+                            setPersonality(await refetch.json());
+                    },
+                    onWorkflowPatch: async (patch) => {
+                        const res = await fetch('/api/settings/workflow', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(patch),
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('workflow_patch', { status: res.status, code: body.error, detail: body.detail });
+                            return;
+                        }
+                        recordFetchError('workflow_patch', null);
+                        const refetch = await fetch('/api/settings/workflow', { cache: 'no-store' });
+                        if (refetch.ok)
+                            setWorkflowSettings(await refetch.json());
+                    },
+                    onCapabilityPatch: async (patch) => {
+                        const res = await fetch('/api/settings/capabilities', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(patch),
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('capability_patch', { status: res.status, code: body.error, detail: body.detail });
+                            return;
+                        }
+                        recordFetchError('capability_patch', null);
+                        const refetch = await fetch('/api/settings/capabilities', { cache: 'no-store' });
+                        if (refetch.ok) {
+                            const body = await refetch.json();
+                            setCapabilityCat(body.catalogue ?? []);
+                            setCapabilityConfig(body.config ?? null);
+                        }
+                    },
                 }, dashboardUrl: dashboardUrl }), _jsx(FetchErrorBadge, { errors: fetchErrors })] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
