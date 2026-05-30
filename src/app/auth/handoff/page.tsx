@@ -4,10 +4,19 @@
 // from Supabase's IMPLICIT flow (admin.generateLink for magiclink). The
 // magic-link verify returns to this page with the session tokens in the
 // URL hash fragment (#access_token=...&refresh_token=...) — fragments
-// never reach the server, so a route handler can't see them. We have
-// to read the hash client-side, call supabase.auth.setSession() to
-// write the SSR session cookies on this origin, then full-reload to
-// /dev so middleware picks up the new cookies.
+// never reach the server, so a route handler can't see them. We read
+// the hash client-side, POST the tokens to /api/auth/set-session (which
+// installs them via Set-Cookie response headers, NOT document.cookie),
+// then full-reload to /dev so middleware picks up the new cookies.
+//
+// Why route through the server: doing setSession() purely on the client
+// via createBrowserClient writes cookies via document.cookie, which is
+// asynchronous — window.location.replace() can fire before the cookies
+// commit, the next request sees no session, and the user gets bounced
+// to /auth/login. Routing through the server endpoint guarantees the
+// Set-Cookie headers are processed by the browser before the response
+// completes, so the subsequent navigation carries an authenticated
+// session reliably.
 //
 // PKCE flow uses /auth/callback?code=... instead and works server-side.
 // Admin-initiated magic links currently come back implicit, so this
@@ -16,7 +25,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 
 export default function PreviewAuthHandoff() {
   const [err, setErr] = useState<string | null>(null);
@@ -35,18 +43,17 @@ export default function PreviewAuthHandoff() {
         return;
       }
 
-      // createBrowserClient from @supabase/ssr writes the session via
-      // document.cookie, which is what middleware + server routes read.
-      // (Plain createClient from @supabase/supabase-js writes localStorage,
-      // which the server can't see.)
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
-
-      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-      if (error) {
-        setErr(`Could not set session: ${error.message}`);
+      // Server-side cookie install. The route uses createServerClient +
+      // cookies() from next/headers to write Set-Cookie headers; the
+      // browser commits them before this fetch resolves.
+      const res = await fetch('/api/auth/set-session', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ access_token, refresh_token }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ detail: `status_${res.status}` })) as { detail?: string; error?: string };
+        setErr(`Could not set session: ${body.detail ?? body.error ?? `HTTP ${res.status}`}`);
         return;
       }
 
