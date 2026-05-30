@@ -2,11 +2,11 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 // packages/mui/src/panels/MCPManager.tsx
 //
 // Reusable MCP (Model Context Protocol) management surface. Mounted in
-// all four MCP locations:
-//   - Platform dashboard (fleet scope)
-//   - DevShell ProjectSettingsPanel (devshell / project scope)
-//   - Skeleton /dev/mcp (app-default scope)
-//   - Skeleton /operate/mcp (end-user scope)
+// all four MCP surfaces:
+//   - Platform MCP        (dashboard, account-wide)
+//   - DevShell MCP        (ProjectSettingsPanel.Integrations, per-project)
+//   - AppShell MCP shared (skeleton /dev/mcp, app-default)
+//   - AppShell MCP personal (skeleton /operate/mcp, end-user)
 //
 // Presentational only — the host passes the catalog, the connected
 // list, and add/remove/toggle handlers. The component owns no fetching.
