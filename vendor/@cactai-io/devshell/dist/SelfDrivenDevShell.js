@@ -73,6 +73,8 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // not polled because schema rarely changes mid-session and the agent
     // would surface a refresh prompt when migrations land.
     const [schemaTables, setSchemaTables] = useState([]);
+    const [migrations, setMigrations] = useState([]);
+    const [supabaseProjectUrl, setSupabaseProjectUrl] = useState(undefined);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterKind, setFilterKind] = useState('all');
     const [marketItems, setMarketItems] = useState([]);
@@ -258,7 +260,13 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         const interval = setInterval(tick, 4000);
         return () => { cancelled = true; clearInterval(interval); };
     }, []);
-    // Phase 3d — customer DB schema, fetched once on mount.
+    // Customer DB schema — fetched once on mount. The skeleton route uses
+    // SUPABASE_DATABASE_URL server-side to introspect information_schema +
+    // pg_constraint directly (not the Supabase REST API, which doesn't
+    // expose information_schema). Migrations come from
+    // supabase_migrations.schema_migrations when present.
+    // supabase_project_url is the Supabase dashboard deep-link for the
+    // SchemaPanel's "Open in Supabase ↗" affordance.
     useEffect(() => {
         let cancelled = false;
         void (async () => {
@@ -267,8 +275,12 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 if (!res.ok)
                     return;
                 const body = await res.json();
-                if (!cancelled)
-                    setSchemaTables(body.tables ?? []);
+                if (cancelled)
+                    return;
+                setSchemaTables(body.tables ?? []);
+                setMigrations(body.migrations ?? []);
+                if (body.supabase_project_url)
+                    setSupabaseProjectUrl(body.supabase_project_url);
             }
             catch { /* transient */ }
         })();
@@ -452,9 +464,13 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             onFilterKind: (k) => setFilterKind(k),
         }, skills: skills, schemaProps: {
             tables: schemaTables,
-            migrations: [],
-            onAddTable: () => { },
-            onEditTable: () => { },
+            migrations: migrations,
+            // Schema mutations flow through the agent today (chat → ALTER
+            // TABLE suggestion → commit). No in-place table editor exists,
+            // so we don't pass onAddTable / onEditTable — the panel now
+            // renders the "Open in Supabase" link as the only outbound
+            // action, keeping the affordance set honest.
+            supabaseProjectUrl,
         }, settingsProps: {
             // CredentialsRecord shape: a flat record of provider → string.
             // We map the endpoint's *_set booleans into the panel-expected

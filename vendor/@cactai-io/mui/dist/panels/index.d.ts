@@ -95,10 +95,21 @@ export declare function BuildPanel({ skills, tools, onActivateSkill, onDeactivat
 export interface SchemaPanelProps {
     tables: SchemaTable[];
     migrations: MigrationRecord[];
-    onAddTable: () => void;
-    onEditTable: (tableName: string) => void;
+    /** Optional. When provided, an "+ Add table" affordance renders in
+     *  the section header and clicking it calls this handler. Omit if
+     *  the host has no real implementation. */
+    onAddTable?: () => void;
+    /** Optional. When provided, an "Edit table" button renders inside
+     *  each expanded table card. Omit if the host has no real
+     *  implementation. */
+    onEditTable?: (tableName: string) => void;
+    /** Optional URL to the project's Supabase dashboard (e.g.
+     *  https://supabase.com/dashboard/project/<ref>). When provided, an
+     *  "Open in Supabase ↗" link renders next to the Tables header so
+     *  developers can manage schema via the platform UI directly. */
+    supabaseProjectUrl?: string;
 }
-export declare function SchemaPanel({ tables, migrations, onAddTable, onEditTable }: SchemaPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function SchemaPanel({ tables, migrations, onAddTable, onEditTable, supabaseProjectUrl }: SchemaPanelProps): import("react/jsx-runtime").JSX.Element;
 import type { CapabilityCatalogueItem, CapabilityConfig, CapabilityConfigPatch, DevAuthoredPersonalityRecord, DevAuthoredPersonalityEditPatch, ProductPersonality, ProjectBYOKResponse, ProjectBYOKPatch, ProjectPersonalityResponse, ProjectPersonalityPatch, ProjectWorkflowResponse, ProjectWorkflowPatch } from '@cactai-io/types';
 export interface ProjectSettingsPanelProps {
     credentials: Partial<CredentialsRecord>;

@@ -29,6 +29,7 @@
     "@cactai-io/devshell": "file:./vendor/@cactai-io/devshell",
     "@supabase/supabase-js": "^2.43.0",
     "@supabase/ssr": "^0.5.0",
+    "pg": "^8.13.0",
     "html-to-image": "^1.11.13",
     "@babel/runtime": "^7.24.0",
     "next": "^15.0.0",
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.11.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tsx": "^4.11.0",
