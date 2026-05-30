@@ -36,6 +36,16 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [shell, setShell] = useState(null);
     const [sessionId, setSessionId] = useState(null);
     const [error, setError] = useState(null);
+    // Phase 2 — chat wiring. MUIShell's store is the source of truth for
+    // agent responses + streaming state. We subscribe in a second effect
+    // (after shell is set) and re-derive messages + streamingContent on
+    // every store update. User-side messages aren't tracked by MUIStore
+    // (the input router dispatches to the platform without first writing
+    // a local user-message entry); the chat panel inside DevShell renders
+    // user echoes from its own internal state when the input is submitted.
+    const [messages, setMessages] = useState([]);
+    const [streamingContent, setStreamingContent] = useState('');
+    const [agentState, setAgentState] = useState('idle');
     // One-shot session open + MUIShell.init. Runs once on mount per project.
     useEffect(() => {
         injectDevShellStyles();
@@ -87,6 +97,42 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, [cactaiBase, projectId, userId, userEmail]);
+    // Subscribe to MUIShell store once the shell is ready. The store
+    // notifies on every conversation update (agent message append, stream
+    // delta, pending toggle). We derive ChatMessage[] from the agent-
+    // response log and assemble streamingContent from the delta buffer.
+    useEffect(() => {
+        if (!shell)
+            return;
+        const store = shell.getStore();
+        const sync = () => {
+            const s = store.getState();
+            const agentMessages = s.conversation.messages
+                .filter(m => m.status === 'complete' && m.output?.text)
+                .map(m => ({
+                id: m.request_id,
+                role: 'agent',
+                content: m.output?.text ?? '',
+                timestamp: m.completed_at ?? new Date().toISOString(),
+            }));
+            setMessages(agentMessages);
+            setStreamingContent(s.conversation.streaming
+                ? s.conversation.stream_buffer.map(d => d.delta).join('')
+                : '');
+            // Coarse agent-state derivation for the character animation:
+            // streaming -> delivering, pending -> thinking, otherwise idle.
+            // Phase 3 will read morph_state from the platform's turn-events
+            // SSE for finer transitions (executing, awaiting_input).
+            const next = s.conversation.streaming
+                ? 'delivering'
+                : s.conversation.pending
+                    ? 'thinking'
+                    : 'idle';
+            setAgentState(next);
+        };
+        sync();
+        return store.subscribe(sync);
+    }, [shell]);
     if (error) {
         return (_jsxs("div", { style: {
                 height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -106,18 +152,17 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Phase 2. Comments tag each one with its planned source.
     const developerInitials = userEmail.slice(0, 2).toUpperCase();
     const developerName = userEmail;
-    const agentDisplayName = 'Ember'; // Phase 2: read from project personality
-    const agentState = 'idle';
-    const messages = []; // Phase 2: hook to MUIShell stream
-    const availableRoles = []; // Phase 2: build {role, label, session_id} list from tenant_members
-    const syncState = { branch: 'dev', synced: true }; // Phase 2: GET /api/git/status
-    const pendingFiles = []; // Phase 2: GET /api/git/pending
-    const treeNodes = []; // Phase 2: GET /api/git/tree
-    const decisions = {}; // Phase 2: GET /v1/projects/:id/workflow
-    const backlog = []; // Phase 2: GET /v1/projects/:id/backlog
-    const sprints = []; // Phase 2: GET /v1/projects/:id/sprints
-    const skills = []; // Phase 2: GET /v1/projects/:id/skills
-    return (_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, agentState: agentState, messages: messages, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async () => { }, treeNodes: treeNodes, onFileSelect: () => { }, onExitFileView: () => { }, workflowStep: "purpose_capture", decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
+    const agentDisplayName = 'Ember'; // Phase 2 (next): read from project personality
+    // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
+    const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
+    const syncState = { branch: 'dev', synced: true }; // Phase 3: GET /api/git/status
+    const pendingFiles = []; // Phase 3: GET /api/git/pending
+    const treeNodes = []; // Phase 3: GET /api/git/tree
+    const decisions = {}; // Phase 2 (next): GET /api/cactai/v1/projects/:id/workflow
+    const backlog = []; // Phase 2 (next): GET /api/cactai/v1/projects/:id/backlog
+    const sprints = []; // Phase 2 (next): GET /api/cactai/v1/projects/:id/sprints
+    const skills = []; // Phase 2 (next): GET /api/cactai/v1/projects/:id/skills
+    return (_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async () => { }, treeNodes: treeNodes, onFileSelect: () => { }, onExitFileView: () => { }, workflowStep: "purpose_capture", decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
             onOpenApp: () => { },
         }, buildProps: {
             tools: [],
