@@ -57,13 +57,17 @@ CREATE TABLE IF NOT EXISTS platform_roles (
   PRIMARY KEY (user_id, role)
 );
 ALTER TABLE platform_roles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY platform_roles_dev_read ON platform_roles FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM platform_roles pr
-      WHERE pr.user_id = auth.uid() AND pr.role = 'dev'
-    )
-  );
+-- Own-row read only. The previous policy was a recursive "you can read
+-- platform_roles if you have a dev row in platform_roles" which can never
+-- evaluate true: Postgres applies the same RLS to the policy's own
+-- subquery, so reading the row that proves you're a dev requires you
+-- to already be visible as a dev. getSessionUser would return null even
+-- for a real dev, and /dev would bounce to /auth/login. Own-row is the
+-- correct minimal grant — each user reads only their own roles, no
+-- recursion, no information disclosure.
+DROP POLICY IF EXISTS platform_roles_dev_read ON platform_roles;
+CREATE POLICY platform_roles_own_read ON platform_roles
+  FOR SELECT USING (user_id = auth.uid());
 
 -- ── Tenants ──────────────────────────────────────────────────────────────────
 
