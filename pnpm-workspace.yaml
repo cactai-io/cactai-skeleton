@@ -22,3 +22,19 @@ allowBuilds:
 # stays intact.
 minimumReleaseAgeExclude:
   - '@cactai-io/*'
+
+# Force every @cactai-io/* dep across the tree to track the same release
+# line. Without these overrides, the vendored devshell + mui packages pin
+# their own (older) @cactai-io/client versions via "^1.3.7"-style ranges,
+# and pnpm's lockfile preserves the older resolution even after a top-level
+# bump — leaving two copies of CactaiClient in the bundle. The vendored
+# devshell ends up using the stale copy, missing the fetch-binding fix and
+# any other forward-only change. Overrides force fresh re-resolution to the
+# range below for every transitive reference.
+overrides:
+  '@cactai-io/client':       '^1.3.10'
+  '@cactai-io/primitives':   '^1.3.10'
+  '@cactai-io/themes':       '^1.3.10'
+  '@cactai-io/types':        '^1.3.10'
+  '@cactai-io/shell-ui':     '^1.3.10'
+  '@cactai-io/brand-tokens': '^1.3.10'
