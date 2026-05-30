@@ -11,7 +11,7 @@ import React, { useEffect, useState } from 'react';
 interface Item {
   key:     string;
   label:   string;
-  scope:   'server' | 'public' | 'build';
+  scope:   'env' | 'byok';
   present: boolean;
 }
 
