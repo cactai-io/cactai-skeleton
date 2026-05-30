@@ -13,10 +13,15 @@ import { createServiceSupabaseClient } from '@/lib/supabase.server';
 // GET returns every project member with DevShell access (role IN
 // dev/collaborator). The DevShell settings panel renders the full list
 // so the project owner sees themselves alongside any invited
-// collaborators; created_at maps to accepted_at because a
+// collaborators; granted_at maps to accepted_at because a
 // platform_roles row only exists once the user has signed in for the
 // first time (no separate pending-invitation table on the customer DB
 // today). Shape matches @cactai-io/mui's CollaboratorRecord directly.
+//
+// Column note: platform_roles' timestamp column is `granted_at` (see
+// 0001_initial.sql), NOT `created_at`. An earlier version of this
+// route used `created_at` and 502'd every load with
+// "column platform_roles.created_at does not exist".
 export async function GET() {
   try {
     await requireDevRole();
@@ -24,9 +29,9 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('platform_roles')
-      .select('user_id, role, created_at, app_users(id, email, display_name)')
+      .select('user_id, role, granted_at, app_users(id, email, display_name)')
       .in('role', ['dev', 'collaborator'])
-      .order('created_at', { ascending: true });
+      .order('granted_at', { ascending: true });
 
     if (error) {
       return NextResponse.json({
@@ -38,7 +43,7 @@ export async function GET() {
     interface CollaboratorRow {
       user_id:    string;
       role:       string;
-      created_at: string;
+      granted_at: string;
       app_users:  { id: string; email: string; display_name: string | null }
                | { id: string; email: string; display_name: string | null }[]
                | null;
@@ -58,7 +63,7 @@ export async function GET() {
         role:         r.role,
         // No separate invitation flow today — row existence is
         // acceptance, so accepted_at mirrors the role-grant timestamp.
-        accepted_at:  r.created_at,
+        accepted_at:  r.granted_at,
         // Permissions surface — every role gets the same access today
         // (no per-row permission matrix yet). Returning the field
         // (rather than omitting it) keeps the panel's "Permissions"
