@@ -29,8 +29,16 @@ const ALLOWED_EXTENSIONS = new Set([
     'sql', 'prisma', 'graphql',
     'env', 'env.example',
 ]);
+// Image extensions get their own pipeline: read as base64 data URL,
+// preview as a thumbnail in the attached-files row. The agent receives
+// the filename as a content marker (proper multimodal — passing the
+// image bytes through to the LLM — still requires platform-side wiring
+// of structured content in inputRouter + turn handler).
+const IMAGE_EXTENSIONS = new Set([
+    'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp',
+]);
 const BINARY_EXTENSIONS = new Set([
-    'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'tiff',
+    'ico', 'tiff',
     'mp4', 'mov', 'avi', 'webm',
     'mp3', 'wav', 'ogg',
     'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
@@ -38,7 +46,8 @@ const BINARY_EXTENSIONS = new Set([
     'exe', 'dmg', 'pkg', 'deb',
     'woff', 'woff2', 'ttf', 'eot',
 ]);
-const MAX_FILE_SIZE = 100 * 1024; // 100KB
+const MAX_FILE_SIZE = 100 * 1024; // 100KB for text/code files
+const MAX_IMAGE_FILE_SIZE = 4 * 1024 * 1024; // 4MB for images
 const MAX_FILES_PER_TURN = 5;
 function getExtension(filename) {
     return filename.split('.').pop()?.toLowerCase() ?? '';
@@ -88,9 +97,16 @@ export function DevChatPanel({ shell, messages, agentState, character, agentDisp
         const trimmed = input.trim();
         if (!trimmed || sending || disabled)
             return;
-        // Build content — append file contents as code blocks
+        // Build content — append text file contents as code blocks; images
+        // get a filename marker (the agent sees the marker and can ask the
+        // user about it, even though the bytes don't yet travel through the
+        // single-string content path the platform turn handler accepts).
         let content = trimmed;
         for (const f of attachedFiles) {
+            if (f.kind === 'image') {
+                content += `\n\n[Attached image: ${f.name}]`;
+                continue;
+            }
             const ext = getExtension(f.name);
             content += `
 
@@ -132,12 +148,26 @@ ${f.content}
         const errors = [];
         for (const file of toProcess) {
             const ext = getExtension(file.name);
+            if (IMAGE_EXTENSIONS.has(ext)) {
+                if (file.size > MAX_IMAGE_FILE_SIZE) {
+                    errors.push(`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB — max image size is 4MB.`);
+                    continue;
+                }
+                try {
+                    const content = await readFileAsDataURL(file);
+                    newAttached.push({ name: file.name, content, size: file.size, kind: 'image' });
+                }
+                catch {
+                    errors.push(`${file.name}: could not read image.`);
+                }
+                continue;
+            }
             if (BINARY_EXTENSIONS.has(ext)) {
                 errors.push(`${file.name} is a binary file. Upload it directly to GitHub, then paste the path here.`);
                 continue;
             }
             if (!ALLOWED_EXTENSIONS.has(ext) && ext !== '') {
-                errors.push(`${file.name}: unrecognized file type. Only code files are supported.`);
+                errors.push(`${file.name}: unrecognized file type. Only code files and images are supported.`);
                 continue;
             }
             if (file.size > MAX_FILE_SIZE) {
@@ -146,7 +176,7 @@ ${f.content}
             }
             try {
                 const content = await readFileAsText(file);
-                newAttached.push({ name: file.name, content, size: file.size });
+                newAttached.push({ name: file.name, content, size: file.size, kind: 'text' });
             }
             catch {
                 errors.push(`${file.name}: could not read file.`);
@@ -167,12 +197,18 @@ ${f.content}
     const stateLabel = AGENT_STATE_LABELS[agentState] ?? 'idle';
     const placeholder = VIEW_PLACEHOLDERS[activeView];
     const canSend = input.trim().length > 0 && !sending && !disabled;
-    return (_jsxs("div", { className: `ds-chat ${className}`, style: style, "data-view": activeView, children: [_jsxs("div", { className: "ds-chat-header", children: [_jsx("div", { className: "ds-char-wrap", children: character ? (_jsx(CharacterRenderer, { character: character, mood: mood, size: 34 })) : (_jsx("span", { className: "ds-char-fallback", style: { width: 8, height: 8 } })) }), _jsxs("div", { className: "ds-agent-label", children: [_jsx("span", { className: "ds-agent-name", children: agentDisplayName }), _jsx("span", { className: "ds-agent-state-text", children: stateLabel })] }), _jsx("button", { className: "ds-chat-collapse", onClick: onCollapse, title: "Collapse chat", "aria-label": "Collapse chat panel", children: "\u2039" })] }), inspectorLabel && (_jsxs("div", { className: "ds-inspector-banner", children: [_jsx("span", { className: "ds-inspector-banner-dot" }), _jsx("span", { className: "ds-inspector-banner-label ds-mono", children: inspectorLabel }), _jsx("button", { className: "ds-inspector-banner-clear", onClick: onClearInspector, "aria-label": "Clear selection", children: "\u2715" })] })), _jsxs("div", { className: "ds-chat-body", ref: bodyRef, role: "log", "aria-live": "polite", children: [messages.map(msg => (_jsxs("div", { className: `ds-msg ${msg.role === 'agent' ? 'ds-msg-agent' : 'ds-msg-user'}`, children: [_jsx("div", { className: "ds-msg-author", children: msg.role === 'agent' ? agentDisplayName : 'You' }), _jsx("div", { className: "ds-msg-body", children: msg.content }), msg.classification && CLASSIFICATION_LABELS[msg.classification] && (_jsx("div", { className: `ds-msg-chip ds-chip-backlog`, children: CLASSIFICATION_LABELS[msg.classification] }))] }, msg.id))), streamingContent && (_jsxs("div", { className: "ds-msg ds-msg-agent ds-streaming-bubble", children: [_jsx("div", { className: "ds-msg-author", children: agentDisplayName }), _jsx("div", { className: "ds-msg-body", children: _jsx(StreamingText, { content: streamingContent }) })] })), (agentState === 'thinking' || agentState === 'executing') && !streamingContent && (_jsxs("div", { className: "ds-msg ds-msg-agent", children: [_jsx("div", { className: "ds-msg-author", children: agentDisplayName }), _jsx("div", { className: "ds-msg-body ds-text-3", children: _jsx(ThinkingDots, {}) })] }))] }), attachedFiles.length > 0 && (_jsx("div", { className: "ds-attach-list", children: attachedFiles.map(f => (_jsxs("div", { className: "ds-attach-pill", children: [_jsx("span", { className: "ds-mono", children: f.name }), _jsxs("span", { style: { color: 'var(--ds-text-3)', fontSize: 10 }, children: [(f.size / 1024).toFixed(0), "KB"] }), _jsx("button", { className: "ds-attach-remove", onClick: () => removeAttachment(f.name), "aria-label": `Remove ${f.name}`, children: "\u2715" })] }, f.name))) })), attachError && (_jsx("div", { style: {
+    return (_jsxs("div", { className: `ds-chat ${className}`, style: style, "data-view": activeView, children: [_jsxs("div", { className: "ds-chat-header", children: [_jsx("div", { className: "ds-char-wrap", children: character ? (_jsx(CharacterRenderer, { character: character, mood: mood, size: 34 })) : (_jsx("span", { className: "ds-char-fallback", style: { width: 8, height: 8 } })) }), _jsxs("div", { className: "ds-agent-label", children: [_jsx("span", { className: "ds-agent-name", children: agentDisplayName }), _jsx("span", { className: "ds-agent-state-text", children: stateLabel })] }), _jsx("button", { className: "ds-chat-collapse", onClick: onCollapse, title: "Collapse chat", "aria-label": "Collapse chat panel", children: "\u2039" })] }), inspectorLabel && (_jsxs("div", { className: "ds-inspector-banner", children: [_jsx("span", { className: "ds-inspector-banner-dot" }), _jsx("span", { className: "ds-inspector-banner-label ds-mono", children: inspectorLabel }), _jsx("button", { className: "ds-inspector-banner-clear", onClick: onClearInspector, "aria-label": "Clear selection", children: "\u2715" })] })), _jsxs("div", { className: "ds-chat-body", ref: bodyRef, role: "log", "aria-live": "polite", children: [messages.map(msg => (_jsxs("div", { className: `ds-msg ${msg.role === 'agent' ? 'ds-msg-agent' : 'ds-msg-user'}`, children: [_jsx("div", { className: "ds-msg-author", children: msg.role === 'agent' ? agentDisplayName : 'You' }), _jsx("div", { className: "ds-msg-body", children: msg.content }), msg.classification && CLASSIFICATION_LABELS[msg.classification] && (_jsx("div", { className: `ds-msg-chip ds-chip-backlog`, children: CLASSIFICATION_LABELS[msg.classification] }))] }, msg.id))), streamingContent && (_jsxs("div", { className: "ds-msg ds-msg-agent ds-streaming-bubble", children: [_jsx("div", { className: "ds-msg-author", children: agentDisplayName }), _jsx("div", { className: "ds-msg-body", children: _jsx(StreamingText, { content: streamingContent }) })] })), (agentState === 'thinking' || agentState === 'executing') && !streamingContent && (_jsxs("div", { className: "ds-msg ds-msg-agent", children: [_jsx("div", { className: "ds-msg-author", children: agentDisplayName }), _jsx("div", { className: "ds-msg-body ds-text-3", children: _jsx(ThinkingDots, {}) })] }))] }), attachedFiles.length > 0 && (_jsx("div", { className: "ds-attach-list", children: attachedFiles.map(f => (_jsxs("div", { className: "ds-attach-pill", children: [f.kind === 'image' && (_jsx("img", { src: f.content, alt: f.name, style: { width: 24, height: 24, objectFit: 'cover', borderRadius: 3, flexShrink: 0 } })), _jsx("span", { className: "ds-mono", children: f.name }), _jsx("span", { style: { color: 'var(--ds-text-3)', fontSize: 10 }, children: f.size > 1024 * 1024
+                                ? `${(f.size / 1024 / 1024).toFixed(1)}MB`
+                                : `${(f.size / 1024).toFixed(0)}KB` }), _jsx("button", { className: "ds-attach-remove", onClick: () => removeAttachment(f.name), "aria-label": `Remove ${f.name}`, children: "\u2715" })] }, f.name))) })), attachError && (_jsx("div", { style: {
                     padding: '6px 14px',
                     fontSize: 11,
                     color: 'var(--ds-orange)',
                     borderTop: '1px solid var(--ds-border-soft)',
-                }, children: attachError })), _jsx("div", { className: "ds-chat-input-area", children: _jsxs("div", { className: "ds-chat-input-shell", children: [_jsx("textarea", { ref: textareaRef, className: "ds-chat-textarea", placeholder: placeholder, value: input, onChange: e => setInput(e.target.value), onKeyDown: handleKeyDown, disabled: disabled || sending, rows: 1, "aria-label": "Chat input" }), _jsxs("div", { className: "ds-chat-input-actions", children: [_jsx("button", { className: "ds-attach-btn", onClick: () => fileInputRef.current?.click(), disabled: attachedFiles.length >= MAX_FILES_PER_TURN || disabled, title: "Attach code file (max 100KB, max 5 per message \u2014 code files only)", "aria-label": "Attach file", children: "+" }), _jsx("input", { ref: fileInputRef, type: "file", multiple: true, style: { display: 'none' }, onChange: handleFileSelect, accept: Array.from(ALLOWED_EXTENSIONS).map(e => `.${e}`).join(',') }), _jsxs("div", { className: "ds-input-meta", children: [_jsx("span", { className: "ds-input-hint", children: "\u23CE send" }), _jsx("button", { className: "ds-send-btn", onClick: handleSend, disabled: !canSend, "aria-label": "Send message", children: "\u2191" })] })] })] }) })] }));
+                }, children: attachError })), _jsx("div", { className: "ds-chat-input-area", children: _jsxs("div", { className: "ds-chat-input-shell", children: [_jsx("textarea", { ref: textareaRef, className: "ds-chat-textarea", placeholder: placeholder, value: input, onChange: e => setInput(e.target.value), onKeyDown: handleKeyDown, disabled: disabled || sending, rows: 1, "aria-label": "Chat input" }), _jsxs("div", { className: "ds-chat-input-actions", children: [_jsx("button", { className: "ds-attach-btn", onClick: () => fileInputRef.current?.click(), disabled: attachedFiles.length >= MAX_FILES_PER_TURN || disabled, title: "Attach code (max 100KB) or image (max 4MB) \u2014 max 5 per message", "aria-label": "Attach file", children: "+" }), _jsx("input", { ref: fileInputRef, type: "file", multiple: true, style: { display: 'none' }, onChange: handleFileSelect, accept: [
+                                        ...Array.from(ALLOWED_EXTENSIONS).map(e => `.${e}`),
+                                        ...Array.from(IMAGE_EXTENSIONS).map(e => `.${e}`),
+                                        'image/*',
+                                    ].join(',') }), _jsxs("div", { className: "ds-input-meta", children: [_jsx("span", { className: "ds-input-hint", children: "\u23CE send" }), _jsx("button", { className: "ds-send-btn", onClick: handleSend, disabled: !canSend, "aria-label": "Send message", children: "\u2191" })] })] })] }) })] }));
 }
 function ThinkingDots() {
     return (_jsx("span", { style: { display: 'inline-flex', gap: 3, alignItems: 'center', paddingTop: 2 }, children: [0, 1, 2].map(i => (_jsx("span", { style: {
@@ -213,6 +249,14 @@ function readFileAsText(file) {
         reader.onload = () => resolve(reader.result);
         reader.onerror = () => reject(new Error('Read failed'));
         reader.readAsText(file);
+    });
+}
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Read failed'));
+        reader.readAsDataURL(file);
     });
 }
 //# sourceMappingURL=DevChatPanel.js.map
