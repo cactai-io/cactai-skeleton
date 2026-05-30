@@ -76,19 +76,24 @@ export interface BuildPanelProps {
     onActivateSkill: (skillId: string) => void;
     onDeactivateSkill: (skillId: string) => void;
     onBuildOwn: (type: 'skill' | 'tool') => void;
-    /** Browse-tab data. */
-    items: MarketplaceItem[];
-    loading: boolean;
-    searchQuery: string;
-    onSearch: (q: string) => void;
-    onInstall: (itemId: string) => void;
-    onUninstall: (itemId: string) => void;
-    onPublish: () => void;
-    filterKind: 'all' | 'personality' | 'tool' | 'skill';
-    onFilterKind: (kind: BuildPanelProps['filterKind']) => void;
-    /** Optional initial tab. Defaults to 'installed'. The shell may pass
-     *  'browse' when the user landed here from a "Browse marketplace" link
-     *  elsewhere in the IDE. */
+    /** Browse-tab data. All marketplace props are optional. When `items`
+     *  is omitted, the BuildPanel renders the Installed view only — no
+     *  tab switcher, no "Browse marketplace" affordance. This is the v1
+     *  configuration while marketplace UI is deferred per
+     *  sprint-prioritization memo (dev-authored skills/tools → MCP →
+     *  marketplace). Reintroducing the Browse tab is a matter of
+     *  passing the marketplace props again. */
+    items?: MarketplaceItem[];
+    loading?: boolean;
+    searchQuery?: string;
+    onSearch?: (q: string) => void;
+    onInstall?: (itemId: string) => void;
+    onUninstall?: (itemId: string) => void;
+    onPublish?: () => void;
+    filterKind?: 'all' | 'personality' | 'tool' | 'skill';
+    onFilterKind?: (kind: NonNullable<BuildPanelProps['filterKind']>) => void;
+    /** Optional initial tab. Defaults to 'installed'. Only meaningful
+     *  when marketplace props are also provided. */
     initialTab?: 'installed' | 'browse';
 }
 export declare function BuildPanel({ skills, tools, onActivateSkill, onDeactivateSkill, onBuildOwn, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;

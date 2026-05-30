@@ -75,11 +75,6 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [schemaTables, setSchemaTables] = useState([]);
     const [migrations, setMigrations] = useState([]);
     const [supabaseProjectUrl, setSupabaseProjectUrl] = useState(undefined);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterKind, setFilterKind] = useState('all');
-    const [marketItems, setMarketItems] = useState([]);
-    const [marketLoading, setMarketLoading] = useState(false);
-    const [installedIds, setInstalledIds] = useState(new Set());
     const [fetchErrors, setFetchErrors] = useState({});
     // Record (or clear) a fetch error and emit a single console.warn line
     // so the customer-app browser console shows what failed. Stable
@@ -395,70 +390,12 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, [recordFetchError]);
-    // Marketplace browse — refetch when search / filter changes. The
-    // platform endpoint accepts q + kind query params. installed flag
-    // gets joined from /v1/installs. Errors per-source so a failing
-    // /installs doesn't poison the browse list (and vice-versa).
-    useEffect(() => {
-        let cancelled = false;
-        setMarketLoading(true);
-        (async () => {
-            try {
-                const params = new URLSearchParams();
-                if (searchQuery)
-                    params.set('q', searchQuery);
-                if (filterKind !== 'all')
-                    params.set('kind', filterKind);
-                const [browseRes, installRes] = await Promise.all([
-                    fetch(`${cactaiBase.replace(/\/$/, '')}/v1/marketplace?${params.toString()}`, { cache: 'no-store' }),
-                    fetch(`${cactaiBase.replace(/\/$/, '')}/v1/installs`, { cache: 'no-store' }),
-                ]);
-                if (cancelled)
-                    return;
-                let browseBody = { items: [] };
-                if (browseRes.ok) {
-                    browseBody = await browseRes.json();
-                    recordFetchError('marketplace', null);
-                }
-                else {
-                    const errBody = await browseRes.json().catch(() => ({}));
-                    recordFetchError('marketplace', { status: browseRes.status, code: errBody.error, detail: errBody.detail });
-                }
-                let installBody = { installs: [] };
-                if (installRes.ok) {
-                    installBody = await installRes.json();
-                    recordFetchError('installs', null);
-                }
-                else {
-                    const errBody = await installRes.json().catch(() => ({}));
-                    recordFetchError('installs', { status: installRes.status, code: errBody.error, detail: errBody.detail });
-                }
-                const installed = new Set((installBody.installs ?? []).map(i => i.item_id));
-                setInstalledIds(installed);
-                setMarketItems((browseBody.items ?? []).map(it => ({
-                    id: it.id,
-                    slug: it.slug,
-                    display_name: it.display_name,
-                    description: it.description ?? '',
-                    kind: it.kind,
-                    price_cents: it.price_usd_cents ?? 0,
-                    installed: installed.has(it.id),
-                    author: it.author_name ?? '',
-                    semver: it.latest_semver ?? '0.0.0',
-                })));
-            }
-            catch (err) {
-                // Network-level failure (DNS, offline, abort). Both sources
-                // share the same failure mode here; record once under marketplace.
-                recordFetchError('marketplace', { detail: err.message });
-            }
-            finally {
-                if (!cancelled)
-                    setMarketLoading(false);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [cactaiBase, searchQuery, filterKind, recordFetchError]);
+    // Marketplace browse + install fetches removed per sprint-prioritization
+    // memo. The platform endpoints (/v1/marketplace, /v1/installs,
+    // POST/DELETE /v1/marketplace/:id/install) remain in place server-side
+    // so reintroduction is a wrapper change + a single BuildPanel prop —
+    // no schema or contract work needed when MCP ships and we revisit
+    // marketplace. The BuildPanel renders Installed-only without these.
     // Settings panel data — per-source, polled every 10s. Each surface
     // (byok, personality, workflow, capabilities, credentials,
     // collaborators) is fetched directly from the skeleton's
@@ -678,70 +615,22 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             setCapabilityConfig(body.config ?? null);
                         }
                     },
-                    // Build-my-own: route the request into the agent. The agent then
-                    // walks the developer through the scaffold (purpose, interface,
-                    // capabilities), generates a draft, and stages files into
-                    // pending_files. A dedicated wizard surface can replace this
-                    // later, but the chat-driven flow ships value immediately.
+                    // Build-my-own routes the request into the chat for now — the
+                    // agent walks the developer through the scaffold (purpose,
+                    // interface, capabilities) and stages files into pending_files.
+                    // A dedicated authoring surface is on the v1 roadmap per the
+                    // sprint-prioritization memo.
                     onBuildOwn: (type) => {
                         void shell?.submitInput(type === 'skill'
                             ? 'Help me build a new skill. Walk me through what it should do and scaffold it into the repo.'
                             : 'Help me build a new tool. Walk me through what it should do and scaffold it into the repo.');
                     },
-                    items: marketItems,
-                    loading: marketLoading,
-                    searchQuery,
-                    onSearch: (q) => setSearchQuery(q),
-                    onInstall: async (itemId) => {
-                        // POST /v1/marketplace/:id/install. The platform records the
-                        // install and (for skills) flips the SkillRegistry so the next
-                        // turn can reference the new component. Non-OK is surfaced via
-                        // recordFetchError so a silent install failure no longer looks
-                        // like a successful one.
-                        const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/marketplace/${itemId}/install`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                        });
-                        if (res.ok) {
-                            setInstalledIds(prev => new Set(prev).add(itemId));
-                            setMarketItems(prev => prev.map(i => i.id === itemId ? { ...i, installed: true } : i));
-                            recordFetchError('install_post', null);
-                        }
-                        else {
-                            const body = await res.json().catch(() => ({}));
-                            recordFetchError('install_post', { status: res.status, code: body.error, detail: body.detail });
-                        }
-                    },
-                    // DELETE /v1/marketplace/:id/install — soft-uninstall on the
-                    // shared marketplace_installs table. The install row stays
-                    // (stamped uninstalled_at) so a future reinstall doesn't
-                    // re-bill paid items. Optimistic local state flip + rollback
-                    // on failure.
-                    onUninstall: async (itemId) => {
-                        setInstalledIds(prev => {
-                            const next = new Set(prev);
-                            next.delete(itemId);
-                            return next;
-                        });
-                        setMarketItems(prev => prev.map(i => i.id === itemId ? { ...i, installed: false } : i));
-                        const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/marketplace/${itemId}/install`, {
-                            method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' },
-                        });
-                        if (!res.ok) {
-                            // Roll back.
-                            setInstalledIds(prev => new Set(prev).add(itemId));
-                            setMarketItems(prev => prev.map(i => i.id === itemId ? { ...i, installed: true } : i));
-                            const body = await res.json().catch(() => ({}));
-                            recordFetchError('install_post', { status: res.status, code: body.error ?? 'uninstall_failed', detail: body.detail });
-                        }
-                    },
-                    // Publish flow lives on the marketplace storefront (auth via the
-                    // cactai.io SSO cookie). Open it in a new tab; the storefront's
-                    // /publish form recognises the signed-in developer.
-                    onPublish: () => { window.open('https://marketplace.cactai.io/publish', '_blank', 'noopener,noreferrer'); },
-                    filterKind,
-                    onFilterKind: (k) => setFilterKind(k),
+                    // No marketplace props passed — BuildPanel renders Installed-only
+                    // (the v1 surface for dev-authored skills + tools). When MCP
+                    // ships, we revisit; when marketplace ships, items / loading /
+                    // searchQuery / onSearch / onInstall / onUninstall / onPublish /
+                    // filterKind / onFilterKind get re-passed and BuildPanel
+                    // automatically re-renders its Browse tab.
                 }, skills: skills, schemaProps: {
                     tables: schemaTables,
                     migrations: migrations,
