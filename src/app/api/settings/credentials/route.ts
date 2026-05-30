@@ -12,6 +12,56 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireDevRole } from '@/lib/auth';
 import { createServiceSupabaseClient } from '@/lib/supabase.server';
 
+// GET returns the per-app credential metadata previously written via
+// POST. Keys live in project_state.decisions under the `credential.*`
+// namespace. The panel only needs to know whether each canonical
+// CredentialsRecord field is set — it renders masked dots on presence
+// and "Not set" on absence — so this route just projects the stored
+// keys back into a flat record.
+//
+// Pre-fix: this route only defined POST, so the DevShell settings
+// panel's per-source fetch got 405 on every load and the Credentials
+// section never populated. Added GET to match the other per-source
+// settings routes (byok / personality / workflow / capabilities).
+export async function GET() {
+  try {
+    await requireDevRole();
+    const supabase = createServiceSupabaseClient();
+    const projectId = endpoints.projectId;
+
+    const { data, error } = await supabase
+      .from('project_state')
+      .select('decisions')
+      .eq('project_id', projectId)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({
+        error:  'credentials_load_failed',
+        detail: error.message,
+      }, { status: 502 });
+    }
+
+    const decisions = (data?.decisions ?? {}) as Record<string, unknown>;
+    const credentials: Record<string, string> = {};
+    for (const [k, v] of Object.entries(decisions)) {
+      if (!k.startsWith('credential.')) continue;
+      const name  = k.slice('credential.'.length);
+      const value = (v && typeof v === 'object' && 'value' in (v as Record<string, unknown>))
+        ? String((v as { value: unknown }).value ?? '')
+        : '';
+      if (value) credentials[name] = value;
+    }
+
+    return NextResponse.json({ credentials });
+  } catch (err) {
+    return NextResponse.json({
+      error:  'credentials_internal',
+      detail: err instanceof Error ? err.message : 'unknown',
+    }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await requireDevRole();
