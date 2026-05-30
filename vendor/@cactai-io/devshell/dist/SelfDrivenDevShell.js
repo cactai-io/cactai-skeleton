@@ -55,6 +55,17 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [decisions, setDecisions] = useState({});
     const [backlog, setBacklog] = useState([]);
     const [sprints, setSprints] = useState([]);
+    // Phase 3a — file tree from the customer's GitHub repo via skeleton-
+    // side /api/git/tree (uses GITHUB_TOKEN server-side). Loaded once on
+    // mount; refreshed after each commit.
+    const [treeNodes, setTreeNodes] = useState([]);
+    const [activeFilePath, setActiveFilePath] = useState(undefined);
+    const [fileContent, setFileContent] = useState(null);
+    const [fileLoading, setFileLoading] = useState(false);
+    // Phase 3d — customer DB schema introspection. Loaded once on mount;
+    // not polled because schema rarely changes mid-session and the agent
+    // would surface a refresh prompt when migrations land.
+    const [schemaTables, setSchemaTables] = useState([]);
     // One-shot session open + MUIShell.init. Runs once on mount per project.
     useEffect(() => {
         injectDevShellStyles();
@@ -172,6 +183,66 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         const interval = setInterval(tick, 5000);
         return () => { cancelled = true; clearInterval(interval); };
     }, [cactaiBase, projectId]);
+    // Phase 3a — file tree: fetched once on mount. The skeleton route
+    // hits GitHub's trees API server-side with GITHUB_TOKEN, so no
+    // credential ever reaches the browser. Branch defaults to 'dev'.
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            try {
+                const res = await fetch('/api/git/tree?branch=dev', { cache: 'no-store' });
+                if (!res.ok)
+                    return;
+                const body = await res.json();
+                if (!cancelled)
+                    setTreeNodes(body.tree ?? []);
+            }
+            catch { /* transient — user can re-open the file panel to retry */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+    const onFileSelect = async (path) => {
+        setActiveFilePath(path);
+        setFileLoading(true);
+        setFileContent(null);
+        try {
+            const res = await fetch(`/api/git/file?branch=dev&path=${encodeURIComponent(path)}`, {
+                cache: 'no-store',
+            });
+            if (!res.ok) {
+                setFileContent(`// Could not load ${path} (HTTP ${res.status})`);
+                return;
+            }
+            const body = await res.json();
+            setFileContent(body.content ?? '');
+        }
+        catch (e) {
+            setFileContent(`// Could not load ${path}: ${e.message}`);
+        }
+        finally {
+            setFileLoading(false);
+        }
+    };
+    const onExitFileView = () => {
+        setActiveFilePath(undefined);
+        setFileContent(null);
+    };
+    // Phase 3d — customer DB schema, fetched once on mount.
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            try {
+                const res = await fetch('/api/db/schema', { cache: 'no-store' });
+                if (!res.ok)
+                    return;
+                const body = await res.json();
+                if (!cancelled)
+                    setSchemaTables(body.tables ?? []);
+            }
+            catch { /* transient */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
     if (error) {
         return (_jsxs("div", { style: {
                 height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -194,15 +265,37 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const agentDisplayName = 'Ember'; // Phase 2 (next): read from project personality
     // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
     const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
-    const syncState = { branch: 'dev', synced: true }; // Phase 3: GET /api/git/status
-    const pendingFiles = []; // Phase 3: GET /api/git/pending
-    const treeNodes = []; // Phase 3: GET /api/git/tree
+    const syncState = { branch: 'dev', synced: true }; // Phase 3b: derived from pendingFiles count
+    const pendingFiles = []; // Phase 3b: GET /api/git/pending
     // decisions / backlog / sprints / workflowStep are stateful (set by
     // the polling effect above).
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
-    return (_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async () => { }, treeNodes: treeNodes, onFileSelect: () => { }, onExitFileView: () => { }, workflowStep: "purpose_capture", decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
+    return (_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+            // Phase 3b — POST /api/git/commit. paths is the list of changed
+            // files from the staging layer; the commit route stages each via
+            // GitHub's Git Data API + creates one commit + moves the
+            // dev-branch ref. Content for each path must come from the
+            // staging layer — Phase 3b-2 will wire a pending-files store
+            // that the DevShell maintains for staged edits.
+            await fetch('/api/git/commit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    branch: 'dev',
+                    message: opts?.message ?? `DevShell: update ${paths.length} file(s)`,
+                    files: paths.map(p => ({ path: p, operation: 'update', content: '' })),
+                    reverts_sha: opts?.reverts_sha,
+                }),
+            });
+            // Refresh file tree so the new commit's tree is reflected.
+            const r = await fetch('/api/git/tree?branch=dev', { cache: 'no-store' });
+            if (r.ok) {
+                const b = await r.json();
+                setTreeNodes(b.tree ?? []);
+            }
+        }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: "purpose_capture", decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
             onOpenApp: () => { },
         }, buildProps: {
             tools: [],
@@ -219,7 +312,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             filterKind: 'all',
             onFilterKind: () => { },
         }, skills: skills, schemaProps: {
-            tables: [],
+            tables: schemaTables,
             migrations: [],
             onAddTable: () => { },
             onEditTable: () => { },
