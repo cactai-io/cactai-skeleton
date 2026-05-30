@@ -109,6 +109,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [capabilityCat, setCapabilityCat] = useState([]);
     const [credentialsState, setCredentialsState] = useState(null);
     const [collaborators, setCollaborators] = useState([]);
+    // Tracks whether we've already reconciled the local SkillRegistry's
+    // active flags against persisted capability_config_v2.appshell. Done
+    // once per (shell, config) pair so refresh doesn't fight in-session
+    // toggle changes.
+    const registryReconciled = React.useRef(null);
     // One-shot session open + MUIShell.init. Runs once on mount per project.
     useEffect(() => {
         injectDevShellStyles();
@@ -160,6 +165,45 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, [cactaiBase, projectId, userId, userEmail]);
+    // Reconcile the local SkillRegistry against persisted appshell
+    // capability_config once both are loaded. Without this step, the
+    // BuildPanel's "active" badge starts blank on every page refresh
+    // because MUIShell.init only seeds active flags from SDK defaults —
+    // it has no knowledge of the customer's persisted preferences.
+    // Reconciliation walks the catalogue: every skill that's enabled
+    // in appshell.enabled gets activated locally; others get deactivated.
+    // The defaults_by_category map wins ties when multiple skills share
+    // an artifact_type (it pins one as the canonical default).
+    useEffect(() => {
+        if (!shell || !capabilityConfig)
+            return;
+        // Idempotency: re-run when either the shell instance or the config
+        // identity changes, but not on every state tick.
+        const sig = registryReconciled.current;
+        if (sig && sig.shell === shell && sig.configRev === capabilityConfig)
+            return;
+        const appshell = capabilityConfig.appshell ?? { enabled: {}, defaults_by_category: {} };
+        const enabledMap = appshell.enabled ?? {};
+        const defaultsMap = appshell.defaults_by_category ?? {};
+        // Phase 1: apply explicit enables/disables. Skip items the developer
+        // hasn't touched (no entry in enabled map) — those follow SDK defaults
+        // already set by MUIShell.init.
+        for (const [id, enabled] of Object.entries(enabledMap)) {
+            if (enabled)
+                shell.activateSkill(id);
+            else
+                shell.deactivateSkill(id);
+        }
+        // Phase 2: pin each category's default. activateSkill auto-
+        // deactivates siblings of the same artifact_type, so this only
+        // matters when multiple skills share a type AND the developer
+        // wants a specific one as canonical.
+        for (const defaultId of Object.values(defaultsMap)) {
+            if (typeof defaultId === 'string' && defaultId)
+                shell.activateSkill(defaultId);
+        }
+        registryReconciled.current = { shell, configRev: capabilityConfig };
+    }, [shell, capabilityConfig]);
     // Subscribe to MUIShell store once the shell is ready. The store
     // notifies on every conversation update (agent message append, stream
     // delta, pending toggle). We derive ChatMessage[] from the agent-
@@ -569,20 +613,25 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     // settings panel optimistically by re-fetching after success
                     // (the existing 10s settings poll picks it up regardless;
                     // explicit refresh is just snappier).
-                    // Skill enable/disable writes through the same skeleton route
-                    // as the settings tab's CapabilityListPanel — same source of
-                    // truth (project_state.decisions.capability_config_v2.devshell.
-                    // enabled), same platform-side cache invalidation push so the
-                    // very next agent turn sees the change. Local MUIShell registry
-                    // mirrors the server state for instant UI reflection; the
-                    // settings 10s tick reconciles drift.
+                    // Skill enable/disable writes to APPSHELL scope, not devshell.
+                    // The skeleton's capabilities route documents devshell.enabled
+                    // as a no-op ("Devshell never hides anything from itself");
+                    // the meaningful target is appshell.enabled which controls
+                    // whether the deployed app's MUI runtime sees the skill.
+                    //
+                    // See memory: skill-state-source-of-truth.md — the panel's
+                    // "active" badge reads a separate local SkillRegistry flag
+                    // that has no persistence layer today. Until MUIShell.init
+                    // bootstraps the registry from capability_config, refresh
+                    // wipes that badge. Resolving that is part of the launch
+                    // decision logged in the memo.
                     onActivateSkill: async (skillId) => {
                         const prev = capabilityConfig;
                         shell?.activateSkill(skillId);
                         const res = await fetch('/api/settings/capabilities', {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ scope: 'devshell', set_enabled: { id: skillId, enabled: true } }),
+                            body: JSON.stringify({ scope: 'appshell', set_enabled: { id: skillId, enabled: true } }),
                         });
                         if (!res.ok) {
                             shell?.deactivateSkill(skillId);
@@ -605,7 +654,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         const res = await fetch('/api/settings/capabilities', {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ scope: 'devshell', set_enabled: { id: skillId, enabled: false } }),
+                            body: JSON.stringify({ scope: 'appshell', set_enabled: { id: skillId, enabled: false } }),
                         });
                         if (!res.ok) {
                             shell?.activateSkill(skillId);
