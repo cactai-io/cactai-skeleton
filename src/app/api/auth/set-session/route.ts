@@ -1,21 +1,25 @@
 // src/app/api/auth/set-session/route.ts
 //
 // Server-side session installer. Receives Supabase access + refresh tokens
-// from the client (extracted from the implicit-flow magic-link hash fragment),
-// calls supabase.auth.setSession(), and lets @supabase/ssr write the SSR
-// session cookies via response Set-Cookie headers.
+// via form-encoded POST (from the /auth/handoff client page), calls
+// supabase.auth.setSession() server-side, and lets @supabase/ssr write
+// the SSR session cookies via response Set-Cookie headers — then RETURNS
+// A 303 REDIRECT to the next path so the browser follows it with the
+// cookies attached, atomically.
 //
-// Why this exists: doing setSession() purely client-side (via createBrowserClient
-// + document.cookie writes) is racy. The cookie write is asynchronous, and
-// window.location.replace() can fire before the cookies are committed,
-// causing the next request's server-side middleware to see no session and
-// bounce the user to /auth/login. Routing the tokens through this server
-// endpoint guarantees the cookies are set via response headers — the browser
-// stores them before the response completes, so the subsequent navigation
-// is guaranteed to carry an authenticated session.
+// Why form POST + 303 (not fetch + JSON + window.location.replace):
+// the fetch+navigate pattern has a race — the browser stores Set-Cookie
+// asynchronously, and window.location.replace can fire before the cookies
+// are committed to the jar. The next request lands without a session and
+// /dev/layout's requireAuth bounces to /auth/login.
+//
+// Form POST with a 303 redirect bypasses the race entirely: the browser's
+// redirect-follow uses the cookies set on the SAME response, guaranteed
+// in order. This is the canonical pattern for OAuth-style cookie handoffs.
 //
 // Auth: none required. The tokens themselves are the proof of identity;
-// invalid tokens fail setSession() and we return 400.
+// invalid tokens fail setSession() and we redirect back to /auth/login
+// with an error so the caller can see what went wrong.
 //
 // Middleware: /api/auth/* is exempt from the preview-bounce in middleware.ts.
 
@@ -25,17 +29,41 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { endpoints } from '@/lib/endpoints';
 
 export async function POST(req: Request) {
-  let body: { access_token?: string; refresh_token?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
+  // Accept both form-encoded (canonical, used by /auth/handoff's form
+  // submit) and JSON (legacy fallback for any caller still posting JSON).
+  let access_token  = '';
+  let refresh_token = '';
+  let next          = '/dev';
+
+  const ctype = req.headers.get('content-type') ?? '';
+  if (ctype.includes('application/json')) {
+    try {
+      const body = await req.json() as { access_token?: string; refresh_token?: string; next?: string };
+      access_token  = body.access_token  ?? '';
+      refresh_token = body.refresh_token ?? '';
+      next          = body.next          ?? '/dev';
+    } catch {
+      return NextResponse.redirect(new URL('/auth/login?error=invalid_body', req.url), { status: 303 });
+    }
+  } else {
+    const form = await req.formData().catch(() => null);
+    if (!form) {
+      return NextResponse.redirect(new URL('/auth/login?error=invalid_body', req.url), { status: 303 });
+    }
+    access_token  = (form.get('access_token')  as string | null) ?? '';
+    refresh_token = (form.get('refresh_token') as string | null) ?? '';
+    next          = (form.get('next')          as string | null) ?? '/dev';
   }
 
-  const { access_token, refresh_token } = body;
-  if (typeof access_token !== 'string' || typeof refresh_token !== 'string'
-      || !access_token || !refresh_token) {
-    return NextResponse.json({ error: 'missing_tokens' }, { status: 400 });
+  if (!access_token || !refresh_token) {
+    return NextResponse.redirect(new URL('/auth/login?error=missing_tokens', req.url), { status: 303 });
+  }
+
+  // Constrain `next` to same-origin paths so an attacker can't craft a
+  // POST that redirects the user off-site after a successful session
+  // install. Only allow paths beginning with a single `/` and no `//`.
+  if (!next.startsWith('/') || next.startsWith('//')) {
+    next = '/dev';
   }
 
   const cookieStore = await cookies();
@@ -58,8 +86,15 @@ export async function POST(req: Request) {
 
   const { error } = await supabase.auth.setSession({ access_token, refresh_token });
   if (error) {
-    return NextResponse.json({ error: 'setSession_failed', detail: error.message }, { status: 400 });
+    console.error('[set-session] setSession failed:', error.message);
+    return NextResponse.redirect(
+      new URL(`/auth/login?error=set_session_failed&detail=${encodeURIComponent(error.message)}`, req.url),
+      { status: 303 },
+    );
   }
 
-  return NextResponse.json({ ok: true });
+  // 303 so the browser follows with a GET (regardless of the original
+  // POST method) — and crucially carries the cookies just set in this
+  // response on the very next request.
+  return NextResponse.redirect(new URL(next, req.url), { status: 303 });
 }

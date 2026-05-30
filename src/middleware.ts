@@ -59,10 +59,19 @@ export async function middleware(request: NextRequest) {
   // time.
   if (process.env.VERCEL_ENV === 'preview' && !user) {
     const path = request.nextUrl.pathname;
+    // Only the auth-bridge routes are exempt from the bounce. /auth/login,
+    // /auth/signup etc. should NEVER render on a preview deploy — preview
+    // is the developer's DevShell surface, not the customer-facing app, so
+    // landing on a customer login page from preview is always wrong. If
+    // session install fails (e.g. /api/preview-auth couldn't grant the
+    // dev role), bouncing back through devshell-redirect at least makes
+    // the failure visible (it surfaces the platform's 500 with the upsert
+    // error) instead of silently dropping the dev on the customer login.
     const isExempt =
-      path.startsWith('/api/preview-auth') ||
-      path.startsWith('/auth') ||
-      path.startsWith('/api/auth') ||
+      path.startsWith('/api/preview-auth') ||  // inbound handoff token + token consume
+      path.startsWith('/api/auth')         ||  // /api/auth/set-session install
+      path.startsWith('/auth/handoff')     ||  // implicit-flow hash bridge
+      path.startsWith('/auth/callback')    ||  // PKCE flow bridge
       path === '/favicon.ico';
     if (!isExempt) {
       const dashboardBounce =

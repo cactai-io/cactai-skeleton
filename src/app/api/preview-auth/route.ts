@@ -131,28 +131,58 @@ export async function GET(req: Request) {
   // session, plus an app_users row so any RLS that joins app_users sees
   // them. The platform-side customer-bootstrap intentionally does NOT
   // pre-seed these rows — first sign-in (this path OR the production
-  // OAuth callback) is what materialises them. ON CONFLICT DO NOTHING
-  // keeps it idempotent across multiple DevShell opens.
-  if (authUserId) {
-    try {
-      const { error: auError } = await admin
-        .from('app_users')
-        .upsert(
-          { id: authUserId, email: consumed.developer_email },
-          { onConflict: 'id' },
-        );
-      if (auError) console.warn('[preview-auth] app_users upsert error:', auError.message);
-
-      const { error: prError } = await admin
-        .from('platform_roles')
-        .upsert(
-          { user_id: authUserId, role: 'dev' },
-          { onConflict: 'user_id,role' },
-        );
-      if (prError) console.warn('[preview-auth] platform_roles upsert error:', prError.message);
-    } catch (err) {
-      console.warn('[preview-auth] role-grant threw:', (err as Error).message);
+  // OAuth callback) is what materialises them.
+  //
+  // FAIL LOUDLY: if either upsert fails, the developer's session will
+  // exist in auth.users but they'll have no platform_roles row, and
+  // /dev/layout's requireDevRole -> requireAuth will silently bounce
+  // them to /auth/login (because getSessionUser returns null when there
+  // are no role / tenant rows, regardless of whether the JWT is valid).
+  // Returning a 500 here surfaces the real cause (most often: schema
+  // not fully applied, or platform_roles RLS rejecting the service-role
+  // write) instead of leaving the developer at a confusing login page.
+  if (!authUserId) {
+    return new NextResponse(
+      'Could not resolve auth user id from createUser or listUsers — cannot grant dev role.',
+      { status: 500 },
+    );
+  }
+  try {
+    const { error: auError } = await admin
+      .from('app_users')
+      .upsert(
+        { id: authUserId, email: consumed.developer_email },
+        { onConflict: 'id' },
+      );
+    if (auError) {
+      console.error('[preview-auth] app_users upsert FAILED:', auError);
+      return new NextResponse(
+        `Could not seed app_users row for developer (${consumed.developer_email}): ${auError.message}. ` +
+        `Check the customer Supabase schema — the app_users table must exist and be writable by the service role.`,
+        { status: 500 },
+      );
     }
+
+    const { error: prError } = await admin
+      .from('platform_roles')
+      .upsert(
+        { user_id: authUserId, role: 'dev' },
+        { onConflict: 'user_id,role' },
+      );
+    if (prError) {
+      console.error('[preview-auth] platform_roles upsert FAILED:', prError);
+      return new NextResponse(
+        `Could not grant dev role to developer (${consumed.developer_email}): ${prError.message}. ` +
+        `Check the customer Supabase schema — the platform_roles table must exist with a unique constraint on (user_id, role) and be writable by the service role.`,
+        { status: 500 },
+      );
+    }
+  } catch (err) {
+    console.error('[preview-auth] role-grant THREW:', err);
+    return new NextResponse(
+      `Role grant threw: ${(err as Error).message}`,
+      { status: 500 },
+    );
   }
 
   // Mint a magic link with redirect_to pointing at /auth/handoff.

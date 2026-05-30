@@ -5,69 +5,51 @@
 // magic-link verify returns to this page with the session tokens in the
 // URL hash fragment (#access_token=...&refresh_token=...) — fragments
 // never reach the server, so a route handler can't see them. We read
-// the hash client-side, POST the tokens to /api/auth/set-session (which
-// installs them via Set-Cookie response headers, NOT document.cookie),
-// then full-reload to /dev so middleware picks up the new cookies.
+// the hash client-side, then submit a hidden HTML form that POSTs the
+// tokens to /api/auth/set-session.
 //
-// Why route through the server: doing setSession() purely on the client
-// via createBrowserClient writes cookies via document.cookie, which is
-// asynchronous — window.location.replace() can fire before the cookies
-// commit, the next request sees no session, and the user gets bounced
-// to /auth/login. Routing through the server endpoint guarantees the
-// Set-Cookie headers are processed by the browser before the response
-// completes, so the subsequent navigation carries an authenticated
-// session reliably.
-//
-// PKCE flow uses /auth/callback?code=... instead and works server-side.
-// Admin-initiated magic links currently come back implicit, so this
-// page exists specifically for that path.
+// Why a form submit (not fetch + window.location.replace): the form's
+// POST → 303 redirect chain is atomic — the browser stores the cookies
+// from the response's Set-Cookie headers AND follows the 303 to the
+// next URL on the same response cycle, with the cookies attached. A
+// fetch + window.location.replace pattern races: fetch resolves before
+// the browser has committed Set-Cookie to the jar, so the next request
+// (from replace) can land without a session.
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function PreviewAuthHandoff() {
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr]   = useState<string | null>(null);
+  const formRef         = useRef<HTMLFormElement>(null);
+  const accessRef       = useRef<HTMLInputElement>(null);
+  const refreshRef      = useRef<HTMLInputElement>(null);
+  const nextRef         = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    (async () => {
-      // Tokens arrive in window.location.hash (#access_token=...&refresh_token=...&type=magiclink&...).
-      const hash = typeof window !== 'undefined' && window.location.hash.startsWith('#')
-        ? window.location.hash.slice(1) : '';
-      const hashParams = new URLSearchParams(hash);
-      const access_token  = hashParams.get('access_token');
-      const refresh_token = hashParams.get('refresh_token');
+    const hash = typeof window !== 'undefined' && window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1) : '';
+    const hashParams    = new URLSearchParams(hash);
+    const access_token  = hashParams.get('access_token');
+    const refresh_token = hashParams.get('refresh_token');
 
-      if (!access_token || !refresh_token) {
-        setErr('No session tokens in URL — magic link may have expired or been malformed.');
-        return;
-      }
+    if (!access_token || !refresh_token) {
+      setErr('No session tokens in URL — magic link may have expired or been malformed.');
+      return;
+    }
 
-      // Server-side cookie install. The route uses createServerClient +
-      // cookies() from next/headers to write Set-Cookie headers; the
-      // browser commits them before this fetch resolves.
-      const res = await fetch('/api/auth/set-session', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ access_token, refresh_token }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ detail: `status_${res.status}` })) as { detail?: string; error?: string };
-        setErr(`Could not set session: ${body.detail ?? body.error ?? `HTTP ${res.status}`}`);
-        return;
-      }
+    const qs   = new URLSearchParams(window.location.search);
+    const next = qs.get('next') || '/dev';
 
-      // Where to send the user after sign-in. Defaults to /dev for the
-      // preview-auth flow but accepts ?next= so other handoffs can reuse
-      // this page.
-      const qs   = new URLSearchParams(window.location.search);
-      const next = qs.get('next') || '/dev';
+    if (accessRef.current)  accessRef.current.value  = access_token;
+    if (refreshRef.current) refreshRef.current.value = refresh_token;
+    if (nextRef.current)    nextRef.current.value    = next;
 
-      // Full reload (NOT a router.push) so the next request carries the
-      // freshly-written Supabase cookies and middleware sees an
-      // authenticated session.
-      window.location.replace(next);
-    })();
+    // Auto-submit the hidden form. The server's 303 response navigates
+    // the top-level frame to `next`, carrying the cookies set on the
+    // same response.
+    formRef.current?.submit();
   }, []);
 
   if (err) {
@@ -92,6 +74,17 @@ export default function PreviewAuthHandoff() {
       color: '#888', textAlign: 'center',
     }}>
       Signing you in…
+      <form
+        ref={formRef}
+        action="/api/auth/set-session"
+        method="POST"
+        encType="application/x-www-form-urlencoded"
+        style={{ display: 'none' }}
+      >
+        <input ref={accessRef}  type="hidden" name="access_token"  />
+        <input ref={refreshRef} type="hidden" name="refresh_token" />
+        <input ref={nextRef}    type="hidden" name="next"          />
+      </form>
     </div>
   );
 }
