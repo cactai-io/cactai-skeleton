@@ -416,7 +416,16 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             tools: [],
             onActivateSkill: () => { },
             onDeactivateSkill: () => { },
-            onBuildOwn: () => { },
+            // Build-my-own: route the request into the agent. The agent then
+            // walks the developer through the scaffold (purpose, interface,
+            // capabilities), generates a draft, and stages files into
+            // pending_files. A dedicated wizard surface can replace this
+            // later, but the chat-driven flow ships value immediately.
+            onBuildOwn: (type) => {
+                void shell?.submitInput(type === 'skill'
+                    ? 'Help me build a new skill. Walk me through what it should do and scaffold it into the repo.'
+                    : 'Help me build a new tool. Walk me through what it should do and scaffold it into the repo.');
+            },
             items: marketItems,
             loading: marketLoading,
             searchQuery,
@@ -435,7 +444,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 }
             },
             onUninstall: () => { },
-            onPublish: () => { },
+            // Publish flow lives on the marketplace storefront (auth via the
+            // cactai.io SSO cookie). Open it in a new tab; the storefront's
+            // /publish form recognises the signed-in developer.
+            onPublish: () => { window.open('https://marketplace.cactai.io/publish', '_blank', 'noopener,noreferrer'); },
             filterKind,
             onFilterKind: (k) => setFilterKind(k),
         }, skills: skills, schemaProps: {
