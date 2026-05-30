@@ -80,7 +80,16 @@ export const DevShellWithThumbnail: React.FC<Props> = (props) => {
       userRole={props.userRole}
       allRoles={props.allRoles}
       endpoints={{
-        cactaiBase: props.cactaiBase,
+        // Same-origin proxy. DevShell's CactaiClient hits
+        // /api/cactai/v1/shell/... and the server-side route attaches
+        // the CACTAI_API_KEY Bearer + forwards to the real platform.
+        // Direct cross-origin calls to api.cactai.io would fail CORS
+        // (no Allow-Credentials for *.vercel.app origins) and 401
+        // (CactaiClient sends no Bearer when no api_key is configured).
+        // The thumbnail capture above uses the real cactaiBase
+        // because /v1/project-thumbnails/* is permissive-CORS'd and
+        // takes the project_id as the credential.
+        cactaiBase: '/api/cactai',
         projectId:  props.projectId,
       }}
       preferencesHref="/dev/preferences"
