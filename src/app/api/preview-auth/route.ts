@@ -177,8 +177,22 @@ export async function GET(req: Request) {
     options: { redirectTo },
   });
   if (linkRes.error || !linkRes.data?.properties?.action_link) {
-    console.error('[preview-auth] generateLink failed:', linkRes.error?.message);
-    return new NextResponse('Could not mint session link', { status: 500 });
+    const detail = linkRes.error?.message ?? 'no_action_link_returned';
+    const status = linkRes.error?.status ?? 500;
+    console.error('[preview-auth] generateLink failed:', detail, 'status:', status);
+    // Surface the real error so the developer can act on it. Common cases:
+    //   "Database error" — customer Supabase schema missing or auth not enabled
+    //   "Invalid email"  — sanity check failed
+    //   401/403 from Supabase — service key wrong scope
+    //   "Site URL is required" — Supabase Site URL missing in dashboard config
+    // Including the underlying message lets the dev fix the root cause
+    // instead of guessing.
+    return new NextResponse(
+      `Could not mint session link: ${detail} (Supabase status ${status}). ` +
+      `Check your Supabase project's Auth → URL Configuration: Site URL must be set ` +
+      `and the redirect_to URL must be in the allow list. The redirect was: ${redirectTo}`,
+      { status: 500 },
+    );
   }
 
   return NextResponse.redirect(linkRes.data.properties.action_link, { status: 302 });
