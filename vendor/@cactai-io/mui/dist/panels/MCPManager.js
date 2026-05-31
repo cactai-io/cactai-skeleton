@@ -46,10 +46,11 @@ export function MCPManager({ title, explainer, catalog, servers, loading = false
     const [cAuthType, setCAuthType] = useState('bearer');
     const [cToken, setCToken] = useState('');
     const [formError, setFormError] = useState(null);
-    const connectedUrls = new Set(servers.map(s => s.endpoint_url.toLowerCase()));
+    // Map of endpoint_url (lowercased) → server.id so catalog cards can
+    // disconnect a previously-connected integration without having to
+    // jump down to the Connected list.
+    const connectedByUrl = new Map(servers.map(s => [s.endpoint_url.toLowerCase(), s.id]));
     const handleCatalogConnect = async (entry) => {
-        if (connectedUrls.has(entry.endpoint_url.toLowerCase()))
-            return;
         setBusyId(entry.id);
         try {
             await onAdd({
@@ -57,6 +58,18 @@ export function MCPManager({ title, explainer, catalog, servers, loading = false
                 endpoint_url: entry.endpoint_url,
                 auth_type: entry.auth_type,
             });
+        }
+        finally {
+            setBusyId(null);
+        }
+    };
+    const handleCatalogDisconnect = async (entry) => {
+        const serverId = connectedByUrl.get(entry.endpoint_url.toLowerCase());
+        if (!serverId)
+            return;
+        setBusyId(entry.id);
+        try {
+            await onRemove(serverId);
         }
         finally {
             setBusyId(null);
@@ -93,26 +106,32 @@ export function MCPManager({ title, explainer, catalog, servers, loading = false
             setBusyId(null);
         }
     };
-    return (_jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 720 }, children: [_jsxs("div", { children: [_jsx("h2", { style: { fontSize: 17, fontWeight: 600, color: C.text, margin: '0 0 8px' }, children: title }), explainer.map((p, i) => (_jsx("p", { style: { fontSize: 13, lineHeight: 1.6, color: C.text2, margin: '0 0 6px' }, children: p }, i))), _jsx("div", { style: {
-                            marginTop: 8, padding: '8px 12px', borderRadius: C.radiusSm,
-                            background: C.bg3, border: `1px dashed ${C.borderMed}`,
-                            fontSize: 11.5, color: C.text3,
-                        }, children: "Preview \u2014 you can add and manage connections here now. Activating them (so the assistant can actually use them) is coming soon." })] }), error && (_jsx("div", { style: {
+    return (_jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 720 }, children: [_jsxs("div", { children: [_jsx("h2", { style: { fontSize: 17, fontWeight: 600, color: C.text, margin: '0 0 8px' }, children: title }), explainer.map((p, i) => (_jsx("p", { style: { fontSize: 13, lineHeight: 1.6, color: C.text2, margin: '0 0 6px' }, children: p }, i)))] }), error && (_jsx("div", { style: {
                     padding: '8px 12px', borderRadius: C.radiusSm,
                     background: 'color-mix(in srgb, var(--c-error, #FF3C77) 12%, transparent)',
                     border: `1px solid var(--c-error, #FF3C77)`, color: C.text, fontSize: 12,
                 }, children: error })), _jsxs("div", { children: [_jsx("div", { style: { fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.text3, marginBottom: 10 }, children: "Popular integrations" }), _jsx("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }, children: catalog.map(entry => {
-                            const already = connectedUrls.has(entry.endpoint_url.toLowerCase());
+                            const connected = connectedByUrl.has(entry.endpoint_url.toLowerCase());
+                            const busy = busyId === entry.id;
                             return (_jsxs("div", { style: {
                                     border: `1px solid ${C.border}`, borderRadius: C.radius,
                                     background: C.bg2, padding: 12, display: 'flex', flexDirection: 'column', gap: 8,
-                                }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("span", { style: { fontSize: 18 }, "aria-hidden": true, children: entry.glyph ?? '🔌' }), _jsx("span", { style: { fontSize: 13, fontWeight: 600, color: C.text }, children: entry.label })] }), _jsx("div", { style: { fontSize: 11.5, color: C.text3, lineHeight: 1.5, flex: 1 }, children: entry.description }), _jsx("button", { onClick: () => handleCatalogConnect(entry), disabled: already || busyId === entry.id, style: {
-                                            fontSize: 12, padding: '6px 10px', borderRadius: C.radiusSm, cursor: already ? 'default' : 'pointer',
-                                            border: `1px solid ${already ? C.border : C.borderMed}`,
-                                            background: already ? 'transparent' : C.accent,
-                                            color: already ? C.text3 : '#fff',
+                                    position: 'relative',
+                                }, children: [connected && (_jsx("span", { "aria-label": "connected", title: "Connected", style: {
+                                            position: 'absolute', top: 10, right: 10,
+                                            width: 8, height: 8, borderRadius: '50%',
+                                            background: 'var(--c-success, #28C940)',
+                                            boxShadow: '0 0 8px var(--c-success, #28C940)',
+                                        } })), _jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("span", { style: { fontSize: 18 }, "aria-hidden": true, children: entry.glyph ?? '🔌' }), _jsx("span", { style: { fontSize: 13, fontWeight: 600, color: C.text }, children: entry.label })] }), _jsx("div", { style: { fontSize: 11.5, color: C.text3, lineHeight: 1.5, flex: 1 }, children: entry.description }), _jsx("button", { onClick: () => connected ? handleCatalogDisconnect(entry) : handleCatalogConnect(entry), disabled: busy, style: {
+                                            fontSize: 12, padding: '6px 10px', borderRadius: C.radiusSm,
+                                            cursor: busy ? 'wait' : 'pointer',
+                                            border: `1px solid ${connected ? C.borderMed : C.borderMed}`,
+                                            background: connected ? 'transparent' : C.accent,
+                                            color: connected ? C.text2 : '#fff',
                                             fontWeight: 500,
-                                        }, children: already ? 'Connected' : busyId === entry.id ? 'Connecting…' : 'Connect' })] }, entry.id));
+                                        }, children: busy
+                                            ? (connected ? 'Disconnecting…' : 'Connecting…')
+                                            : (connected ? 'Disconnect' : 'Connect') })] }, entry.id));
                         }) })] }), _jsx("div", { children: !showCustom ? (_jsx("button", { onClick: () => setShowCustom(true), style: {
                         fontSize: 12.5, padding: '8px 14px', borderRadius: C.radiusSm, cursor: 'pointer',
                         border: `1px solid ${C.borderMed}`, background: C.bg2, color: C.text,

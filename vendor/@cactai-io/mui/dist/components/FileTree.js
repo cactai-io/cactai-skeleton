@@ -97,9 +97,37 @@ function getExt(path) {
 function pathToBreadcrumbs(path) {
     return ['~', ...path.split('/').filter(Boolean)];
 }
+// Sort helper applied at every tree level. Order:
+//   1) folders         (alphabetical)
+//   2) dotfiles        (alphabetical, e.g. .env, .gitignore)
+//   3) regular files   (alphabetical, case-insensitive)
+// This groups directory navigation at the top and pushes ad-hoc files
+// to the bottom — a familiar pattern from VS Code / Finder. Stable
+// across renders because the inputs are deterministic.
+function sortNodes(nodes) {
+    const folders = [];
+    const dotfiles = [];
+    const files = [];
+    for (const n of nodes) {
+        if (n.type === 'folder')
+            folders.push(n);
+        else if (n.name.startsWith('.'))
+            dotfiles.push(n);
+        else
+            files.push(n);
+    }
+    const alpha = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    folders.sort(alpha);
+    dotfiles.sort(alpha);
+    files.sort(alpha);
+    return [...folders, ...dotfiles, ...files];
+}
 // ── Tree node ───────────────────────────────────────────────────────────────
 function TreeNode({ node, depth, activeFilePath, onSelect, uncommittedPaths, onCommitFile, onRestore, onUndoFile, onContextMenu, }) {
-    const [open, setOpen] = useState(depth < 1);
+    // Default-collapsed at every depth (was: `depth < 1` which auto-expanded
+    // every root-level folder on first paint and made the file tree feel
+    // overwhelming). The user opens whichever folders they actually need.
+    const [open, setOpen] = useState(false);
     const isActive = node.path === activeFilePath;
     const isFolder = node.type === 'folder';
     const isProtected = !!node.protected;
@@ -146,7 +174,7 @@ function TreeNode({ node, depth, activeFilePath, onSelect, uncommittedPaths, onC
     return (_jsxs(_Fragment, { children: [_jsxs("div", { className: classes, "data-status": status, title: tooltip, style: { paddingLeft: depth * 16 + 8 }, onClick: handleClick, onContextMenu: handleContextMenu, role: isFolder ? 'button' : 'option', "aria-selected": isActive, tabIndex: isProtected ? -1 : 0, onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ')
                     handleClick(); }, children: [_jsx("span", { className: "ds-tree-chev", children: isFolder ? (open ? '▾' : '▸') : '' }), _jsx("span", { className: "ds-tree-icon", children: isProtected ? '🔒' : isFolder ? '📁' : '⌘' }), _jsxs("span", { className: "ds-tree-name", children: [node.name, (status === 'renamed' || status === 'moved') && node.new_path && (_jsxs("span", { className: "ds-tree-rename-arrow", children: [' → ', node.new_path] }))] }), !isFolder && status === 'new' && (_jsx("span", { className: "ds-tree-status-badge ds-tree-status-badge--new", "aria-label": "new file", children: "new" })), !isFolder && (status === 'renamed' || status === 'moved') && (_jsx("span", { className: `ds-tree-status-badge ds-tree-status-badge--${status}`, "aria-label": status, children: status })), !isFolder && status === 'deleted' && (_jsx("span", { className: "ds-tree-status-badge ds-tree-status-badge--deleted", "aria-label": "will be deleted", children: "delete" })), !isFolder && status === 'modified' && (_jsx("span", { className: "ds-tree-mod-dot", "aria-label": "modified" })), !isFolder && isPending && preview && (_jsx("span", { className: `ds-tree-preview-dot ds-tree-preview-dot--${preview === 'live' ? 'live' : 'needs-deploy'}`, title: preview === 'live'
                             ? 'Previews live in the role-view.'
-                            : 'Code changes preview after Vercel deploys.', "aria-label": preview === 'live' ? 'previews live' : 'needs deploy' })), isProtected && _jsx("span", { className: "ds-tree-sdk-badge", children: "SDK" }), isPending && !isFolder && onCommitFile && (_jsx("button", { type: "button", className: "ds-tree-commit-btn", onClick: handleCommitClick, title: `Commit ${node.name}`, "aria-label": `Commit ${node.name}`, children: _jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [_jsx("circle", { cx: "12", cy: "12", r: "4" }), _jsx("path", { d: "M1.05 12H7M16.95 12H23" })] }) })), isPending && !isFolder && onUndoFile && (_jsx("button", { type: "button", className: "ds-tree-restore-btn", onClick: (e) => { e.stopPropagation(); onUndoFile(node.path); }, title: `Undo changes to ${node.name}`, "aria-label": `Undo changes to ${node.name}`, children: _jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [_jsx("path", { d: "M3 7v6h6" }), _jsx("path", { d: "M3 13a9 9 0 1 0 3-7.7L3 8" })] }) }))] }), isFolder && open && !isProtected && node.children?.map(child => (_jsx(TreeNode, { node: child, depth: depth + 1, activeFilePath: activeFilePath, onSelect: onSelect, uncommittedPaths: uncommittedPaths, onCommitFile: onCommitFile, onRestore: onRestore, onUndoFile: onUndoFile, onContextMenu: onContextMenu }, child.path)))] }));
+                            : 'Code changes preview after Vercel deploys.', "aria-label": preview === 'live' ? 'previews live' : 'needs deploy' })), isProtected && _jsx("span", { className: "ds-tree-sdk-badge", children: "SDK" }), isPending && !isFolder && onCommitFile && (_jsx("button", { type: "button", className: "ds-tree-commit-btn", onClick: handleCommitClick, title: `Commit ${node.name}`, "aria-label": `Commit ${node.name}`, children: _jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [_jsx("circle", { cx: "12", cy: "12", r: "4" }), _jsx("path", { d: "M1.05 12H7M16.95 12H23" })] }) })), isPending && !isFolder && onUndoFile && (_jsx("button", { type: "button", className: "ds-tree-restore-btn", onClick: (e) => { e.stopPropagation(); onUndoFile(node.path); }, title: `Undo changes to ${node.name}`, "aria-label": `Undo changes to ${node.name}`, children: _jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [_jsx("path", { d: "M3 7v6h6" }), _jsx("path", { d: "M3 13a9 9 0 1 0 3-7.7L3 8" })] }) }))] }), isFolder && open && !isProtected && sortNodes(node.children ?? []).map(child => (_jsx(TreeNode, { node: child, depth: depth + 1, activeFilePath: activeFilePath, onSelect: onSelect, uncommittedPaths: uncommittedPaths, onCommitFile: onCommitFile, onRestore: onRestore, onUndoFile: onUndoFile, onContextMenu: onContextMenu }, child.path)))] }));
 }
 // ── Root component ──────────────────────────────────────────────────────────
 export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading = false, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, }) {
@@ -249,7 +277,7 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
                                             fontSize: 11,
                                             verticalAlign: 'top',
                                             minWidth: 36,
-                                        }, children: i + 1 }), _jsx("td", { style: { padding: '0 18px 0 0', verticalAlign: 'top', whiteSpace: 'pre' }, children: _jsx(HighlightLine, { line: line, ext: ext }) })] }, i))) }) })) : (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Empty file" })) })) : (nodes.map(node => (_jsx(TreeNode, { node: node, depth: 0, activeFilePath: activeFilePath, onSelect: onFileSelect, uncommittedPaths: uncommittedPaths, onCommitFile: onCommitFile, onRestore: onRestore, onUndoFile: onUndoFile, onContextMenu: (onRestore || onCommitFile) ? openContextMenu : undefined }, node.path)))) }), contextMenu && (_jsxs("div", { className: "ds-tree-context-menu", role: "menu", style: { left: contextMenu.x, top: contextMenu.y }, onClick: e => e.stopPropagation(), children: [showCommit && (_jsx("button", { type: "button", role: "menuitem", className: "ds-tree-context-menu-item", onClick: () => {
+                                        }, children: i + 1 }), _jsx("td", { style: { padding: '0 18px 0 0', verticalAlign: 'top', whiteSpace: 'pre' }, children: _jsx(HighlightLine, { line: line, ext: ext }) })] }, i))) }) })) : (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Empty file" })) })) : (sortNodes(nodes).map(node => (_jsx(TreeNode, { node: node, depth: 0, activeFilePath: activeFilePath, onSelect: onFileSelect, uncommittedPaths: uncommittedPaths, onCommitFile: onCommitFile, onRestore: onRestore, onUndoFile: onUndoFile, onContextMenu: (onRestore || onCommitFile) ? openContextMenu : undefined }, node.path)))) }), contextMenu && (_jsxs("div", { className: "ds-tree-context-menu", role: "menu", style: { left: contextMenu.x, top: contextMenu.y }, onClick: e => e.stopPropagation(), children: [showCommit && (_jsx("button", { type: "button", role: "menuitem", className: "ds-tree-context-menu-item", onClick: () => {
                             if (onCommitFile)
                                 onCommitFile(contextMenu.path);
                             closeContextMenu();

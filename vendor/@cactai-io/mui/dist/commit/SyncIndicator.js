@@ -1,15 +1,35 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { formatSyncLabel } from './types.js';
+import { isLocal } from './types.js';
+function statusFor(state) {
+    if (isLocal(state))
+        return 'syncing';
+    return 'synced';
+}
+function colorFor(status) {
+    switch (status) {
+        case 'synced': return 'var(--c-success, #28C940)';
+        case 'syncing': return 'var(--c-warning, #FFB44D)';
+        case 'error': return 'var(--c-error, #FF3C77)';
+    }
+}
+function statusLabel(state) {
+    if (isLocal(state)) {
+        const n = state.uncommittedFiles.length;
+        return `${n} uncommitted`;
+    }
+    return 'synced';
+}
 export function SyncIndicator({ state }) {
-    const label = formatSyncLabel(state);
-    // Split once on the middle dot so the separator can be styled
-    // independently. The dot survives in its own span.
-    const [branch, status] = label.split(' · ');
-    // The branch + status are keyed so a transition between e.g.
-    // "local · 2 uncommitted" → "local · 3 uncommitted" remounts the
-    // status span and re-fires its fade-in animation. The branch span
-    // remounts only when the branch itself changes, so the badge-pop
-    // only fires on actual branch transitions, not status counter ticks.
-    return (_jsxs("span", { className: "ds-sync-indicator", role: "status", "aria-live": "polite", "data-branch": state.branch, children: [_jsx("span", { className: "ds-sync-branch", children: branch }, `b:${branch}`), _jsx("span", { className: "ds-sync-sep", "aria-hidden": "true", children: "\u00B7" }), _jsx("span", { className: "ds-sync-status", children: status }, `s:${status}`)] }));
+    const status = statusFor(state);
+    const color = colorFor(status);
+    const branch = state.branch;
+    const statusText = statusLabel(state);
+    return (_jsxs("span", { className: "ds-sync-indicator", role: "status", "aria-live": "polite", "data-branch": branch, style: { display: 'inline-flex', alignItems: 'center', gap: 8 }, children: [_jsx("span", { "aria-hidden": "true", title: status, style: {
+                    display: 'inline-block',
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: color,
+                    boxShadow: `0 0 6px ${color}`,
+                    flexShrink: 0,
+                } }), _jsxs("span", { className: "ds-sync-branch", children: ["Branch /", branch] }, `b:${branch}`), _jsx("span", { className: "ds-sync-sep", "aria-hidden": "true", children: "\u00B7" }), _jsx("span", { className: "ds-sync-status", children: statusText }, `s:${statusText}`)] }));
 }
 //# sourceMappingURL=SyncIndicator.js.map

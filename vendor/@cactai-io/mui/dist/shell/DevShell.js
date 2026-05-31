@@ -76,7 +76,11 @@ catch { } };
 const SECTIONS = ['workspace', 'build', 'schema', 'project-settings'];
 const S_LABEL = {
     workspace: 'Workspace',
-    build: 'Build',
+    // 'build' is the stable internal section key for backwards-compat with
+    // host wiring; the user-facing label is "Library" (storage closet for
+    // skills + tools the developer authors or installs from the
+    // marketplace, per user direction 2026-05-30).
+    build: 'Library',
     schema: 'Schema',
     'project-settings': 'Project settings',
 };
@@ -86,6 +90,7 @@ const S_LABEL = {
 // scope (workflow, tools, skills, providers, credentials, collaborators),
 // while the panel header itself stays the short "Project settings" label.
 const S_TOOLTIP = {
+    build: "Library — your collection of skills and tools (authored or installed).",
     'project-settings': "Project settings — this app's workflow, available tools, available skills, providers, credentials, and collaborators.",
 };
 const S_ICON = {
@@ -175,6 +180,12 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     const [role, setRole] = useState(availableRoles[0]?.role ?? 'user');
     const [section, setSection] = useState('workspace');
     const [avatarOpen, setAvatarOpen] = useState(false);
+    // Ref on the avatar menu container so an outside-click handler can
+    // distinguish a click inside the menu from a click anywhere else.
+    // Without this, the menu stays open after clicking outside which
+    // feels broken — every other dropdown in the app closes on
+    // outside click.
+    const avatarMenuRef = useRef(null);
     const [inspectorOpen, setInspectorOpen] = useState(false);
     // v1.2 Thread 06 — DevShell preferences modal (capability config in
     // scope='devshell'). Opened from the avatar menu.
@@ -200,12 +211,45 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             setHasUnread(true);
         prevLen.current = messages.length;
     }, [messages.length, chatCol]);
+    // Outside-click + Escape close the avatar menu. The ref above marks
+    // the menu container; clicks on its descendants don't trigger close
+    // (handled by the contains() check). Capture-phase listener so a
+    // descendant's stopPropagation can't break this.
+    useEffect(() => {
+        if (!avatarOpen)
+            return;
+        const onDocClick = (e) => {
+            const el = avatarMenuRef.current;
+            if (el && e.target instanceof Node && el.contains(e.target))
+                return;
+            // The avatar button itself toggles via its onClick — let that
+            // handle the close so we don't double-fire and re-open.
+            const target = e.target;
+            if (target?.closest('.ds-avatar'))
+                return;
+            setAvatarOpen(false);
+        };
+        const onKey = (e) => { if (e.key === 'Escape')
+            setAvatarOpen(false); };
+        document.addEventListener('mousedown', onDocClick, true);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDocClick, true);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [avatarOpen]);
     useEffect(() => {
         const mv = (e) => {
             if (cDragging.current)
                 setChatW(Math.max(260, Math.min(560, cDragW.current + e.clientX - cDragX.current)));
-            if (tDragging.current)
-                setTreeH(Math.max(100, Math.min(520, tDragH.current + tDragY.current - e.clientY)));
+            // Files panel max height: viewport height minus the top bar (var(--ds-header-h) ≈ 48px)
+            // and a small breathing margin so the resize handle stays grabbable when fully expanded.
+            // Pre-fix the cap was hard-coded at 520 px which prevented expanding the Files panel to
+            // the full interior window — a real complaint for developers who want a big file view.
+            if (tDragging.current) {
+                const maxTreeH = Math.max(200, window.innerHeight - 80);
+                setTreeH(Math.max(100, Math.min(maxTreeH, tDragH.current + tDragY.current - e.clientY)));
+            }
         };
         const up = () => { cDragging.current = false; tDragging.current = false; };
         window.addEventListener('mousemove', mv);
@@ -470,7 +514,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // (rather than as a separate component) so the menu remains a single
     // place that owns its layout.
     const themeBtn = (mode, label) => (_jsx("button", { className: `ds-avatar-theme-btn${themeMode === mode ? ' ds-avatar-theme-btn-active' : ''}`, onClick: () => chooseTheme(mode), "aria-pressed": themeMode === mode, children: label }, mode));
-    return (_jsxs("div", { "data-cactai-shell": true, "data-theme": resolvedTheme, "data-color-scheme": resolvedTheme, children: [_jsx(SvgDefs, {}), _jsxs("header", { className: "ds-topbar", children: [_jsxs("div", { className: "ds-brand", children: [_jsx("svg", { className: "ds-brand-mark", viewBox: "0 0 100 100", fill: "url(#ds-sunset-v)", children: _jsx("path", { d: "M40 12 Q40 8 44 8 L56 8 Q60 8 60 12 L60 30 Q60 32 62 32 L72 32 Q78 32 78 38 Q78 50 78 58 Q78 62 74 62 L62 62 Q60 62 60 64 L60 86 Q60 92 54 92 L46 92 Q40 92 40 86 L40 70 Q40 68 38 68 L28 68 Q22 68 22 62 Q22 50 22 42 Q22 38 26 38 L38 38 Q40 38 40 36 Z" }) }), "Cactai"] }), _jsxs("div", { className: "ds-project-meta", children: [_jsx("span", { className: "ds-project-name", children: projectName }), _jsx("span", { className: "ds-branch-pill ds-mono", children: branch })] }), _jsx("div", { className: "ds-view-switcher", children: _jsxs("div", { className: "ds-view-dev-group", children: [_jsx("button", { className: `ds-view-btn${view === 'dev' ? ' ds-view-active' : ''}`, onClick: () => changeView('dev'), children: "Dev" }), _jsx("button", { className: `ds-view-btn${view === 'plan' ? ' ds-view-active' : ''}`, onClick: () => changeView('plan'), children: "Plan" })] }) }), _jsx("div", { className: "ds-topbar-spacer" }), availableRoles.length > 0 && (_jsxs("div", { className: "ds-preview-as", children: [_jsx("span", { className: "ds-preview-as-label", children: "Preview as" }), _jsxs("div", { className: "ds-preview-as-group", children: [_jsx("button", { className: `ds-preview-as-btn${view === 'dev' ? ' ds-preview-as-active' : ''}`, onClick: () => changeView('dev'), children: "Developer" }), availableRoles.map(r => (_jsx("button", { className: `ds-preview-as-btn${view === 'role_view' && role === r.role ? ' ds-preview-as-active' : ''}`, onClick: () => { changeView('role_view'); setRole(r.role); onRoleSwitch(r.role); }, children: r.label }, r.role)))] })] })), _jsxs("div", { className: "ds-avatar-wrap", children: [_jsx("button", { className: "ds-avatar", onClick: () => setAvatarOpen(o => !o), title: developerName, "aria-label": "Account menu", children: developerInitials }), avatarOpen && (_jsxs("div", { className: "ds-avatar-menu", role: "menu", children: [_jsx("div", { className: "ds-avatar-menu-section", children: developerName }), _jsx("a", { href: dashboardUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-avatar-menu-item", onClick: () => setAvatarOpen(false), children: "Platform dashboard \u2197" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "DevShell preferences" }), _jsxs("div", { className: "ds-avatar-theme-row", children: [themeBtn('light', 'Light'), themeBtn('dark', 'Dark'), themeBtn('system', 'System')] }), _jsx("a", { href: `${dashboardUrl}/settings`, target: "_blank", rel: "noopener noreferrer", className: "ds-avatar-menu-item", onClick: () => setAvatarOpen(false), children: "Account settings \u2197" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setPrefsOpen(true); setAvatarOpen(false); }, children: "Tools and skills\u2026" }), availableRoles.length > 0 && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "Open as role\u2026" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => {
+    return (_jsxs("div", { "data-cactai-shell": true, "data-theme": resolvedTheme, "data-color-scheme": resolvedTheme, children: [_jsx(SvgDefs, {}), _jsxs("header", { className: "ds-topbar", children: [_jsxs("div", { className: "ds-brand", children: [_jsx("svg", { className: "ds-brand-mark", viewBox: "0 0 100 100", fill: "url(#ds-sunset-v)", children: _jsx("path", { d: "M40 12 Q40 8 44 8 L56 8 Q60 8 60 12 L60 30 Q60 32 62 32 L72 32 Q78 32 78 38 Q78 50 78 58 Q78 62 74 62 L62 62 Q60 62 60 64 L60 86 Q60 92 54 92 L46 92 Q40 92 40 86 L40 70 Q40 68 38 68 L28 68 Q22 68 22 62 Q22 50 22 42 Q22 38 26 38 L38 38 Q40 38 40 36 Z" }) }), "Cactai"] }), _jsxs("div", { className: "ds-project-meta", children: [_jsx("span", { className: "ds-project-name", children: projectName }), _jsx("span", { className: "ds-branch-pill ds-mono", children: branch })] }), _jsx("div", { className: "ds-view-switcher", children: _jsxs("div", { className: "ds-view-dev-group", children: [_jsx("button", { className: `ds-view-btn${view === 'dev' ? ' ds-view-active' : ''}`, onClick: () => changeView('dev'), children: "Dev" }), _jsx("button", { className: `ds-view-btn${view === 'plan' ? ' ds-view-active' : ''}`, onClick: () => changeView('plan'), children: "Plan" })] }) }), _jsx("div", { className: "ds-topbar-spacer" }), availableRoles.length > 0 && (_jsxs("div", { className: "ds-preview-as", children: [_jsx("span", { className: "ds-preview-as-label", children: "Preview as" }), _jsxs("div", { className: "ds-preview-as-group", children: [_jsx("button", { className: `ds-preview-as-btn${view === 'dev' ? ' ds-preview-as-active' : ''}`, onClick: () => changeView('dev'), children: "Developer" }), availableRoles.map(r => (_jsx("button", { className: `ds-preview-as-btn${view === 'role_view' && role === r.role ? ' ds-preview-as-active' : ''}`, onClick: () => { changeView('role_view'); setRole(r.role); onRoleSwitch(r.role); }, children: r.label }, r.role)))] })] })), _jsxs("div", { className: "ds-avatar-wrap", children: [_jsx("button", { className: "ds-avatar", onClick: () => setAvatarOpen(o => !o), title: developerName, "aria-label": "Account menu", children: developerInitials }), avatarOpen && (_jsxs("div", { className: "ds-avatar-menu", role: "menu", ref: avatarMenuRef, children: [_jsx("div", { className: "ds-avatar-menu-section", children: developerName }), _jsx("a", { href: `${dashboardUrl}/settings`, target: "_blank", rel: "noopener noreferrer", className: "ds-avatar-menu-item", onClick: () => setAvatarOpen(false), children: "Account settings \u2197" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "DevShell preferences" }), _jsxs("div", { className: "ds-avatar-theme-row", children: [themeBtn('light', 'Light'), themeBtn('dark', 'Dark'), themeBtn('system', 'System')] }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setPrefsOpen(true); setAvatarOpen(false); }, children: "Tools and skills\u2026" }), availableRoles.length > 0 && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "Open as role\u2026" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => {
                                                     // Focus or open the dev tab.
                                                     window.open('/dev?view=dev', 'cactai-dev');
                                                     setAvatarOpen(false);

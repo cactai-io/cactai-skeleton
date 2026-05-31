@@ -1336,8 +1336,15 @@ export const DEVSHELL_CSS = `
 
 
 /* ── PANEL SHARED ────────────────────────────────────────────────────── */
+/* min-height: 0 is REQUIRED for overflow-y: auto to trigger on a flex
+   item — without it, flex items default to min-height: auto (content
+   height) which makes the item grow past the parent's bounds and the
+   parent's overflow: hidden just clips, never producing an internal
+   scrollbar. This was the root cause of "this page doesn't scroll"
+   reports against Schema, Project Settings tabs, Integrations, etc. */
 [data-cactai-shell] .ds-panel {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px;
   display: flex;
