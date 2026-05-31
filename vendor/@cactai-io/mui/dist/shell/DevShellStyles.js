@@ -873,6 +873,10 @@ export const DEVSHELL_CSS = `
 /* ── RIGHT AREA ──────────────────────────────────────────────────────── */
 [data-cactai-shell] .ds-right-area {
   flex: 1;
+  /* Same min-height: 0 pattern as .ds-content + .ds-panel — required
+     for the flex-column scroll chain to actually clamp at the
+     viewport height. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -880,6 +884,11 @@ export const DEVSHELL_CSS = `
 
 [data-cactai-shell] .ds-content {
   flex: 1;
+  /* min-height: 0 is REQUIRED so a flex-column child (.ds-panel) can
+     trigger its own internal scrollbar instead of expanding past the
+     parent's bounds. overflow:hidden alone is necessary but not
+     sufficient in some browsers/contexts. */
+  min-height: 0;
   overflow: hidden;
   position: relative;
   display: flex;

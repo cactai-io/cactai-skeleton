@@ -515,21 +515,26 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Phase 2. Comments tag each one with its planned source.
     const developerInitials = userEmail.slice(0, 2).toUpperCase();
     const developerName = userEmail;
-    // Resolve agent display name from the project's active personality
-    // (loaded by the /api/settings/personality fetch above). Falls back
-    // to 'Ember' when personality data hasn't arrived yet OR the active
-    // id doesn't match any available record. Pre-fix this was hardcoded
-    // to 'Ember' which made the chat header disagree with the picker.
+    // Resolve agent display name + character from the project's active
+    // personality. Falls back to 'Ember' for the name when personality
+    // data hasn't arrived yet OR the active id doesn't match any
+    // available record.
     //
-    // Note (2026-05-30 UX review #7): the chat character avatar is also
-    // missing. ProjectPersonalityAssignment does NOT currently carry a
-    // character field, so wiring this needs a separate decision —
-    // either extend the type so server-side personalities carry a
-    // character ref, or build a local id→character map (ember → ?,
-    // milo → ?, sam → ?). Captured as wave-2/3 follow-up.
-    const activePersonality = personality?.available.find(p => p.id === personality?.active_id);
+    // Character mapping (id → SVG + animation classes) mirrors
+    // @cactai-io/personalities' CHARACTERS map, replicated inline here
+    // to avoid taking a Cactai-IP dep in the customer-distributed
+    // devshell wrapper. svg_ids match CharacterRenderer's CHARACTER_MAP
+    // ('robot' / 'prairie-dog' / 'owl'); animation class names match the
+    // CSS keyframes in DevShellStyles.
+    const BUILTIN_CHARACTERS = {
+        sam: { svg_id: 'robot', idle_animation: 'ds-anim-robot-idle', thinking_animation: 'ds-anim-robot-think', waiting_animation: 'ds-anim-robot-wait', responding_animation: 'ds-anim-robot-respond' },
+        milo: { svg_id: 'prairie-dog', idle_animation: 'ds-anim-prairie-dog-idle', thinking_animation: 'ds-anim-prairie-dog-think', waiting_animation: 'ds-anim-prairie-dog-wait', responding_animation: 'ds-anim-prairie-dog-respond' },
+        ember: { svg_id: 'owl', idle_animation: 'ds-anim-owl-idle', thinking_animation: 'ds-anim-owl-think', waiting_animation: 'ds-anim-owl-wait', responding_animation: 'ds-anim-owl-respond' },
+    };
+    const activeId = personality?.active_id;
+    const activePersonality = activeId ? personality?.available.find(p => p.id === activeId) : undefined;
     const agentDisplayName = activePersonality?.display_name ?? 'Ember';
-    const character = undefined;
+    const character = activeId ? BUILTIN_CHARACTERS[activeId] : undefined;
     // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
     const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
     // syncState derives from pendingFiles count: any pending row means

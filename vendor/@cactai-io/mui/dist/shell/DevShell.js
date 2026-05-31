@@ -242,12 +242,14 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         const mv = (e) => {
             if (cDragging.current)
                 setChatW(Math.max(260, Math.min(560, cDragW.current + e.clientX - cDragX.current)));
-            // Files panel max height: viewport height minus the top bar (var(--ds-header-h) ≈ 48px)
-            // and a small breathing margin so the resize handle stays grabbable when fully expanded.
-            // Pre-fix the cap was hard-coded at 520 px which prevented expanding the Files panel to
-            // the full interior window — a real complaint for developers who want a big file view.
+            // Files panel max height: viewport height minus exactly the top
+            // bar (var(--ds-header-h) = 52 px). Pre-2 fixes: hard-coded 520
+            // (too short); then 80 (left an 80 px gap above the panel when
+            // fully expanded). 52 lets the Files panel expand flush to the
+            // bottom edge of the top bar so the developer gets the full
+            // interior height for browsing/editing.
             if (tDragging.current) {
-                const maxTreeH = Math.max(200, window.innerHeight - 80);
+                const maxTreeH = Math.max(200, window.innerHeight - 52);
                 setTreeH(Math.max(100, Math.min(maxTreeH, tDragH.current + tDragY.current - e.clientY)));
             }
         };
