@@ -515,7 +515,21 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Phase 2. Comments tag each one with its planned source.
     const developerInitials = userEmail.slice(0, 2).toUpperCase();
     const developerName = userEmail;
-    const agentDisplayName = 'Ember'; // Phase 2 (next): read from project personality
+    // Resolve agent display name from the project's active personality
+    // (loaded by the /api/settings/personality fetch above). Falls back
+    // to 'Ember' when personality data hasn't arrived yet OR the active
+    // id doesn't match any available record. Pre-fix this was hardcoded
+    // to 'Ember' which made the chat header disagree with the picker.
+    //
+    // Note (2026-05-30 UX review #7): the chat character avatar is also
+    // missing. ProjectPersonalityAssignment does NOT currently carry a
+    // character field, so wiring this needs a separate decision —
+    // either extend the type so server-side personalities carry a
+    // character ref, or build a local id→character map (ember → ?,
+    // milo → ?, sam → ?). Captured as wave-2/3 follow-up.
+    const activePersonality = personality?.available.find(p => p.id === personality?.active_id);
+    const agentDisplayName = activePersonality?.display_name ?? 'Ember';
+    const character = undefined;
     // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
     const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
     // syncState derives from pendingFiles count: any pending row means
@@ -528,7 +542,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
                     // Phase 3b — POST /api/git/commit. The route reads file
                     // content from pending_files server-side (per the user's
                     // RLS-scoped rows), so we don't need to ferry blob bytes
@@ -874,7 +888,47 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             setCapabilityConfig(body.config ?? null);
                         }
                     },
-                }, dashboardUrl: dashboardUrl }), _jsx(FetchErrorBadge, { errors: fetchErrors })] }));
+                }, dashboardUrl: dashboardUrl, 
+                // DevShell preferences modal (avatar menu → Tools and skills…).
+                // Distinct from ProjectSettingsPanel.Configuration which controls
+                // the deployed app (appshell scope); this controls what's
+                // available inside the IDE (devshell scope). Pre-wiring this prop
+                // was undefined which made the modal render the "configuration is
+                // loading…" stub forever — what the user saw as the empty
+                // Tools+Skills modal that never resolved.
+                //
+                // capabilityCat + capabilityConfig are already loaded by the
+                // /api/settings/capabilities fetch. The onPatch hits the same
+                // endpoint that wires the appshell side; the route reads scope
+                // from the patch payload so the same handler covers both.
+                devshellPreferences: capabilityConfig
+                    ? {
+                        catalogue: capabilityCat,
+                        config: capabilityConfig.devshell ?? { enabled: {}, defaults_by_category: {} },
+                        // The patch already has scope: 'devshell' baked in by
+                        // CapabilityListPanel inside DevShellPreferencesModal — same
+                        // contract the appshell-side onCapabilityPatch above uses.
+                        onPatch: async (patch) => {
+                            const res = await fetch('/api/settings/capabilities', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(patch),
+                            });
+                            if (!res.ok) {
+                                const body = await res.json().catch(() => ({}));
+                                recordFetchError('capability_patch', { status: res.status, code: body.error, detail: body.detail });
+                                return;
+                            }
+                            recordFetchError('capability_patch', null);
+                            const refetch = await fetch('/api/settings/capabilities', { cache: 'no-store' });
+                            if (refetch.ok) {
+                                const body = await refetch.json();
+                                setCapabilityCat(body.catalogue ?? []);
+                                setCapabilityConfig(body.config ?? null);
+                            }
+                        },
+                    }
+                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors })] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
 // Renders only when at least one fetch source is in error. Lives at
