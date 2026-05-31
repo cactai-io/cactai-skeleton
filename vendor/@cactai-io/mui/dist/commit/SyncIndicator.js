@@ -34,6 +34,15 @@ export function SyncIndicator({ state }) {
                     background: color,
                     boxShadow: `0 0 6px ${color}`,
                     flexShrink: 0,
-                } }), _jsx("span", { className: "ds-sync-status", children: statusText }, `s:${statusText}`), _jsxs("span", { className: "ds-sync-branch", style: { marginLeft: 6 }, children: ["Branch /", branch] }, `b:${branch}`)] }));
+                } }), _jsx("span", { className: "ds-sync-status", children: statusText }, `s:${statusText}`), _jsxs("span", { className: "ds-sync-branch", style: {
+                    marginLeft: 6,
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    background: 'var(--c-surface-2, rgba(255,255,255,0.06))',
+                    border: '1px solid var(--c-border, rgba(255,255,255,0.1))',
+                    fontFamily: 'var(--f-mono, monospace)',
+                    fontSize: '0.95em',
+                    color: 'var(--c-text-2, inherit)',
+                }, children: ["Branch /", branch] }, `b:${branch}`)] }));
 }
 //# sourceMappingURL=SyncIndicator.js.map
