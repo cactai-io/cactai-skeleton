@@ -1044,15 +1044,19 @@ export const DEVSHELL_CSS = `
 }
 
 /* ── PROJECT TREE ────────────────────────────────────────────────────── */
+/* Pre-fix the tree panel was flex: 0 0 auto with a hard 80–500 px height
+   clamp, so even when the parent Files panel was dragged tall the tree
+   capped at 500 px and floated centered/with whitespace below. Now it
+   flex: 1 + min-height: 0 fills its container's full height, sticking
+   to the top-left as the developer expects. */
 [data-cactai-shell] .ds-tree-panel {
-  flex: 0 0 auto;
+  flex: 1;
+  min-height: 0;
   background: var(--ds-surface);
   border-top: 1px solid var(--ds-border-soft);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 80px;
-  max-height: 500px;
 }
 [data-cactai-shell] .ds-tree-header {
   height: var(--ds-header-h);
@@ -1087,6 +1091,10 @@ export const DEVSHELL_CSS = `
   overflow-y: auto;
   padding: 8px 4px;
   flex: 1;
+  /* min-height: 0 so flex: 1 actually resolves to a finite px inside
+     the parent (.ds-tree-panel) — without it the body grows past the
+     parent's bounds and the internal scrollbar never engages. */
+  min-height: 0;
 }
 
 /* File tree entries — mono per spec (identifier display). Universal

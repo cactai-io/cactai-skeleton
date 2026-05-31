@@ -40,7 +40,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 // The classifier mirrors `previewBehaviorFor` in commit/types.ts. We
 // import that helper directly so the file tree and the role-view banner
 // can never disagree about which paths preview live.
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { previewBehaviorFor } from '../commit/types.js';
 // ── Helpers ─────────────────────────────────────────────────────────────────
 // Resolve effective status for a node, accommodating callers that still
@@ -177,10 +177,39 @@ function TreeNode({ node, depth, activeFilePath, onSelect, uncommittedPaths, onC
                             : 'Code changes preview after Vercel deploys.', "aria-label": preview === 'live' ? 'previews live' : 'needs deploy' })), isProtected && _jsx("span", { className: "ds-tree-sdk-badge", children: "SDK" }), isPending && !isFolder && onCommitFile && (_jsx("button", { type: "button", className: "ds-tree-commit-btn", onClick: handleCommitClick, title: `Commit ${node.name}`, "aria-label": `Commit ${node.name}`, children: _jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [_jsx("circle", { cx: "12", cy: "12", r: "4" }), _jsx("path", { d: "M1.05 12H7M16.95 12H23" })] }) })), isPending && !isFolder && onUndoFile && (_jsx("button", { type: "button", className: "ds-tree-restore-btn", onClick: (e) => { e.stopPropagation(); onUndoFile(node.path); }, title: `Undo changes to ${node.name}`, "aria-label": `Undo changes to ${node.name}`, children: _jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [_jsx("path", { d: "M3 7v6h6" }), _jsx("path", { d: "M3 13a9 9 0 1 0 3-7.7L3 8" })] }) }))] }), isFolder && open && !isProtected && sortNodes(node.children ?? []).map(child => (_jsx(TreeNode, { node: child, depth: depth + 1, activeFilePath: activeFilePath, onSelect: onSelect, uncommittedPaths: uncommittedPaths, onCommitFile: onCommitFile, onRestore: onRestore, onUndoFile: onUndoFile, onContextMenu: onContextMenu }, child.path)))] }));
 }
 // ── Root component ──────────────────────────────────────────────────────────
+// Split-vs-full file-view threshold. When the panel is wider than this
+// (in px), opening a file renders tree + file SIDE BY SIDE; below the
+// threshold the file replaces the tree (full-window). Derivation:
+//   ≥ 200 px for a usable tree column
+//   + 60 ch × ~7 px (12 px monospace) ≈ 420 px for a readable code column
+//   + ~80 px breathing room (separator, gutters)
+// Total ≈ 700 px. Per user direction (2026-05-30): "based on reasonable
+// minimum viewing requirement for content width relative to font size."
+const SPLIT_VIEW_MIN_WIDTH_PX = 700;
+const TREE_COLUMN_WIDTH_PX = 240;
 export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading = false, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, }) {
     const isFileView = !!activeFilePath && fileContent !== undefined;
     const breadcrumbs = activeFilePath ? pathToBreadcrumbs(activeFilePath) : [];
     const ext = activeFilePath ? getExt(activeFilePath) : '';
+    // Measure the panel width via ResizeObserver so the split-vs-full
+    // decision rebalances when the developer drags the Files panel taller
+    // or the chat drawer wider. Initial value matches the threshold so
+    // SSR/hydration mismatches don't briefly flash the wrong layout.
+    const rootRef = useRef(null);
+    const [panelWidth, setPanelWidth] = useState(SPLIT_VIEW_MIN_WIDTH_PX);
+    useEffect(() => {
+        const el = rootRef.current;
+        if (!el || typeof ResizeObserver === 'undefined')
+            return;
+        const ro = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (entry)
+                setPanelWidth(entry.contentRect.width);
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    const useSplitView = isFileView && panelWidth >= SPLIT_VIEW_MIN_WIDTH_PX;
     // Right-click context menu state. Tracks the cursor coordinates plus
     // the path and the status of the row the menu is acting on. Status
     // determines the menu items — Restore is shown for any pending row;
@@ -235,7 +264,7 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
             default: return 'Restore';
         }
     })();
-    return (_jsxs("div", { className: "ds-tree-panel", style: { height: '100%' }, children: [_jsxs("div", { className: "ds-tree-header", children: [isFileView ? (
+    return (_jsxs("div", { className: "ds-tree-panel", ref: rootRef, style: { height: '100%' }, children: [_jsxs("div", { className: "ds-tree-header", children: [isFileView ? (
                     // Breadcrumb navigation in file view mode
                     _jsx("div", { style: {
                             display: 'flex',
@@ -257,27 +286,46 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
                                         fontSize: 'inherit',
                                         padding: '0 2px',
                                         fontWeight: i === breadcrumbs.length - 1 ? 500 : 400,
-                                    }, children: segment })] }, i))) })) : (_jsx("span", { className: "ds-tree-title", children: "Project tree" })), _jsx("div", { className: "ds-tree-spacer" }), _jsx("button", { className: "ds-tree-collapse-btn", onClick: onCollapse, title: "Collapse", "aria-label": "Collapse project tree", children: "\u2304" })] }), _jsx("div", { className: "ds-tree-body", role: isFileView ? 'document' : 'tree', style: { padding: isFileView ? 0 : undefined }, children: isFileView ? (
-                // File view mode — syntax highlighted code (read-only display
-                // version). Monaco-based editing lives in MonacoFileEditor and
-                // is mounted by the DevShell when a file is opened for edit.
-                _jsx("div", { style: {
-                        fontFamily: 'var(--f-mono)',
-                        fontSize: 12,
-                        lineHeight: 1.65,
-                        color: 'var(--ds-text)',
-                        padding: '12px 0',
-                        overflow: 'auto',
-                        height: '100%',
-                    }, children: fileLoading ? (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Loading\u2026" })) : fileContent ? (_jsx("table", { style: { borderCollapse: 'collapse', width: '100%' }, children: _jsx("tbody", { children: fileContent.split('\n').map((line, i) => (_jsxs("tr", { children: [_jsx("td", { style: {
-                                            padding: '0 12px 0 18px',
-                                            color: 'var(--ds-text-3)',
-                                            textAlign: 'right',
-                                            userSelect: 'none',
-                                            fontSize: 11,
-                                            verticalAlign: 'top',
-                                            minWidth: 36,
-                                        }, children: i + 1 }), _jsx("td", { style: { padding: '0 18px 0 0', verticalAlign: 'top', whiteSpace: 'pre' }, children: _jsx(HighlightLine, { line: line, ext: ext }) })] }, i))) }) })) : (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Empty file" })) })) : (sortNodes(nodes).map(node => (_jsx(TreeNode, { node: node, depth: 0, activeFilePath: activeFilePath, onSelect: onFileSelect, uncommittedPaths: uncommittedPaths, onCommitFile: onCommitFile, onRestore: onRestore, onUndoFile: onUndoFile, onContextMenu: (onRestore || onCommitFile) ? openContextMenu : undefined }, node.path)))) }), contextMenu && (_jsxs("div", { className: "ds-tree-context-menu", role: "menu", style: { left: contextMenu.x, top: contextMenu.y }, onClick: e => e.stopPropagation(), children: [showCommit && (_jsx("button", { type: "button", role: "menuitem", className: "ds-tree-context-menu-item", onClick: () => {
+                                    }, children: segment })] }, i))) })) : (_jsx("span", { className: "ds-tree-title", children: "Project tree" })), _jsx("div", { className: "ds-tree-spacer" }), _jsx("button", { className: "ds-tree-collapse-btn", onClick: onCollapse, title: "Collapse", "aria-label": "Collapse project tree", children: "\u2304" })] }), _jsxs("div", { className: "ds-tree-body", role: isFileView ? 'document' : 'tree', style: {
+                    padding: isFileView ? 0 : undefined,
+                    // Split view: tree column on the left, file content on the right.
+                    // Full-window: stacked / single column (default flex behavior).
+                    display: useSplitView ? 'flex' : undefined,
+                    flexDirection: useSplitView ? 'row' : undefined,
+                }, children: [(useSplitView || !isFileView) && (_jsx("div", { style: useSplitView
+                            ? {
+                                width: TREE_COLUMN_WIDTH_PX,
+                                flex: `0 0 ${TREE_COLUMN_WIDTH_PX}px`,
+                                overflowY: 'auto',
+                                borderRight: '1px solid var(--ds-border-soft)',
+                                padding: '8px 4px',
+                            }
+                            : { width: '100%' }, children: sortNodes(nodes).map(node => (_jsx(TreeNode, { node: node, depth: 0, activeFilePath: activeFilePath, onSelect: onFileSelect, uncommittedPaths: uncommittedPaths, onCommitFile: onCommitFile, onRestore: onRestore, onUndoFile: onUndoFile, onContextMenu: (onRestore || onCommitFile) ? openContextMenu : undefined }, node.path))) })), isFileView && (_jsx("div", { style: {
+                            fontFamily: 'var(--f-mono)',
+                            fontSize: 12,
+                            lineHeight: 1.65,
+                            color: 'var(--ds-text)',
+                            padding: '12px 0',
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
+                            height: '100%',
+                            flex: useSplitView ? 1 : undefined,
+                            minWidth: 0,
+                            width: useSplitView ? undefined : '100%',
+                        }, children: fileLoading ? (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Loading\u2026" })) : fileContent ? (_jsxs("table", { style: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }, children: [_jsxs("colgroup", { children: [_jsx("col", { style: { width: 56 } }), _jsx("col", {})] }), _jsx("tbody", { children: fileContent.split('\n').map((line, i) => (_jsxs("tr", { children: [_jsx("td", { style: {
+                                                    padding: '0 12px 0 18px',
+                                                    color: 'var(--ds-text-3)',
+                                                    textAlign: 'right',
+                                                    userSelect: 'none',
+                                                    fontSize: 11,
+                                                    verticalAlign: 'top',
+                                                }, children: i + 1 }), _jsx("td", { style: {
+                                                    padding: '0 18px 0 0',
+                                                    verticalAlign: 'top',
+                                                    whiteSpace: 'pre-wrap',
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
+                                                }, children: _jsx(HighlightLine, { line: line, ext: ext }) })] }, i))) })] })) : (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Empty file" })) }))] }), contextMenu && (_jsxs("div", { className: "ds-tree-context-menu", role: "menu", style: { left: contextMenu.x, top: contextMenu.y }, onClick: e => e.stopPropagation(), children: [showCommit && (_jsx("button", { type: "button", role: "menuitem", className: "ds-tree-context-menu-item", onClick: () => {
                             if (onCommitFile)
                                 onCommitFile(contextMenu.path);
                             closeContextMenu();
