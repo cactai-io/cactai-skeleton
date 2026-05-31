@@ -1572,6 +1572,15 @@ export const DEVSHELL_CSS = `
 }
 [data-cactai-shell] .ds-anim-owl-idle .owl-eye-l,
 [data-cactai-shell] .ds-anim-owl-idle .owl-eye-r {
+  /* transform-box: fill-box + transform-origin: center makes scaleY
+     pivot around the eye's own bounding box. Without this, SVG
+     elements default to transform-origin (0,0) at the SVG viewport
+     top-left, so scaleY(0.1) collapses each eye toward y=0 and the
+     eyes visibly fly up out of the head — barely noticeable at
+     120 px, jarring at the 34 px chat-header size where the eyes
+     leave the head outline entirely. */
+  transform-box:   fill-box;
+  transform-origin: center;
   animation: ds-owl-blink 6s ease-in-out infinite;
 }
 @keyframes ds-owl-idle-sway {
@@ -1644,6 +1653,11 @@ export const DEVSHELL_CSS = `
 }
 [data-cactai-shell] .ds-anim-robot-idle .robot-eye {
   animation: ds-robot-led-pulse 3.5s ease-in-out infinite;
+  /* SVG transforms need transform-box: fill-box so 'center' resolves
+     to the element's own bounding box (default origin is the SVG
+     viewport (0,0), making scales drift the element toward the
+     viewport top-left). Same fix applied to the owl-eye blink above. */
+  transform-box:   fill-box;
   transform-origin: center;
 }
 @keyframes ds-robot-idle-pan {
@@ -1663,6 +1677,7 @@ export const DEVSHELL_CSS = `
 }
 [data-cactai-shell] .ds-anim-robot-think .robot-eye {
   animation: ds-robot-led-hue-shift 0.9s steps(4, end) infinite;
+  transform-box:   fill-box;
   transform-origin: center;
 }
 [data-cactai-shell] .ds-anim-robot-think .robot-antenna {
@@ -1706,6 +1721,7 @@ export const DEVSHELL_CSS = `
 [data-cactai-shell] .ds-anim-robot-respond .robot-eye {
   opacity: 1;
   animation: ds-robot-respond-led 0.9s ease-in-out infinite;
+  transform-box:   fill-box;
   transform-origin: center;
 }
 [data-cactai-shell] .ds-anim-robot-respond .robot-antenna {
@@ -1731,6 +1747,7 @@ export const DEVSHELL_CSS = `
 [data-cactai-shell] .ds-anim-prairie-dog-idle .prairie-dog-eye-l,
 [data-cactai-shell] .ds-anim-prairie-dog-idle .prairie-dog-eye-r {
   animation: ds-prairie-dog-blink 5s ease-in-out infinite;
+  transform-box:   fill-box;
   transform-origin: center;
 }
 @keyframes ds-prairie-dog-idle-turn {
