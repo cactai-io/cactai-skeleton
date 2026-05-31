@@ -121,6 +121,26 @@ function RailBtn({ section, active, onClick }) {
 }
 export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, children, onSectionChange, onViewChange, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
+    // Body lock while the DevShell IDE is mounted. Pre-fix the browser
+    // could scroll the entire page past [data-cactai-shell]'s 100vh
+    // bounds — exposing white body background on all four sides
+    // (visible during macOS rubber-band overscroll AND from any subtle
+    // body-height drift). Adding a class scoped to /dev's lifetime
+    // (a) clamps overflow on html + body, (b) disables overscroll
+    // chaining so trackpad gestures don't bubble to the document.
+    //
+    // Other routes (/operate, /app, …) need normal page scrolling, so
+    // the class is removed on unmount. A direct body-lock in
+    // dev/layout.tsx would survive client-side route transitions
+    // away from /dev — this useEffect cleanup pattern doesn't.
+    useEffect(() => {
+        if (typeof document === 'undefined')
+            return;
+        document.body.classList.add('cactai-shell-body-lock');
+        return () => {
+            document.body.classList.remove('cactai-shell-body-lock');
+        };
+    }, []);
     const THEME_STORAGE_KEY = SHARED_STORAGE_KEYS.theme;
     const readThemeMode = () => {
         try {

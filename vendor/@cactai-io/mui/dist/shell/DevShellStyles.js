@@ -93,6 +93,31 @@ export const DEVSHELL_CSS = `
   --owl-chest: #D8D8E4;
 }
 
+/* Body lock — applied by the DevShell on mount via a body class so it
+   only kicks in while /dev is rendered (other routes need normal
+   scroll). Combination needed because no single property covers
+   every overflow path:
+     - overflow: hidden on html + body kills the actual scroll
+     - overscroll-behavior: none kills macOS/Chrome trackpad
+       rubber-band that exposes the white body background even when
+       there's nothing to scroll
+     - height: 100% + width: 100% prevents document height drift
+       (any tall child of [data-cactai-shell] would otherwise grow
+       the body past 100vh)
+     - position: fixed on body as a final belt-and-suspenders for
+       iOS Safari where overflow: hidden alone isn't enough */
+html:has(body.cactai-shell-body-lock),
+body.cactai-shell-body-lock {
+  overflow:            hidden !important;
+  overscroll-behavior: none;
+  height:              100%;
+  width:               100%;
+}
+body.cactai-shell-body-lock {
+  position:            fixed;
+  inset:               0;
+}
+
 /* Reset inside shell */
 [data-cactai-shell] *, [data-cactai-shell] *::before, [data-cactai-shell] *::after {
   box-sizing: border-box;
