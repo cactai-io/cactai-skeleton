@@ -1,17 +1,4 @@
 import type { SkillDescriptor } from '../types/mui.types.js';
-export interface CollaboratorRecord {
-    id: string;
-    developer_id: string;
-    display_name: string;
-    email: string;
-    github_username?: string;
-    permissions: {
-        code_tree: string[];
-        schema_tools: boolean;
-        settings: boolean;
-    };
-    accepted_at?: string;
-}
 export interface SchemaTable {
     name: string;
     fields: SchemaField[];
@@ -119,14 +106,10 @@ import type { CapabilityCatalogueItem, CapabilityConfig, CapabilityConfigPatch, 
 import { type MCPCatalogEntry } from './MCPManager.js';
 export interface ProjectSettingsPanelProps {
     credentials: Partial<CredentialsRecord>;
-    billingEnabled: boolean;
-    collaborators: CollaboratorRecord[];
     /** URL of the Cactai platform dashboard. White-label operators MUST pass
      *  their own. No default. */
     dashboardUrl: string;
     onSaveCredential: (key: keyof CredentialsRecord, value: string) => void;
-    onInviteCollaborator: (email: string) => void;
-    onRemoveCollaborator: (id: string) => void;
     capabilityCatalogue?: CapabilityCatalogueItem[];
     capabilityConfig?: CapabilityConfig;
     onCapabilityPatch?: (patch: CapabilityConfigPatch) => Promise<void>;
@@ -154,4 +137,4 @@ export interface ProjectSettingsPanelProps {
     onMCPRemove?: (id: string) => Promise<void> | void;
     onMCPToggle?: (id: string, enabled: boolean) => Promise<void> | void;
 }
-export declare function ProjectSettingsPanel({ credentials, billingEnabled, collaborators, dashboardUrl, onSaveCredential, onInviteCollaborator, onRemoveCollaborator, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }: ProjectSettingsPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function ProjectSettingsPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }: ProjectSettingsPanelProps): import("react/jsx-runtime").JSX.Element;

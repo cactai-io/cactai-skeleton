@@ -74,35 +74,32 @@ export function SchemaPanel({ tables, migrations, onAddTable, onEditTable, supab
 // at boot and applies the resolved theme to <html data-theme>.
 //
 // v1.2 (Thread 08): the panel expands into a tabbed layout covering the
-// full per-project configuration described in v1.1's hover tooltip:
-// workflow, available tools, available skills, providers, credentials,
-// collaborators, and the outbound link to developer settings. The four
-// tabs ("Configuration", "Credentials", "Team", "Account") group related
-// sections so the information density stays usable at the standard panel
-// width. Each section preserves the v1.1 ds-panel-section / ds-card
-// patterns so the visual rhythm matches the other rail panels.
+// per-project configuration described in v1.1's hover tooltip:
+// workflow, available tools, available skills, providers, credentials.
+// Each section preserves the v1.1 ds-panel-section / ds-card patterns so
+// the visual rhythm matches the other rail panels.
 //
 // What's where:
 //   - Configuration tab: WorkflowSection, CapabilityListPanel × 2 (tools
 //     + skills), PersonalityPickerPanel (sub-section).
-//   - Credentials tab:   ProvidersSection (renamed from "Credentials"),
-//     BYOKSection.
-//   - Team tab:          Collaborators (unchanged from v1.1).
-//   - Account tab:       Open developer settings link, Billing link
-//     (unchanged from v1.1).
+//   - Credentials tab:   ProvidersSection, BYOKSection.
+//   - Integrations tab:  MCPManager (devshell-scope MCP servers).
 //
 // The CapabilityListPanel renders in scope='appshell' here. The DevShell
 // preferences modal (avatar menu) renders the same component in
 // scope='devshell' over the same catalogue.
+//
+// Team + Account tabs were both removed — collaborator + account
+// management live on the platform dashboard. Team-tab removal also took
+// the collaborators/billingEnabled props with it (no callers left).
 import { CapabilityListPanel, } from './CapabilityListPanel.js';
 import { PersonalityPickerPanel, } from './PersonalityPickerPanel.js';
 import { PersonalityEditor, } from './PersonalityEditor.js';
 import { WorkflowSection, } from './WorkflowSection.js';
 import { BYOKSection, } from './BYOKSection.js';
 import { MCPManager } from './MCPManager.js';
-export function ProjectSettingsPanel({ credentials, billingEnabled, collaborators, dashboardUrl, onSaveCredential, onInviteCollaborator, onRemoveCollaborator, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }) {
+export function ProjectSettingsPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }) {
     const [tab, setTab] = useState('configuration');
-    const [inviteEmail, setInviteEmail] = useState('');
     const [editingKey, setEditingKey] = useState(null);
     const [editingVal, setEditingVal] = useState('');
     // Personality editor surface state. When set, the editor replaces the
@@ -132,7 +129,6 @@ export function ProjectSettingsPanel({ credentials, billingEnabled, collaborator
     const tabs = [
         { key: 'configuration', label: 'Configuration' },
         { key: 'credentials', label: 'Credentials' },
-        { key: 'team', label: 'Team' },
         ...(mcpAvailable ? [{ key: 'integrations', label: 'Integrations' }] : []),
     ];
     return (_jsxs("div", { className: "ds-panel", children: [_jsx("div", { style: { display: 'flex', gap: 4 }, children: tabs.map((t) => (_jsx("button", { className: `ds-view-btn${tab === t.key ? ' ds-view-active' : ''}`, onClick: () => setTab(t.key), style: { fontSize: 11.5 }, children: t.label }, t.key))) }), tab === 'configuration' && (_jsxs(_Fragment, { children: [workflow && onWorkflowPatch
@@ -153,26 +149,6 @@ export function ProjectSettingsPanel({ credentials, billingEnabled, collaborator
                                                                 outline: 'none',
                                                             }, onKeyDown: e => { if (e.key === 'Enter')
                                                                 saveEdit(); if (e.key === 'Escape')
-                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch })] })), tab === 'team' && (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Collaborators" }), collaborators.map(c => (_jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text)', fontWeight: 500 }, children: c.display_name }), _jsxs("div", { style: { fontSize: 11, color: 'var(--ds-text-3)', marginTop: 2 }, children: [c.email, c.github_username ? ` · @${c.github_username}` : ''] }), _jsx("div", { style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 2 }, children: c.accepted_at ? 'Active' : 'Invitation pending' })] }), _jsx("button", { className: "ds-btn-ghost", onClick: () => onRemoveCollaborator(c.id), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: "Remove" })] }) }, c.id))), _jsxs("div", { style: { display: 'flex', gap: 8, marginTop: 4 }, children: [_jsx("input", { type: "email", value: inviteEmail, onChange: e => setInviteEmail(e.target.value), placeholder: "colleague@example.com", style: {
-                                    flex: 1,
-                                    background: 'var(--ds-elevated)',
-                                    border: '1px solid var(--ds-border)',
-                                    borderRadius: 'var(--ds-r-md)',
-                                    padding: '7px 12px',
-                                    color: 'var(--ds-text)',
-                                    fontSize: 12.5,
-                                    fontFamily: 'var(--f-ui)',
-                                    outline: 'none',
-                                }, onKeyDown: e => {
-                                    if (e.key === 'Enter' && inviteEmail.trim()) {
-                                        onInviteCollaborator(inviteEmail.trim());
-                                        setInviteEmail('');
-                                    }
-                                } }), _jsx("button", { className: "ds-btn-primary", onClick: () => {
-                                    if (inviteEmail.trim()) {
-                                        onInviteCollaborator(inviteEmail.trim());
-                                        setInviteEmail('');
-                                    }
-                                }, style: { fontSize: 11.5, flexShrink: 0 }, children: "Invite" })] })] })), tab === 'integrations' && mcpAvailable && (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))] }));
+                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch })] })), tab === 'integrations' && mcpAvailable && (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))] }));
 }
 //# sourceMappingURL=index.js.map

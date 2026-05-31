@@ -103,7 +103,6 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [capabilityConfig, setCapabilityConfig] = useState(null);
     const [capabilityCat, setCapabilityCat] = useState([]);
     const [credentialsState, setCredentialsState] = useState(null);
-    const [collaborators, setCollaborators] = useState([]);
     // MCP — devshell-scope integrations for this project. Sprint-1 UI:
     // persisted via /v1/projects/:id/mcp/devshell but inert (no agent
     // usage yet). See memory: mcp-integration-architecture.
@@ -402,12 +401,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // no schema or contract work needed when MCP ships and we revisit
     // marketplace. The BuildPanel renders Installed-only without these.
     // Settings panel data — per-source, polled every 10s. Each surface
-    // (byok, personality, workflow, capabilities, credentials,
-    // collaborators) is fetched directly from the skeleton's
-    // /api/settings/* routes which already return panel-correct shapes
-    // (ProjectBYOKResponse, ProjectPersonalityResponse, etc.). One
-    // failing source doesn't poison the others — each gets its own
-    // diagnostics entry.
+    // (byok, personality, workflow, capabilities, credentials) is
+    // fetched directly from the skeleton's /api/settings/* routes which
+    // already return panel-correct shapes (ProjectBYOKResponse,
+    // ProjectPersonalityResponse, etc.). One failing source doesn't
+    // poison the others — each gets its own diagnostics entry.
     useEffect(() => {
         let cancelled = false;
         const tick = async () => {
@@ -427,13 +425,12 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     return null;
                 }
             };
-            const [byokBody, personalityBody, workflowBody, capsBody, credsBody, collabBody, platformSettings] = await Promise.all([
+            const [byokBody, personalityBody, workflowBody, capsBody, credsBody, platformSettings] = await Promise.all([
                 settle('/api/settings/byok', 'byok'),
                 settle('/api/settings/personality', 'personality'),
                 settle('/api/settings/workflow', 'workflow_settings'),
                 settle('/api/settings/capabilities', 'capabilities'),
                 settle('/api/settings/credentials', 'credentials'),
-                settle('/api/settings/collaborators', 'collaborators'),
                 // Keep the platform call only for the credentials *_set flags
                 // — the skeleton's /credentials route doesn't surface them in
                 // that shape today, and the platform endpoint already gates by
@@ -461,8 +458,6 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 ?? null;
             if (credsResolved)
                 setCredentialsState(credsResolved);
-            if (collabBody?.collaborators)
-                setCollaborators(collabBody.collaborators);
         };
         void tick();
         const interval = setInterval(tick, 10000);
@@ -702,8 +697,6 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         ...(credentialsState.openai_set ? { openai_api_key: '••••' } : {}),
                         ...(credentialsState.google_oauth_set ? { google_oauth: '••••' } : {}),
                     } : {},
-                    billingEnabled: false,
-                    collaborators: collaborators,
                     // onSaveCredential: POST /api/settings/credentials. The route
                     // refuses values that look like secrets (these belong in
                     // Vercel env vars per the security stance); the diagnostics
@@ -721,45 +714,6 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         }
                         else {
                             recordFetchError('credential_save', null);
-                        }
-                    },
-                    // POST /api/settings/collaborators — uses Supabase Auth admin
-                    // inviteUserByEmail, upserts app_users + platform_roles
-                    // (role=collaborator). The invitee gets a magic-link email;
-                    // their app_users row exists immediately so the panel shows
-                    // them as Active once they sign in for the first time.
-                    onInviteCollaborator: async (email) => {
-                        const res = await fetch('/api/settings/collaborators', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email }),
-                        });
-                        if (!res.ok) {
-                            const body = await res.json().catch(() => ({}));
-                            recordFetchError('collaborator_invite', { status: res.status, code: body.error, detail: body.detail });
-                        }
-                        else {
-                            recordFetchError('collaborator_invite', null);
-                        }
-                    },
-                    // DELETE /api/settings/collaborators/:id — refuses on self
-                    // and on dev-role rows (those flow through the platform
-                    // dashboard's owner-transfer surface, not from inside the
-                    // IDE). Diagnostics catches the 400s.
-                    onRemoveCollaborator: async (id) => {
-                        const res = await fetch(`/api/settings/collaborators/${encodeURIComponent(id)}`, {
-                            method: 'DELETE',
-                        });
-                        if (!res.ok) {
-                            const body = await res.json().catch(() => ({}));
-                            recordFetchError('collaborator_remove', { status: res.status, code: body.error, detail: body.detail });
-                        }
-                        else {
-                            // Optimistic remove already happened? No — the 10s
-                            // settings tick handles refresh. Force one now so the
-                            // panel reflects the change without waiting.
-                            setCollaborators(prev => prev.filter(c => c.id !== id));
-                            recordFetchError('collaborator_remove', null);
                         }
                     },
                     personality: personality ?? undefined,
