@@ -561,6 +561,63 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             window.localStorage.setItem(completionKey, new Date().toISOString());
         }
     };
+    // Welcome chat message seeding. The welcome copy is server-authored
+    // (cactai-platform/apps/api/src/devshell/purpose-capture/index.ts) and
+    // fetched at runtime via /api/devshell/welcome so platform copy updates
+    // propagate without requiring a customer-app rebuild. The server
+    // returns should_show=false once the developer's project has
+    // progressed past the 'purpose_capture' build phase, so the welcome
+    // naturally stops appearing after the first purpose statement is
+    // submitted — no client-side state needs to track that.
+    //
+    // The ref ensures we only call appendMessage once per session even
+    // when React re-runs the effect (StrictMode, dep changes, etc.) —
+    // duplicate seeds would render the welcome twice in the chat feed.
+    const welcomeSeededRef = React.useRef(false);
+    useEffect(() => {
+        if (welcomeSeededRef.current)
+            return;
+        if (!shell || !sessionId)
+            return;
+        const personalityName = (() => {
+            const override = typeof window !== 'undefined'
+                ? window.localStorage.getItem('cactai_devshell_personality')
+                : null;
+            const activeId = override ?? personality?.active_id ?? 'ember';
+            const found = personality?.available.find(p => p.id === activeId);
+            return found?.display_name
+                ?? activeId.charAt(0).toUpperCase() + activeId.slice(1);
+        })();
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`/api/devshell/welcome?personality_name=${encodeURIComponent(personalityName)}`);
+                if (!res.ok || cancelled)
+                    return;
+                const data = (await res.json());
+                if (cancelled || !data.should_show || !data.header)
+                    return;
+                const parts = [
+                    data.header,
+                    data.prompt,
+                    data.example ? `Here's an example to give you a feel for the level of detail that helps:\n\n"${data.example}"` : null,
+                ].filter(Boolean);
+                welcomeSeededRef.current = true;
+                shell.getStore().appendMessage({
+                    request_id: `welcome-${sessionId}`,
+                    session_id: sessionId,
+                    status: 'complete',
+                    output: { text: parts.join('\n\n') },
+                    completed_at: new Date().toISOString(),
+                });
+            }
+            catch {
+                // Non-fatal — welcome stays absent if the proxy or platform
+                // endpoint is unreachable.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [shell, sessionId, personality]);
     if (error) {
         return (_jsxs("div", { style: {
                 height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',

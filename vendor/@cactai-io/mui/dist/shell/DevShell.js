@@ -202,6 +202,48 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // can collapse it via the panel's own header. Persisted per-project so
     // the previous session's preference is preserved across reloads.
     const [treeCol, setTreeCol] = useState(() => rB(projectId, 'tree_col', false));
+    // Nav rail auto-hide. When the developer enables this in DevShell
+    // Preferences, the left rail collapses to 0 width and reveals on
+    // mouseenter of the hover-zone (a thin invisible strip pinned to the
+    // viewport's left edge) or the rail itself. The chat panel's left edge
+    // grows to fill the freed space when hidden, so the user perceives the
+    // chat as expanding when the nav retracts. The setting is per-developer
+    // (devshell-global), not per-project, since it's a layout preference.
+    // Storage key matches DevShellPreferencesModal's toggle.
+    const [railAutoHide, setRailAutoHide] = useState(() => {
+        if (typeof window === 'undefined')
+            return false;
+        return window.localStorage.getItem('cactai_devshell_rail_autohide') === '1';
+    });
+    const [railRevealed, setRailRevealed] = useState(false);
+    const railHideTimerRef = useRef(null);
+    useEffect(() => {
+        if (typeof window === 'undefined')
+            return;
+        const handler = (e) => {
+            const next = !!e.detail?.value;
+            setRailAutoHide(next);
+            if (!next)
+                setRailRevealed(false);
+        };
+        window.addEventListener('cactai:rail_autohide:change', handler);
+        return () => window.removeEventListener('cactai:rail_autohide:change', handler);
+    }, []);
+    const revealRail = useCallback(() => {
+        if (railHideTimerRef.current) {
+            clearTimeout(railHideTimerRef.current);
+            railHideTimerRef.current = null;
+        }
+        setRailRevealed(true);
+    }, []);
+    const hideRailWithDelay = useCallback(() => {
+        if (railHideTimerRef.current)
+            clearTimeout(railHideTimerRef.current);
+        railHideTimerRef.current = setTimeout(() => {
+            setRailRevealed(false);
+            railHideTimerRef.current = null;
+        }, 700);
+    }, []);
     const [view, setView] = useState('build');
     const [role, setRole] = useState(availableRoles[0]?.role ?? 'user');
     const [section, setSection] = useState('workspace');
@@ -596,7 +638,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                                                     window.open(`/app?lens=${encodeURIComponent(r.role)}`, `cactai-lens-${r.role}`);
                                                     onRoleSwitch(r.role);
                                                     setAvatarOpen(false);
-                                                }, children: r.label }, r.role)))] })), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setInspectorOpen(true); setAvatarOpen(false); }, children: "Theme inspector" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item ds-avatar-menu-signout", onClick: () => setAvatarOpen(false), children: "Sign out" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-version", children: CACTAI_IDE_RELEASE_LABEL })] }))] })] }), _jsxs("div", { className: "ds-body", children: [_jsxs("nav", { className: "ds-rail", "aria-label": "DevShell navigation", children: [SECTIONS.map(s => (_jsx(RailBtn, { section: s, active: section === s && isBuild, onClick: () => changeSection(s) }, s))), _jsx("div", { className: "ds-rail-spacer" })] }), _jsxs("div", { className: "ds-main", children: [!chatCol && (_jsx(DevChatPanel, { shell: shell, messages: messages, agentState: agentState, character: character, agentDisplayName: agentDisplayName, activeView: view, onCollapse: () => setChatCol(true), inspectorLabel: inspector ? inspector.element_path.split(' > ').pop() : undefined, onClearInspector: clearInspector, streamingContent: streamingContent, style: { width: chatW } })), !chatCol && _jsx("div", { className: "ds-resize-h", onMouseDown: startChatDrag, role: "separator", "aria-orientation": "vertical" }), chatCol && (
+                                                }, children: r.label }, r.role)))] })), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setInspectorOpen(true); setAvatarOpen(false); }, children: "Theme inspector" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item ds-avatar-menu-signout", onClick: () => setAvatarOpen(false), children: "Sign out" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-version", children: CACTAI_IDE_RELEASE_LABEL })] }))] })] }), _jsxs("div", { className: "ds-body", children: [railAutoHide && !railRevealed && (_jsx("div", { className: "ds-rail-hover-zone", "aria-hidden": "true", onMouseEnter: revealRail })), _jsxs("nav", { className: `ds-rail${railAutoHide ? ' is-autohide' : ''}${railAutoHide && railRevealed ? ' is-revealed' : ''}`, "aria-label": "DevShell navigation", onMouseEnter: railAutoHide ? revealRail : undefined, onMouseLeave: railAutoHide ? hideRailWithDelay : undefined, children: [SECTIONS.map(s => (_jsx(RailBtn, { section: s, active: section === s && isBuild, onClick: () => changeSection(s) }, s))), _jsx("div", { className: "ds-rail-spacer" })] }), _jsxs("div", { className: "ds-main", children: [!chatCol && (_jsx(DevChatPanel, { shell: shell, messages: messages, agentState: agentState, character: character, agentDisplayName: agentDisplayName, activeView: view, onCollapse: () => setChatCol(true), inspectorLabel: inspector ? inspector.element_path.split(' > ').pop() : undefined, onClearInspector: clearInspector, streamingContent: streamingContent, style: { width: chatW } })), !chatCol && _jsx("div", { className: "ds-resize-h", onMouseDown: startChatDrag, role: "separator", "aria-orientation": "vertical" }), chatCol && (
                             // Collapsed-chat re-open affordance. Matches the files
                             // panel's collapsed-tab pattern — the chat stays persistently
                             // visible as a thin vertical strip with an arrow that

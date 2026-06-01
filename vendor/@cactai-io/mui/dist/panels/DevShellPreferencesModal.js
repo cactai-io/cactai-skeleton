@@ -12,10 +12,28 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 // The avatar menu already has a "DevShell preferences" header (theme
 // switcher etc.) in v1.1. The new entry lives below the theme buttons
 // and opens this modal, leaving the existing theme controls in place.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CapabilityListPanel } from './CapabilityListPanel.js';
+const RAIL_AUTOHIDE_KEY = 'cactai_devshell_rail_autohide';
 export function DevShellPreferencesModal({ catalogue, config, onPatch, onClose }) {
     const [tab, setTab] = useState('capabilities');
+    // Nav rail auto-hide. Stored as a developer-global preference (not
+    // per-project) so the layout doesn't change when switching projects.
+    // Broadcast a custom event so DevShell's React state picks up the
+    // change without needing a remount.
+    const [railAutoHide, setRailAutoHide] = useState(() => {
+        if (typeof window === 'undefined')
+            return false;
+        return window.localStorage.getItem(RAIL_AUTOHIDE_KEY) === '1';
+    });
+    useEffect(() => {
+        if (typeof window === 'undefined')
+            return;
+        window.localStorage.setItem(RAIL_AUTOHIDE_KEY, railAutoHide ? '1' : '0');
+        window.dispatchEvent(new CustomEvent('cactai:rail_autohide:change', {
+            detail: { value: railAutoHide },
+        }));
+    }, [railAutoHide]);
     return (_jsx("div", { role: "dialog", "aria-modal": "true", "aria-label": "DevShell preferences", style: {
             position: 'fixed', inset: 0,
             background: 'rgba(0,0,0,0.45)',
@@ -34,6 +52,12 @@ export function DevShellPreferencesModal({ catalogue, config, onPatch, onClose }
             }, children: [_jsxs("div", { style: {
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '12px 16px', borderBottom: '1px solid var(--ds-border)',
-                    }, children: [_jsx("div", { style: { fontSize: 13.5, fontWeight: 500, color: 'var(--ds-text)' }, children: "DevShell preferences" }), _jsx("button", { className: "ds-btn-ghost", onClick: onClose, "aria-label": "Close", style: { fontSize: 14, padding: '2px 8px' }, children: "\u2715" })] }), _jsxs("div", { style: { display: 'flex', gap: 4, padding: '8px 16px 0' }, children: [_jsx("button", { className: `ds-view-btn${tab === 'capabilities' ? ' ds-view-active' : ''}`, onClick: () => setTab('capabilities'), style: { fontSize: 11.5 }, children: "Tools & skills" }), _jsx("button", { className: `ds-view-btn${tab === 'theme_hint' ? ' ds-view-active' : ''}`, onClick: () => setTab('theme_hint'), style: { fontSize: 11.5 }, children: "Theme" })] }), _jsxs("div", { style: { overflow: 'auto', padding: '8px 16px 16px' }, children: [tab === 'capabilities' && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Pick which tools and skills are available in the IDE for this project. These choices affect DevShell only \u2014 your deployed app's tools and skills are configured separately in Project settings." }), _jsx(CapabilityListPanel, { scope: "devshell", catalogue: catalogue, config: config, allowHide: false, onPatch: onPatch })] })), tab === 'theme_hint' && (_jsx("div", { className: "ds-card", children: _jsx("div", { className: "ds-card-body", style: { fontSize: 12 }, children: "DevShell theme (light / dark / system) is in the avatar menu directly. It's per-developer, not per-project, so it lives on the Platform dashboard rather than here." }) }))] })] }) }));
+                    }, children: [_jsx("div", { style: { fontSize: 13.5, fontWeight: 500, color: 'var(--ds-text)' }, children: "DevShell preferences" }), _jsx("button", { className: "ds-btn-ghost", onClick: onClose, "aria-label": "Close", style: { fontSize: 14, padding: '2px 8px' }, children: "\u2715" })] }), _jsxs("div", { style: { display: 'flex', gap: 4, padding: '8px 16px 0' }, children: [_jsx("button", { className: `ds-view-btn${tab === 'capabilities' ? ' ds-view-active' : ''}`, onClick: () => setTab('capabilities'), style: { fontSize: 11.5 }, children: "Tools & skills" }), _jsx("button", { className: `ds-view-btn${tab === 'layout' ? ' ds-view-active' : ''}`, onClick: () => setTab('layout'), style: { fontSize: 11.5 }, children: "Layout" }), _jsx("button", { className: `ds-view-btn${tab === 'theme_hint' ? ' ds-view-active' : ''}`, onClick: () => setTab('theme_hint'), style: { fontSize: 11.5 }, children: "Theme" })] }), _jsxs("div", { style: { overflow: 'auto', padding: '8px 16px 16px' }, children: [tab === 'capabilities' && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Pick which tools and skills are available in the IDE for this project. These choices affect DevShell only \u2014 your deployed app's tools and skills are configured separately in Project settings." }), _jsx(CapabilityListPanel, { scope: "devshell", catalogue: catalogue, config: config, allowHide: false, onPatch: onPatch })] })), tab === 'layout' && (_jsx("div", { className: "ds-card", children: _jsx("div", { className: "ds-card-body", style: { fontSize: 12, lineHeight: 1.5 }, children: _jsxs("label", { style: {
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 10,
+                                        cursor: 'pointer',
+                                        padding: '4px 0',
+                                    }, children: [_jsx("input", { type: "checkbox", checked: railAutoHide, onChange: (e) => setRailAutoHide(e.target.checked), style: { marginTop: 3, cursor: 'pointer' } }), _jsxs("span", { children: [_jsx("span", { style: { fontWeight: 500, color: 'var(--ds-text)' }, children: "Auto-hide the nav rail" }), _jsx("span", { style: { display: 'block', color: 'var(--ds-text-2)', marginTop: 2 }, children: "The left section rail collapses out of view. Mouse over the left edge of the screen to reveal it; it tucks back after you move away. The chat panel expands into the freed space when the rail is hidden." })] })] }) }) })), tab === 'theme_hint' && (_jsx("div", { className: "ds-card", children: _jsx("div", { className: "ds-card-body", style: { fontSize: 12 }, children: "DevShell theme (light / dark / system) is in the avatar menu directly. It's per-developer, not per-project, so it lives on the Platform dashboard rather than here." }) }))] })] }) }));
 }
 //# sourceMappingURL=DevShellPreferencesModal.js.map

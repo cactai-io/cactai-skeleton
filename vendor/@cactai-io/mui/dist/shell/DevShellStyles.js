@@ -456,6 +456,36 @@ body.cactai-shell-body-lock {
   align-items: center;
   padding: 12px 0;
   gap: 4px;
+  transition: flex-basis 200ms var(--ease, ease),
+              width      200ms var(--ease, ease);
+  overflow: hidden;
+}
+
+/* Auto-hide variant — rail collapses to 0 width by default, expands to its
+   normal width when .is-revealed is added by the React mouseenter handler.
+   The chat panel's left edge moves to fill the freed space when the rail
+   is hidden, so the user perceives the chat as growing when the nav
+   retracts. .ds-rail-hover-zone (rendered as a sibling) catches mouse
+   enters on the screen's left edge to trigger reveal. */
+[data-cactai-shell] .ds-rail.is-autohide:not(.is-revealed) {
+  width: 0;
+  flex-basis: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-right-width: 0;
+}
+[data-cactai-shell] .ds-rail.is-autohide.is-revealed {
+  width: var(--ds-rail-w);
+  flex-basis: var(--ds-rail-w);
+}
+[data-cactai-shell] .ds-rail-hover-zone {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 100vh;
+  z-index: 60;
+  cursor: pointer;
 }
 
 /* Rail buttons — universal interactive pattern, with rail-specific active
