@@ -533,9 +533,19 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         milo: { svg_id: 'prairie-dog', idle_animation: 'ds-anim-prairie-dog-idle', thinking_animation: 'ds-anim-prairie-dog-think', waiting_animation: 'ds-anim-prairie-dog-wait', responding_animation: 'ds-anim-prairie-dog-respond' },
         ember: { svg_id: 'owl', idle_animation: 'ds-anim-owl-idle', thinking_animation: 'ds-anim-owl-think', waiting_animation: 'ds-anim-owl-wait', responding_animation: 'ds-anim-owl-respond' },
     };
-    const activeId = personality?.active_id;
+    // Chat header personality — reads from DevShell-scope storage when set
+    // (localStorage key cactai_devshell_personality, set by the DevShell
+    // Configuration → Preferences tab), falls back to the app-scope active
+    // personality, falls back to Ember. The chat-header agent name +
+    // character represent the DEVELOPER'S build-time agent, not the
+    // deployed app's end-user agent — so the DevShell-scope override wins.
+    const devshellOverrideId = typeof window !== 'undefined'
+        ? (window.localStorage.getItem('cactai_devshell_personality') ?? undefined)
+        : undefined;
+    const activeId = devshellOverrideId ?? personality?.active_id;
     const activePersonality = activeId ? personality?.available.find(p => p.id === activeId) : undefined;
-    const agentDisplayName = activePersonality?.display_name ?? 'Ember';
+    const agentDisplayName = activePersonality?.display_name
+        ?? (activeId ? activeId.charAt(0).toUpperCase() + activeId.slice(1) : 'Ember');
     const character = activeId ? BUILTIN_CHARACTERS[activeId] : undefined;
     // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
     const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
