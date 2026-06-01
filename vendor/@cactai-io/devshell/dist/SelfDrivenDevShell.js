@@ -506,6 +506,61 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, [cactaiBase, projectId, recordFetchError]);
+    // Onboarding modal state. Opens on first DevShell mount per project
+    // (localStorage gated; project-scoped key). Persistent re-entry via
+    // a custom event the IDE shell can dispatch.
+    //
+    // HOOK ORDERING: these hooks (plus the welcome-chat-seed effect below)
+    // MUST live above the `if (error)` / `if (!shell)` early returns.
+    // Placing them below caused React error #310 — on render 1 the bail
+    // returned before these hooks ran, on render 2 (after shell init)
+    // they ran for the first time, and React's hooks counter saw a
+    // different hook count between renders. Introduced in 6c4d009 and
+    // fixed by relocating the block above the returns.
+    const onboardingKey = `cactai_onboarding_seen_${projectId}`;
+    const [onboardingOpen, setOnboardingOpen] = useState(typeof window !== 'undefined'
+        ? !window.localStorage.getItem(onboardingKey)
+        : false);
+    const dismissOnboarding = () => {
+        setOnboardingOpen(false);
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(onboardingKey, new Date().toISOString());
+        }
+    };
+    useEffect(() => {
+        if (typeof window === 'undefined')
+            return;
+        const handler = () => setOnboardingOpen(true);
+        window.addEventListener('cactai:onboarding:open', handler);
+        return () => window.removeEventListener('cactai:onboarding:open', handler);
+    }, []);
+    // Docked-guide state. The ⓘ button in the workspace panel header
+    // opens the OnboardingModal in `mode='docked'` — a non-blocking
+    // panel-sized overlay that slides into the chat-panel slot. The
+    // welcome modal (mode='modal') is auto-only on first mount; the
+    // docked variant is the manual entry point and shows cumulative
+    // content (welcome + workflow-completion when applicable).
+    const [guideDockedOpen, setGuideDockedOpen] = useState(false);
+    // Workflow-completion modal state. Fires once when workflow_step
+    // transitions to 'complete'. localStorage gates a re-trigger so a
+    // refresh after dismissal doesn't bring it back.
+    const completionKey = `cactai_workflow_complete_seen_${projectId}`;
+    const [completionOpen, setCompletionOpen] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined')
+            return;
+        if (workflowStep !== 'complete')
+            return;
+        if (window.localStorage.getItem(completionKey))
+            return;
+        setCompletionOpen(true);
+    }, [workflowStep, completionKey]);
+    const dismissCompletion = () => {
+        setCompletionOpen(false);
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(completionKey, new Date().toISOString());
+        }
+    };
     if (error) {
         return (_jsxs("div", { style: {
                 height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -562,48 +617,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const syncState = pendingFiles.length > 0
         ? { branch: 'local', uncommittedFiles: pendingFiles.map(f => f.path) }
         : { branch: 'dev', synced: true };
-    // Onboarding modal state. Opens on first DevShell mount per project
-    // (localStorage gated; project-scoped key). Persistent re-entry via
-    // a custom event the IDE shell can dispatch.
-    const onboardingKey = `cactai_onboarding_seen_${projectId}`;
-    const [onboardingOpen, setOnboardingOpen] = useState(typeof window !== 'undefined'
-        ? !window.localStorage.getItem(onboardingKey)
-        : false);
-    const dismissOnboarding = () => {
-        setOnboardingOpen(false);
-        if (typeof window !== 'undefined') {
-            window.localStorage.setItem(onboardingKey, new Date().toISOString());
-        }
-    };
-    useEffect(() => {
-        if (typeof window === 'undefined')
-            return;
-        const handler = () => setOnboardingOpen(true);
-        window.addEventListener('cactai:onboarding:open', handler);
-        return () => window.removeEventListener('cactai:onboarding:open', handler);
-    }, []);
-    // Workflow-completion modal state. Fires once when workflow_step
-    // transitions to 'complete'. localStorage gates a re-trigger so a
-    // refresh after dismissal doesn't bring it back.
-    const completionKey = `cactai_workflow_complete_seen_${projectId}`;
-    const [completionOpen, setCompletionOpen] = useState(false);
-    useEffect(() => {
-        if (typeof window === 'undefined')
-            return;
-        if (workflowStep !== 'complete')
-            return;
-        if (window.localStorage.getItem(completionKey))
-            return;
-        setCompletionOpen(true);
-    }, [workflowStep, completionKey]);
-    const dismissCompletion = () => {
-        setCompletionOpen(false);
-        if (typeof window !== 'undefined') {
-            window.localStorage.setItem(completionKey, new Date().toISOString());
-        }
-    };
     // decisions / backlog / sprints / workflowStep are stateful (set by
-    // the polling effect above).
+    // the polling effect above). Modal state (onboardingOpen,
+    // completionOpen, guideDockedOpen) is declared above the early
+    // returns to keep React's hook order stable across renders.
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
@@ -814,10 +831,15 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         if (url)
                             window.open(url, '_blank', 'noopener,noreferrer');
                     },
-                    // ⓘ guide button → re-opens the onboarding modal over the chat
-                    // area. The modal's localStorage gate already remembers that
-                    // it's been seen; this lets the developer revisit any time.
-                    onOpenGuide: () => setOnboardingOpen(true),
+                    // ⓘ guide button → opens the OnboardingModal in DOCKED mode (a
+                    // non-blocking panel-sized overlay in the chat slot, not the
+                    // centered modal). Auto-modal triggers are reserved for the
+                    // system: once at wizard completion (welcome content), once at
+                    // workflow completion (the WorkflowCompletionModal). Every
+                    // manual ⓘ click is docked, with cumulative content (welcome
+                    // always; workflow-completion section when workflow_step is
+                    // 'complete').
+                    onOpenGuide: () => setGuideDockedOpen(true),
                 }, buildProps: {
                     tools: [],
                     // Capability config lives on the customer DB. The skeleton's
@@ -1111,7 +1133,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             }
                         },
                     }
-                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup })] }));
+                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, mode: "modal", personalityName: agentDisplayName, workflowComplete: false }), _jsx(OnboardingModal, { open: guideDockedOpen, onClose: () => setGuideDockedOpen(false), mode: "docked", personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup })] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
 // Renders only when at least one fetch source is in error. Lives at
