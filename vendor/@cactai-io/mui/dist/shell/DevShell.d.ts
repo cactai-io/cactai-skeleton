@@ -10,7 +10,7 @@ import type { SprintRecord, GoalBacklogEntry, SurfaceFormField, WorkflowDecision
 import type { CommitListItem } from '../commit/CommitHistoryModal.js';
 import type { Resolution } from '../commit/CommitConflictModal.js';
 import type { SyncState, PendingFileSummary } from '../commit/types.js';
-export type DevShellView = 'dev' | 'plan' | 'role_view';
+export type DevShellView = 'build' | 'plan' | 'role_view';
 export type RoleViewRole = string;
 export type RailSection = 'workspace' | 'build' | 'schema' | 'project-settings';
 /**

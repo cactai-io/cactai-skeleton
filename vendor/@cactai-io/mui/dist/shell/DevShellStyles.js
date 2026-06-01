@@ -233,22 +233,22 @@ body.cactai-shell-body-lock {
   color: var(--ds-text-2);
 }
 
-/* View switcher in top bar — v1.1: Dev | Plan only. Role pills moved out
-   of the top bar entirely; they live in the avatar menu's "Preview as"
-   section and on the dedicated "Preview as…" control to the right of
-   the spacer. The Dev/Plan group keeps the gradient-on-active treatment
-   because those are themselves section selectors. */
+/* View switcher in top bar — Plan | Build. Role pills moved out of the
+   top bar entirely; they live in the avatar menu's "Preview as" section
+   and on the dedicated "Preview as…" control to the right of the spacer.
+   The Plan/Build group keeps the gradient-on-active treatment because
+   those are themselves section selectors. */
 [data-cactai-shell] .ds-view-switcher {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-[data-cactai-shell] .ds-view-dev-group {
+[data-cactai-shell] .ds-view-switcher-group {
   display: flex;
   gap: 4px;
 }
 
-/* View buttons — Dev/Plan group (gradient when active). Hover uses the
+/* View buttons — Plan/Build group (gradient when active). Hover uses the
    universal interactive pattern: lift, accent border, accent glow. */
 [data-cactai-shell] .ds-view-btn {
   padding: 5px 13px;
@@ -289,7 +289,7 @@ body.cactai-shell-body-lock {
 
 [data-cactai-shell] .ds-topbar-spacer { flex: 1; }
 
-/* Preview as… picker — v1.1. Visually distinct from the Dev | Plan
+/* Preview as… picker — v1.1. Visually distinct from the Plan | Build
    switcher to keep developer-mode toggles separate from end-user role
    simulations. Renders next to the avatar menu, on the right side of
    the top bar. Hidden entirely when the project defines no roles. */
@@ -1303,7 +1303,7 @@ body.cactai-shell-body-lock {
 }
 
 /* Files bottom panel — v1.1: Files is no longer a rail section. It is an
-   always-on collapsible bottom panel in Dev view. The panel renders below
+   always-on collapsible bottom panel in Build view. The panel renders below
    the main content with its own header that carries the collapse control;
    when collapsed it shrinks to a thin "Files ⌃" tab. Shares the resize
    handle (.ds-resize-v) with the previous Files-as-rail-section layout. */
@@ -3115,7 +3115,7 @@ body.cactai-shell-body-lock {
   animation: cactai-fade-up var(--d-base) var(--ease) both;
 }
 
-/* View switching (Dev/Plan body). The view-content wrapper fades when
+/* View switching (Plan/Build body). The view-content wrapper fades when
    the active view changes. Consumers add data-view-key on this element
    and React's key=... handling guarantees the animation re-runs. */
 [data-cactai-shell] .ds-view-body {

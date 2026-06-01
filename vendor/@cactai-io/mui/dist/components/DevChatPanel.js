@@ -53,7 +53,7 @@ function getExtension(filename) {
     return filename.split('.').pop()?.toLowerCase() ?? '';
 }
 const VIEW_PLACEHOLDERS = {
-    dev: 'Describe what to build or change…',
+    build: 'Describe what to build or change…',
     plan: 'Add a goal, plan a sprint, or take notes…',
     role_view: 'Ask about this view or describe a change…',
 };
