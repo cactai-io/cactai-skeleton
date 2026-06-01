@@ -23,6 +23,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDevRole } from '@/lib/auth';
+import { endpoints } from '@/lib/endpoints';
 import {
   loadBYOK,
   saveBYOK,
@@ -88,6 +89,27 @@ export async function PATCH(req: NextRequest) {
     }
 
     await saveBYOK(blob);
+
+    // Push routing invalidation so the next agent turn loads the new
+    // provider keys instead of waiting for the 60s TTL on the platform's
+    // cached routing snapshot. Fire-and-forget — same semantics as the
+    // capabilities PATCH route. Both scopes are invalidated because BYOK
+    // affects both devshell + appshell turn routing.
+    void (async () => {
+      try {
+        const apiKey  = endpoints.cactaiApiKey;
+        const baseUrl = endpoints.cactaiBase;
+        const projectId = endpoints.projectId;
+        if (!apiKey || !baseUrl || !projectId) return;
+        await fetch(`${baseUrl}/v1/internal/routing/invalidate`, {
+          method:  'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ project_id: projectId }),
+        });
+      } catch {
+        // Cache TTL is the floor; failure here just delays propagation.
+      }
+    })();
 
     // Return the same response shape as GET so the UI updates without a
     // second round-trip.
