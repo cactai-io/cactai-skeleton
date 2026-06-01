@@ -2,7 +2,7 @@ import type { MUIShell } from '../shell/MUIShell.js';
 import type { MorphState } from '@cactai-io/types';
 import type { PersonalityCharacter } from '@cactai-io/types';
 import type { TurnClassification } from '@cactai-io/types';
-export type DevView = 'build' | 'plan' | 'role_view';
+export type DevView = 'build' | 'plan' | 'role_view' | 'test_drive';
 export interface ChatMessage {
     id: string;
     role: 'user' | 'agent';

@@ -56,6 +56,7 @@ const VIEW_PLACEHOLDERS = {
     build: 'Describe what to build or change…',
     plan: 'Add a goal, plan a sprint, or take notes…',
     role_view: 'Ask about this view or describe a change…',
+    test_drive: 'Test the app from the selected role\'s perspective…',
 };
 const AGENT_STATE_LABELS = {
     idle: 'idle',
