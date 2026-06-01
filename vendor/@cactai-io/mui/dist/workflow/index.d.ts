@@ -10,8 +10,13 @@ export interface WorkflowSurfaceProps {
     onFormSubmit: (choices: Record<string, unknown>) => void;
     onRevisit: (decisionKey: string) => void;
     onResolveBacklog: (entryId: string) => void;
+    onCreateBacklog?: (description: string) => Promise<void> | void;
+    onUpdateBacklog?: (id: string, description: string) => Promise<void> | void;
+    onDeleteBacklog?: (id: string) => Promise<void> | void;
+    onRenameSprint?: (id: string, name: string) => Promise<void> | void;
+    onDeleteSprint?: (id: string) => Promise<void> | void;
 }
-export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
+export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
 interface DecisionLogProps {
     decisions: Record<string, WorkflowDecisionRecord>;
     onRevisit: (key: string) => void;
@@ -50,11 +55,19 @@ declare function PersonalityCards({ options, value, recommended, onChange }: {
 interface GoalBacklogProps {
     entries: GoalBacklogEntry[];
     onResolve: (id: string) => void;
+    /** Add a new backlog entry. When omitted the "+ Add" button is hidden. */
+    onCreate?: (description: string) => Promise<void> | void;
+    /** Patch an existing entry's description. */
+    onUpdate?: (id: string, description: string) => Promise<void> | void;
+    /** Hard-delete an entry (vs onResolve which keeps the row resolved=true). */
+    onDelete?: (id: string) => Promise<void> | void;
 }
-declare function GoalBacklog({ entries, onResolve }: GoalBacklogProps): import("react/jsx-runtime").JSX.Element;
+declare function GoalBacklog({ entries, onResolve, onCreate, onUpdate, onDelete }: GoalBacklogProps): import("react/jsx-runtime").JSX.Element;
 interface SprintOverviewProps {
     sprints: SprintRecord[];
     activeSprint?: SprintRecord;
+    onRename?: (id: string, name: string) => Promise<void> | void;
+    onDelete?: (id: string) => Promise<void> | void;
 }
-declare function SprintOverview({ sprints, activeSprint }: SprintOverviewProps): import("react/jsx-runtime").JSX.Element;
+declare function SprintOverview({ sprints, activeSprint, onRename, onDelete }: SprintOverviewProps): import("react/jsx-runtime").JSX.Element;
 export { DecisionLog, DecisionInput, GoalBacklog, SprintOverview, ButtonSelect, DragRank, ColorPicker, PersonalityCards, };

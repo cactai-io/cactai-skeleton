@@ -750,12 +750,50 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             recordFetchError('workflow', { status: res.status, code: body.error, detail: body.detail });
                             return;
                         }
-                        // Optimistic local removal; next poll resyncs from server.
                         setBacklog(prev => prev.filter(b => b.id !== id));
                     }
                     catch (err) {
                         recordFetchError('workflow', { detail: err.message });
                     }
+                }, onCreateBacklog: async (description) => {
+                    const res = await fetch('/api/workflow/backlog', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description }),
+                    });
+                    if (!res.ok)
+                        return;
+                    const body = await res.json().catch(() => ({}));
+                    if (body.entry)
+                        setBacklog(prev => [body.entry, ...prev]);
+                }, onUpdateBacklog: async (id, description) => {
+                    const res = await fetch(`/api/workflow/backlog/${encodeURIComponent(id)}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description }),
+                    });
+                    if (!res.ok)
+                        return;
+                    setBacklog(prev => prev.map(b => b.id === id ? { ...b, description } : b));
+                }, onDeleteBacklog: async (id) => {
+                    const res = await fetch(`/api/workflow/backlog/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    if (!res.ok)
+                        return;
+                    setBacklog(prev => prev.filter(b => b.id !== id));
+                }, onRenameSprint: async (id, name) => {
+                    const res = await fetch(`/api/workflow/sprints/${encodeURIComponent(id)}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name }),
+                    });
+                    if (!res.ok)
+                        return;
+                    setSprints(prev => prev.map(s => s.id === id ? { ...s, name } : s));
+                }, onDeleteSprint: async (id) => {
+                    const res = await fetch(`/api/workflow/sprints/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    if (!res.ok)
+                        return;
+                    setSprints(prev => prev.filter(s => s.id !== id));
                 }, workspaceProps: {
                     // productionUrl comes from the skeleton wrapper, which has
                     // NEXT_PUBLIC_SITE_URL inlined at build time (Next's static
