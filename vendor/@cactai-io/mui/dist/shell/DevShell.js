@@ -504,12 +504,15 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             // Plan view → indigo. Build-view-during-workflow → amber (workflow is
             // part of the Build experience even before preview is live).
             const grad = view === 'plan' ? 'indigo' : 'amber';
-            return (_jsx("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden' }, children: _jsx(WorkflowSurface, { step: workflowStep, activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog }) }));
+            return (_jsx("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden' }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog }) }));
         }
-        // Build view post-workflow — preview. Build view gets the amber accent. The
-        // [data-appshell-preview] attribute on the child wrapper resets DevShell
-        // chrome typography so the host app's own theme governs preview content.
-        return (_jsx("div", { style: bindSection('build-view', 'amber'), className: "ds-preview-wrap", children: _jsxs("div", { className: "ds-preview-window", children: [_jsxs("div", { className: "ds-preview-chrome", children: [_jsxs("div", { className: "ds-traffic", children: [_jsx("span", {}), _jsx("span", {}), _jsx("span", {})] }), _jsx("div", { className: "ds-preview-url ds-mono", children: vercelPreviewUrl ? vercelPreviewUrl.replace(/^https?:\/\//, '') : `${projectName}.vercel.app` }), vercelPreviewUrl && _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-open", children: "Open \u2197" })] }), _jsxs("div", { className: "ds-preview-content", children: [_jsx(StudioOverlay, { skill_id: "shell_root", onInspect: handleInspect, active: true, children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: vercelPreviewUrl ? _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-link", children: "Open preview \u2197" }) : 'Commit to dev to see preview.' }) }) }), inspector && (_jsxs("div", { className: "ds-inspector-bar", children: [_jsx("span", { className: "ds-inspector-dot" }), _jsxs("span", { className: "ds-inspector-target", children: [_jsx("span", { className: "ds-inspector-file ds-mono", children: inspector.skill_id }), ' · ', inspector.element_path.split(' > ').pop()] }), _jsx("span", { className: "ds-inspector-hint", children: "type below to edit \u2193" }), _jsx("button", { className: "ds-inspector-clear", onClick: clearInspector, "aria-label": "Clear", children: "\u2715" })] }))] })] }) }));
+        // Build view post-workflow. Intentionally empty for now: forms surfaced
+        // by the agent + generated artifact previews will land here once the
+        // surface_form pipeline ships. The live app preview lives in Test Drive,
+        // never in Build view (Tier 4 — separate surface). The amber accent +
+        // build-view section attribute stay so the gradient + accent vars match
+        // the workflow phase variant rendered above.
+        return _jsx("div", { style: { ...bindSection('build-view', 'amber'), flex: 1 } });
     }
     function renderPanel() {
         // Section accent allocations. v1.1 reduces to four panels and reuses

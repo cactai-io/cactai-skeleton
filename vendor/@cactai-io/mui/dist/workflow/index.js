@@ -1,5 +1,5 @@
 'use client';
-import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
 // packages/mui/src/workflow/index.tsx
 // All workflow surface components.
 //
@@ -15,7 +15,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 // This surface never calls APIs directly — all state changes go through MUIShell.submitInput.
 // Consumes theme via CSS custom properties from @cactai-io/brand-tokens.
 import { useState, useRef } from 'react';
-export function WorkflowSurface({ step, activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, }) {
+export function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, }) {
     const unresolved = backlog.filter(e => !e.acknowledged);
     const activeSprint = sprints.find(s => s.status === 'active');
     const planSprints = sprints.filter(s => s.status !== 'abandoned');
@@ -24,7 +24,7 @@ export function WorkflowSurface({ step, activeForm, decisions, backlog, sprints,
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                }, children: _jsx(DecisionLog, { decisions: decisions, onRevisit: onRevisit }) }), _jsx("div", { style: { overflow: 'auto', padding: 28, display: 'flex', flexDirection: 'column', gap: 28 }, children: activeForm ? (_jsx(DecisionInput, { stage: activeForm.stage, fields: activeForm.fields, onSubmit: onFormSubmit })) : (_jsxs(_Fragment, { children: [planSprints.length > 0 && (_jsx(SprintOverview, { sprints: planSprints, activeSprint: activeSprint })), unresolved.length > 0 && (_jsx(GoalBacklog, { entries: unresolved, onResolve: onResolveBacklog })), planSprints.length === 0 && unresolved.length === 0 && (_jsxs("div", { style: { color: 'var(--ds-text-3)', fontSize: 13.5, lineHeight: 1.7 }, children: [_jsxs("div", { style: { fontWeight: 600, color: 'var(--ds-text)', marginBottom: 8, fontSize: 15 }, children: ["Stage: ", step] }), "The agent will present decisions here when you're ready to continue. Use the chat to describe your app or ask questions at any time."] }))] })) })] }));
+                }, children: _jsx(DecisionLog, { decisions: decisions, onRevisit: onRevisit }) }), _jsx("div", { style: { overflow: 'auto', padding: 28, display: 'flex', flexDirection: 'column', gap: 28 }, children: activeForm ? (_jsx(DecisionInput, { stage: activeForm.stage, fields: activeForm.fields, onSubmit: onFormSubmit })) : (_jsxs(_Fragment, { children: [planSprints.length > 0 && (_jsx(SprintOverview, { sprints: planSprints, activeSprint: activeSprint })), unresolved.length > 0 && (_jsx(GoalBacklog, { entries: unresolved, onResolve: onResolveBacklog }))] })) })] }));
 }
 function DecisionLog({ decisions, onRevisit }) {
     const [highlighted, setHighlighted] = useState(new Set());

@@ -1,6 +1,5 @@
 import type { SurfaceFormField, GoalBacklogEntry, SprintRecord, WorkflowDecisionRecord } from '@cactai-io/types';
 export interface WorkflowSurfaceProps {
-    step: string;
     activeForm?: {
         stage: string;
         fields: SurfaceFormField[];
@@ -12,7 +11,7 @@ export interface WorkflowSurfaceProps {
     onRevisit: (decisionKey: string) => void;
     onResolveBacklog: (entryId: string) => void;
 }
-export declare function WorkflowSurface({ step, activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
+export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
 interface DecisionLogProps {
     decisions: Record<string, WorkflowDecisionRecord>;
     onRevisit: (key: string) => void;
