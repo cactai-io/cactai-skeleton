@@ -88,16 +88,49 @@ async function getDefaultTenantId(): Promise<string | null> {
   return (data ?? [])[0]?.id ?? null;
 }
 
-// True if the default tenant already has at least one super_admin member.
-// Used by multi_user_single_workspace mode to distinguish the first signup
-// (claims ownership) from subsequent signups (must be invited).
+// Read the active tenant role catalog ordered by rank (highest first).
+// Falls back to the canonical ['super_admin', 'admin', 'user'] trio if
+// the catalog table is unreadable (handles partially-migrated projects
+// where tenant_roles_catalog hasn't been seeded yet). Used by every
+// hardcoded role-tuple insert path below so a developer who renamed,
+// trimmed, or fully replaced the default role set still bootstraps
+// correctly (e.g. captain/navigator/deckhand, or just admin/user).
+async function getRoleCatalog(): Promise<string[]> {
+  try {
+    const admin = createServiceSupabaseClient();
+    const { data, error } = await admin
+      .from('tenant_roles_catalog')
+      .select('role, rank')
+      .order('rank', { ascending: false })
+      .order('is_default', { ascending: false });
+    if (error || !data || data.length === 0) return ['super_admin', 'admin', 'user'];
+    const names = (data as Array<{ role?: string }>)
+      .map(r => r.role)
+      .filter((r): r is string => typeof r === 'string' && r.length > 0);
+    return names.length > 0 ? names : ['super_admin', 'admin', 'user'];
+  } catch {
+    return ['super_admin', 'admin', 'user'];
+  }
+}
+
+// Resolve the top-rank role name from tenant_roles_catalog. Falls back to
+// 'super_admin' if the catalog can't be read.
+async function getTopRankRoleName(): Promise<string> {
+  const catalog = await getRoleCatalog();
+  return catalog[0] ?? 'super_admin';
+}
+
+// True if the default tenant already has at least one top-rank-role member.
+// Used by multi-tenant signup modes to distinguish the first signup of a
+// new tenant (claims ownership at the top role) from subsequent signups.
 async function defaultTenantHasOwner(tenantId: string): Promise<boolean> {
   const admin = createServiceSupabaseClient();
+  const topRole = await getTopRankRoleName();
   const { data } = await admin
     .from('tenant_members')
     .select('id')
     .eq('tenant_id', tenantId)
-    .eq('role', 'super_admin')
+    .eq('role', topRole)
     .eq('status', 'active')
     .limit(1);
   return (data ?? []).length > 0;
@@ -367,7 +400,8 @@ async function applySignupMode(
     // tenant so the owner can operate the workspace as super_admin/admin/user
     // via the lens switcher.
     if (!await bootstrapAppUser()) return 'bootstrap_failed';
-    const rows = (['super_admin', 'admin', 'user'] as const).map(role => ({
+    const catalog = await getRoleCatalog();
+    const rows = catalog.map(role => ({
       user_id:   userId,
       tenant_id: tenantId,
       role,
@@ -403,7 +437,7 @@ async function applySignupMode(
       // Non-fatal: the user still has super_admin on the tenant; they just
       // won't land in /operate by default. Surface to audit but continue.
     }
-    for (const role of ['super_admin', 'admin', 'user'] as const) {
+    for (const role of catalog) {
       await audit({
         user_id: userId, tenant_id: tenantId, lens: null,
         action: 'tenant_member.created', target_type: 'tenant_member', target_id: userId,
@@ -429,7 +463,8 @@ async function applySignupMode(
     action: 'tenant.created', target_type: 'tenant', target_id: tenantRes.tenantId,
     metadata: { mode, display_name: email },
   });
-  const mmRows = (['super_admin', 'admin', 'user'] as const).map(role => ({
+  const mmCatalog = await getRoleCatalog();
+  const mmRows = mmCatalog.map(role => ({
     user_id:   userId,
     tenant_id: tenantRes.tenantId!,
     role,
