@@ -54,6 +54,12 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [workflowStep, setWorkflowStep] = useState('name_and_intent');
     const [decisions, setDecisions] = useState({});
     const [backlog, setBacklog] = useState([]);
+    // Active form spec for the current workflow step. Sourced from the
+    // platform's /v1/projects/:id/devshell/workflow poll, which reads the
+    // step from STEP_REGISTRY. Plan view's WorkflowSurface renders this
+    // through DecisionInput when set. Same data the chat panel renders via
+    // PrimitiveNode → MUIShell, just surfaced in the structured view too.
+    const [workflowForm, setWorkflowForm] = useState(null);
     const [sprints, setSprints] = useState([]);
     // Phase 3a — file tree from the customer's GitHub repo via skeleton-
     // side /api/git/tree (uses GITHUB_TOKEN server-side). Loaded once on
@@ -272,6 +278,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 setDecisions(body.decisions ?? {});
                 setSprints(body.sprints ?? []);
                 setBacklog(body.backlog ?? []);
+                setWorkflowForm(body.active_form ?? null);
                 recordFetchError('workflow', null);
             }
             catch (err) {
@@ -582,7 +589,82 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 }, onDiscardAllPending: async () => {
                     await fetch('/api/git/pending', { method: 'DELETE' });
                     setPendingFiles([]);
-                }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: () => { }, onRevisitDecision: () => { }, onResolveBacklog: () => { }, workspaceProps: {
+                }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, workflowForm: workflowForm ?? undefined, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: async (choices) => {
+                    // Form submit → synthetic stage_step input. Builds the canonical
+                    // token shape Branch 1 already handles:
+                    //   __event__:select:stage_step:<step_id> <json-payload>
+                    // and posts it as plain input to /v1/shell/turn. /v1/shell/event
+                    // requires a target_id registered from a prior PrimitiveNode
+                    // emission; polled forms don't have one, so we use the turn
+                    // endpoint which accepts synthetic input directly.
+                    if (!workflowForm || !sessionId)
+                        return;
+                    const field = workflowForm.fields[0];
+                    if (!field)
+                        return;
+                    const raw = choices[field.key];
+                    let payload = {};
+                    if (field.type === 'multi_select' && Array.isArray(raw)) {
+                        const values = raw.map(lbl => field.option_values?.find(o => o.label === lbl)?.value ?? lbl);
+                        payload = { values };
+                    }
+                    else if (typeof raw === 'string') {
+                        const value = field.option_values?.find(o => o.label === raw)?.value ?? raw;
+                        payload = { value };
+                    }
+                    else if (raw !== undefined && raw !== null) {
+                        payload = { value: raw };
+                    }
+                    const synthetic = `__event__:select:stage_step:${workflowForm.stage} ${JSON.stringify(payload)}`;
+                    try {
+                        await fetch('/api/cactai/v1/shell/turn', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                session_id: sessionId,
+                                input: synthetic,
+                            }),
+                        });
+                        setWorkflowForm(null);
+                    }
+                    catch (err) {
+                        recordFetchError('workflow', { detail: err.message });
+                    }
+                }, onRevisitDecision: (key) => {
+                    // Chat-inject pattern: focus the chat and pre-fill it with a
+                    // revisit request. The agent (in branches 2-4 or the open
+                    // sprint loop) reads the chat input and walks the decision log
+                    // re-evaluation conversationally. No server-side re-walk
+                    // machinery for v1 — keep state writes single-pathed through
+                    // Branch 1.
+                    const decision = decisions[key];
+                    const label = decision?.method ? key : key;
+                    const value = decision?.value !== undefined ? String(decision.value) : 'unknown';
+                    const message = `I'd like to revisit my answer for "${label}" (current: ${value}).`;
+                    if (typeof window !== 'undefined') {
+                        // Custom event the rich shell's DevChatPanel listens for. If
+                        // it isn't wired (tests / SSR), the listener is a no-op and
+                        // we surface the intent in the diagnostics console.
+                        window.dispatchEvent(new CustomEvent('cactai:chat:inject', { detail: { message } }));
+                    }
+                }, onResolveBacklog: async (id) => {
+                    try {
+                        const res = await fetch(`/api/workflow/backlog/${encodeURIComponent(id)}/resolve`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                        });
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            recordFetchError('workflow', { status: res.status, code: body.error, detail: body.detail });
+                            return;
+                        }
+                        // Optimistic local removal; next poll resyncs from server.
+                        setBacklog(prev => prev.filter(b => b.id !== id));
+                    }
+                    catch (err) {
+                        recordFetchError('workflow', { detail: err.message });
+                    }
+                }, workspaceProps: {
                     // productionUrl comes from the skeleton wrapper, which has
                     // NEXT_PUBLIC_SITE_URL inlined at build time (Next's static
                     // analysis only matches dot-notation on process.env, so the
