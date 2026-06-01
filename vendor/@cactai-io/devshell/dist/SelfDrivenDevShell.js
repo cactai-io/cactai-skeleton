@@ -31,7 +31,7 @@ import { jsxs as _jsxs, jsx as _jsx, Fragment as _Fragment } from "react/jsx-run
 import React, { useEffect, useState } from 'react';
 import { CactaiClient } from '@cactai-io/client';
 import { SAMTheme } from '@cactai-io/themes';
-import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, OnboardingModal, WorkflowCompletionModal, } from '@cactai-io/mui';
+import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, OnboardingModal, UpdateAvailableModal, WorkflowCompletionModal, } from '@cactai-io/mui';
 export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, userRole, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
     const [shell, setShell] = useState(null);
     const [sessionId, setSessionId] = useState(null);
@@ -561,6 +561,62 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             window.localStorage.setItem(completionKey, new Date().toISOString());
         }
     };
+    // Platform update status. Polled from /api/devshell/update/check on
+    // mount and every 5 minutes thereafter. The UpdateAvailableModal opens
+    // when the developer clicks the workspace-panel "Updates available"
+    // pill, and the apply handler hits POST /api/devshell/update which
+    // returns the opened PR URL on success. Update content is platform-
+    // owned (see apps/api/src/devshell/update-service/) so the customer
+    // app doesn't need a rebuild to surface this affordance — only the
+    // skeleton-side proxy routes have to exist.
+    const [updateStatus, setUpdateStatus] = useState(null);
+    const [updateModalOpen, setUpdateModalOpen] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const res = await fetch('/api/devshell/update/check');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (cancelled)
+                    return;
+                setUpdateStatus({
+                    has_update: !!data.has_update,
+                    current_platform_sha: data.current_platform_sha ?? null,
+                    latest_platform_sha: data.latest_platform_sha,
+                });
+            }
+            catch {
+                // Non-fatal — leave updateStatus as-is.
+            }
+        };
+        void tick();
+        const interval = setInterval(() => { void tick(); }, 5 * 60 * 1000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, []);
+    const applyUpdate = async () => {
+        try {
+            const res = await fetch('/api/devshell/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+                // Refresh the check so the badge disappears once the PR is open.
+                // The developer still has to merge the PR for the platform_sha to
+                // advance, but the badge is intentionally a "tracked" indicator —
+                // we hide it as soon as a PR is opened so the affordance doesn't
+                // re-spam the developer mid-review.
+                setUpdateStatus(prev => prev ? { ...prev, has_update: false } : prev);
+            }
+            return data;
+        }
+        catch (err) {
+            return { ok: false, error: err.message };
+        }
+    };
     // Welcome chat message seeding. The welcome copy is server-authored
     // (cactai-platform/apps/api/src/devshell/purpose-capture/index.ts) and
     // fetched at runtime via /api/devshell/welcome so platform copy updates
@@ -897,6 +953,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     // always; workflow-completion section when workflow_step is
                     // 'complete').
                     onOpenGuide: () => setGuideDockedOpen(true),
+                    // Platform update affordance. The pill in the workspace panel
+                    // header only renders when has_update is true.
+                    updateStatus: updateStatus,
+                    onOpenUpdate: () => setUpdateModalOpen(true),
                 }, buildProps: {
                     tools: [],
                     // Capability config lives on the customer DB. The skeleton's
@@ -1190,7 +1250,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             }
                         },
                     }
-                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, mode: "modal", personalityName: agentDisplayName, workflowComplete: false }), _jsx(OnboardingModal, { open: guideDockedOpen, onClose: () => setGuideDockedOpen(false), mode: "docked", personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup })] }));
+                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, mode: "modal", personalityName: agentDisplayName, workflowComplete: false }), _jsx(OnboardingModal, { open: guideDockedOpen, onClose: () => setGuideDockedOpen(false), mode: "docked", personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate })] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
 // Renders only when at least one fetch source is in error. Lives at

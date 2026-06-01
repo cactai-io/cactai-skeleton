@@ -37,6 +37,14 @@ export interface CredentialsRecord {
     stripe_secret_key?: string;
 }
 import type { SyncState } from '../commit/types.js';
+/** Information about a pending platform update — derived from
+ *  /api/devshell/update/check. Drives the "Updates available" affordance
+ *  in the workspace panel. */
+export interface PlatformUpdateStatus {
+    has_update: boolean;
+    current_platform_sha?: string | null;
+    latest_platform_sha?: string;
+}
 export interface WorkspacePanelProps {
     projectName: string;
     githubRepoUrl?: string;
@@ -52,8 +60,14 @@ export interface WorkspacePanelProps {
      *  provided, renders the button; the host wires it to the OnboardingModal
      *  re-entry point. */
     onOpenGuide?: () => void;
+    /** Platform update status. When has_update is true the workspace panel
+     *  renders a small "Updates available" pill that opens the apply modal
+     *  on click. Null/undefined hides the affordance entirely. */
+    updateStatus?: PlatformUpdateStatus | null;
+    /** Click handler for the Updates pill. Host opens the apply modal. */
+    onOpenUpdate?: () => void;
 }
-export declare function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, }: WorkspacePanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, updateStatus, onOpenUpdate, }: WorkspacePanelProps): import("react/jsx-runtime").JSX.Element;
 export interface BuildPanelProps {
     /** Installed-tab data. */
     skills: SkillDescriptor[];

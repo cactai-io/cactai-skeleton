@@ -21,12 +21,23 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   cactai-theme localStorage key) and adds a single outbound link to the
 //   Platform dashboard for developer-scoped settings.
 import { useState } from 'react';
-export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, }) {
+export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, updateStatus, onOpenUpdate, }) {
     // Header button only renders when there are local edits to surface.
     // In the `dev · synced` state nothing needs surfacing here — the file
     // tree's per-row indicators carry the same signal at a finer grain.
     const showPendingButton = syncState.branch === 'local';
-    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { className: "ds-panel-header", children: [_jsx("span", { className: "ds-panel-header-title", children: "Workspace" }), showPendingButton && (_jsx("button", { type: "button", className: "ds-panel-header-commit", onClick: onViewPendingEdits, children: "View pending edits" }))] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Project" }), _jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("div", { className: "ds-card-title", style: { flex: 1 }, children: projectName }), onOpenGuide && (_jsx("button", { onClick: onOpenGuide, "aria-label": "Open DevShell guide", title: "DevShell guide", style: {
+    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { className: "ds-panel-header", children: [_jsx("span", { className: "ds-panel-header-title", children: "Workspace" }), _jsxs("div", { style: { display: 'flex', gap: 6, alignItems: 'center' }, children: [updateStatus?.has_update && onOpenUpdate && (_jsx("button", { type: "button", onClick: onOpenUpdate, title: "Apply the latest Cactai platform update", style: {
+                                    background: 'color-mix(in srgb, var(--c-accent, #5fb6ff) 14%, transparent)',
+                                    color: 'var(--c-accent, #5fb6ff)',
+                                    border: '1px solid color-mix(in srgb, var(--c-accent, #5fb6ff) 40%, transparent)',
+                                    borderRadius: 999,
+                                    padding: '3px 10px',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    letterSpacing: '0.02em',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                }, children: "\u21BB Updates available" })), showPendingButton && (_jsx("button", { type: "button", className: "ds-panel-header-commit", onClick: onViewPendingEdits, children: "View pending edits" }))] })] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Project" }), _jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("div", { className: "ds-card-title", style: { flex: 1 }, children: projectName }), onOpenGuide && (_jsx("button", { onClick: onOpenGuide, "aria-label": "Open DevShell guide", title: "DevShell guide", style: {
                                             background: 'transparent',
                                             border: '1px solid var(--ds-border-soft, rgba(255,255,255,0.12))',
                                             borderRadius: 10,
