@@ -1375,6 +1375,42 @@ body.cactai-shell-body-lock {
   color: var(--ds-text);
   outline: none;
 }
+/* Chat panel's collapsed-state strip — vertical analog of the files
+   tab. Thin enough to leave the workspace dominant, wide enough to
+   show the expand arrow + unread dot. Click anywhere on the strip
+   expands. */
+[data-cactai-shell] .ds-chat-collapsed-tab {
+  width: 18px;
+  background: var(--ds-surface);
+  border-right: 1px solid var(--ds-border-soft);
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+  cursor: pointer;
+  color: var(--ds-text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: color var(--d-base) var(--ease),
+              background var(--d-base) var(--ease);
+  padding: 0;
+}
+[data-cactai-shell] .ds-chat-collapsed-tab:hover,
+[data-cactai-shell] .ds-chat-collapsed-tab:focus-visible {
+  color: var(--ds-text);
+  background: var(--ds-elevated);
+  outline: none;
+}
+[data-cactai-shell] .ds-chat-collapsed-unread {
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-accent, #5fb6ff);
+}
 
 
 /* ── PANEL SHARED ────────────────────────────────────────────────────── */

@@ -60,6 +60,12 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // through DecisionInput when set. Same data the chat panel renders via
     // PrimitiveNode → MUIShell, just surfaced in the structured view too.
     const [workflowForm, setWorkflowForm] = useState(null);
+    // Top-rank role name (e.g. 'super_admin' or whatever the developer
+    // renamed it) + whether the app's signup mode auto-promotes the
+    // first signup. Used to gate the workflow-completion modal's
+    // role-claim section. Both come from /api/workflow/state.
+    const [topRankRoleName, setTopRankRoleName] = useState(null);
+    const [autoPromoteOnFirstSignup, setAutoPromoteOnFirstSignup] = useState(false);
     const [sprints, setSprints] = useState([]);
     // Phase 3a — file tree from the customer's GitHub repo via skeleton-
     // side /api/git/tree (uses GITHUB_TOKEN server-side). Loaded once on
@@ -279,6 +285,8 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 setSprints(body.sprints ?? []);
                 setBacklog(body.backlog ?? []);
                 setWorkflowForm(body.active_form ?? null);
+                setTopRankRoleName(body.top_rank_role_name ?? null);
+                setAutoPromoteOnFirstSignup(!!body.auto_promote_on_first_signup);
                 recordFetchError('workflow', null);
             }
             catch (err) {
@@ -1103,7 +1111,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             }
                         },
                     }
-                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl })] }));
+                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup })] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
 // Renders only when at least one fetch source is in error. Lives at

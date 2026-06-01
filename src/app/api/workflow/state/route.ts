@@ -60,14 +60,49 @@ export async function GET() {
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
 
+    // Top-rank role name from tenant_roles_catalog. Used by the
+    // WorkflowCompletionModal's conditional auto-promote callout so the
+    // copy reads "first signup is granted the <role>" with whatever the
+    // developer renamed the role to (super_admin / admin / captain /
+    // whatever). Falls back to null when no catalog rows exist.
+    let topRankRoleName: string | null = null;
+    try {
+      const { data: catalog } = await supabase
+        .from('tenant_roles_catalog')
+        .select('role, rank, is_default')
+        .order('rank', { ascending: false })
+        .order('is_default', { ascending: false })
+        .limit(1);
+      if (catalog && catalog.length > 0) {
+        const r = catalog[0] as { role?: string };
+        if (typeof r.role === 'string') topRankRoleName = r.role;
+      }
+    } catch {
+      // Catalog table may not exist yet on a partially-migrated project.
+    }
+
+    // Auto-promote fires whenever the app supports multi-tenant signup
+    // (Instagram + HubSpot models per role+access architecture). Read
+    // the signup mode from decisions; both multi_user_* modes auto-
+    // promote the first signup in their tenant.
+    const decisions = (state?.decisions ?? {}) as Record<string, unknown>;
+    const signupMode = typeof decisions['signup_mode_v1'] === 'string'
+      ? decisions['signup_mode_v1']
+      : 'multi_user_single_workspace';
+    const autoPromoteOnFirstSignup =
+      signupMode === 'multi_user_single_workspace' ||
+      signupMode === 'multi_user_multi_workspace';
+
     return NextResponse.json({
-      workflow_step: state?.workflow_step ?? 'name_and_intent',
-      decisions:       state?.decisions ?? {},
-      roles_config:    state?.roles_config ?? {},
-      is_multi_tenant: state?.is_multi_tenant ?? false,
-      skeleton_pushed: state?.skeleton_pushed ?? false,
-      backlog:         backlog ?? [],
-      sprints:         sprints ?? [],
+      workflow_step:              state?.workflow_step ?? 'name_and_intent',
+      decisions:                  decisions,
+      roles_config:               state?.roles_config ?? {},
+      is_multi_tenant:            state?.is_multi_tenant ?? false,
+      skeleton_pushed:            state?.skeleton_pushed ?? false,
+      backlog:                    backlog ?? [],
+      sprints:                    sprints ?? [],
+      top_rank_role_name:         topRankRoleName,
+      auto_promote_on_first_signup: autoPromoteOnFirstSignup,
     });
   } catch {
     return NextResponse.json({ error: 'internal' }, { status: 500 });
