@@ -128,6 +128,12 @@ export interface DevShellProps {
     /** Discard every pending row. The host wires this to
      *  PendingFilesManager.discardAll(). Optional, same nuance as above. */
     onDiscardAllPending?: () => void;
+    /** UI-driven file CRUD. When wired, the file-tree shows New / Rename
+     *  / Delete affordances. All ops stage in pending_files via the
+     *  skeleton's /api/git/file endpoints. */
+    onCreateFile?: (path: string, content?: string) => Promise<void> | void;
+    onRenameFile?: (path: string, newPath: string) => Promise<void> | void;
+    onDeleteFile?: (path: string) => Promise<void> | void;
     /** Bearer token for the DeployIndicator's SSE subscription. Typically
      *  the developer's session-scoped API key. Optional — when omitted,
      *  the DeployIndicator is not rendered. */
@@ -182,4 +188,4 @@ export interface DevShellProps {
     onSectionChange?: (section: RailSection) => void;
     onViewChange?: (view: DevShellView) => void;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

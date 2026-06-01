@@ -22,11 +22,17 @@ export interface FileTreeProps {
     onCommitFile?: (path: string) => void;
     onRestore?: (path: string) => void;
     onUndoFile?: (path: string) => void;
+    /** Create a new file at `path` with optional initial `content`. */
+    onCreateFile?: (path: string, content?: string) => Promise<void> | void;
+    /** Rename or move a file from `path` to `newPath`. */
+    onRenameFile?: (path: string, newPath: string) => Promise<void> | void;
+    /** Stage `path` for deletion on next commit. */
+    onDeleteFile?: (path: string) => Promise<void> | void;
 }
 declare function highlight(code: string, ext: string): ReactNode[];
 declare function HighlightLine({ line, ext: _ext }: {
     line: string;
     ext: string;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, }: FileTreeProps): import("react/jsx-runtime").JSX.Element;
+export declare function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, onCreateFile, onRenameFile, onDeleteFile, }: FileTreeProps): import("react/jsx-runtime").JSX.Element;
 export { highlight, HighlightLine };

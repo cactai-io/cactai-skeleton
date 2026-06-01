@@ -21,12 +21,24 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   cactai-theme localStorage key) and adds a single outbound link to the
 //   Platform dashboard for developer-scoped settings.
 import { useState } from 'react';
-export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, }) {
+export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, }) {
     // Header button only renders when there are local edits to surface.
     // In the `dev · synced` state nothing needs surfacing here — the file
     // tree's per-row indicators carry the same signal at a finer grain.
     const showPendingButton = syncState.branch === 'local';
-    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { className: "ds-panel-header", children: [_jsx("span", { className: "ds-panel-header-title", children: "Workspace" }), showPendingButton && (_jsx("button", { type: "button", className: "ds-panel-header-commit", onClick: onViewPendingEdits, children: "View pending edits" }))] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Project" }), _jsxs("div", { className: "ds-card", children: [_jsx("div", { className: "ds-card-title", children: projectName }), _jsxs("div", { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }, children: [githubRepoUrl && (_jsx("a", { href: githubRepoUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "GitHub \u2197" })), vercelDashUrl && (_jsx("a", { href: vercelDashUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "Vercel \u2197" })), vercelPreviewUrl && (_jsx("button", { className: "ds-btn-primary", onClick: onOpenApp, style: { fontSize: 11.5, padding: '4px 12px' }, children: "Open app \u2197" }))] })] })] })] }));
+    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { className: "ds-panel-header", children: [_jsx("span", { className: "ds-panel-header-title", children: "Workspace" }), showPendingButton && (_jsx("button", { type: "button", className: "ds-panel-header-commit", onClick: onViewPendingEdits, children: "View pending edits" }))] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Project" }), _jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("div", { className: "ds-card-title", style: { flex: 1 }, children: projectName }), onOpenGuide && (_jsx("button", { onClick: onOpenGuide, "aria-label": "Open DevShell guide", title: "DevShell guide", style: {
+                                            background: 'transparent',
+                                            border: '1px solid var(--ds-border-soft, rgba(255,255,255,0.12))',
+                                            borderRadius: 10,
+                                            color: 'var(--ds-text-2)',
+                                            cursor: 'pointer',
+                                            width: 20, height: 20,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: 11, fontWeight: 600,
+                                            fontStyle: 'italic',
+                                            fontFamily: 'serif',
+                                            padding: 0,
+                                        }, children: "i" }))] }), _jsxs("div", { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }, children: [githubRepoUrl && (_jsx("a", { href: githubRepoUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "GitHub \u2197" })), vercelDashUrl && (_jsx("a", { href: vercelDashUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "Vercel \u2197" })), vercelPreviewUrl && (_jsx("button", { className: "ds-btn-primary", onClick: onOpenApp, style: { fontSize: 11.5, padding: '4px 12px' }, children: "Open app \u2197" }))] })] })] })] }));
 }
 export function BuildPanel({ skills, tools, onActivateSkill, onDeactivateSkill, onBuildOwn, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', }) {
     const marketplaceAvailable = items !== undefined;

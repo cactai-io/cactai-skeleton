@@ -151,11 +151,13 @@ function TreeNode({ node, depth, activeFilePath, onSelect, uncommittedPaths, onC
             onCommitFile(node.path);
     }
     function handleContextMenu(e) {
-        // Show the menu for any pending row (the menu's items pick
-        // themselves based on status — restore is always available for
-        // pending rows; commit is available when the parent provided
-        // onCommitFile).
-        if (!isPending || !onContextMenu)
+        // Show the menu for any pending row (restore / commit) OR any file
+        // row (rename / delete via the new CRUD callbacks). Folders only
+        // show the menu when there's a CRUD handler — there's nothing else
+        // to offer for them today.
+        if (!onContextMenu)
+            return;
+        if (!isPending && isFolder)
             return;
         e.preventDefault();
         onContextMenu(e, node.path, status);
@@ -187,10 +189,35 @@ function TreeNode({ node, depth, activeFilePath, onSelect, uncommittedPaths, onC
 // minimum viewing requirement for content width relative to font size."
 const SPLIT_VIEW_MIN_WIDTH_PX = 700;
 const TREE_COLUMN_WIDTH_PX = 240;
-export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading = false, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, }) {
+export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading = false, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, onCreateFile, onRenameFile, onDeleteFile, }) {
     const isFileView = !!activeFilePath && fileContent !== undefined;
     const breadcrumbs = activeFilePath ? pathToBreadcrumbs(activeFilePath) : [];
     const ext = activeFilePath ? getExt(activeFilePath) : '';
+    // CRUD prompts. Native window.prompt keeps the surface minimal until a
+    // proper modal UI lands; the data path is the same.
+    const handleNewFile = async () => {
+        if (!onCreateFile)
+            return;
+        const path = window.prompt('New file path (e.g. src/components/Foo.tsx):');
+        if (!path || !path.trim())
+            return;
+        await onCreateFile(path.trim(), '');
+    };
+    const handleRename = async (oldPath) => {
+        if (!onRenameFile)
+            return;
+        const newPath = window.prompt(`Rename ${oldPath} to:`, oldPath);
+        if (!newPath || newPath.trim() === oldPath)
+            return;
+        await onRenameFile(oldPath, newPath.trim());
+    };
+    const handleDelete = async (path) => {
+        if (!onDeleteFile)
+            return;
+        if (!window.confirm(`Stage ${path} for deletion? Will apply on next commit; discard the pending row to undo.`))
+            return;
+        await onDeleteFile(path);
+    };
     // Measure the panel width via ResizeObserver so the split-vs-full
     // decision rebalances when the developer drags the Files panel taller
     // or the chat drawer wider. Initial value matches the threshold so
@@ -286,7 +313,10 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
                                         fontSize: 'inherit',
                                         padding: '0 2px',
                                         fontWeight: i === breadcrumbs.length - 1 ? 500 : 400,
-                                    }, children: segment })] }, i))) })) : (_jsx("span", { className: "ds-tree-title", children: "Project tree" })), _jsx("div", { className: "ds-tree-spacer" }), _jsx("button", { className: "ds-tree-collapse-btn", onClick: onCollapse, title: "Collapse", "aria-label": "Collapse project tree", children: "\u2304" })] }), _jsxs("div", { className: "ds-tree-body", role: isFileView ? 'document' : 'tree', style: {
+                                    }, children: segment })] }, i))) })) : (_jsx("span", { className: "ds-tree-title", children: "Project tree" })), _jsx("div", { className: "ds-tree-spacer" }), !isFileView && onCreateFile && (_jsx("button", { onClick: handleNewFile, title: "New file", "aria-label": "New file", style: {
+                            background: 'transparent', border: 'none', cursor: 'pointer',
+                            color: 'var(--ds-text-2)', padding: '0 6px', fontSize: 16, lineHeight: 1,
+                        }, children: "+" })), _jsx("button", { className: "ds-tree-collapse-btn", onClick: onCollapse, title: "Collapse", "aria-label": "Collapse project tree", children: "\u2304" })] }), _jsxs("div", { className: "ds-tree-body", role: isFileView ? 'document' : 'tree', style: {
                     padding: isFileView ? 0 : undefined,
                     // Split view: tree column on the left, file content on the right.
                     // Full-window: stacked / single column (default flex behavior).
@@ -333,7 +363,13 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
                             if (onRestore)
                                 onRestore(contextMenu.path);
                             closeContextMenu();
-                        }, children: restoreLabel }))] }))] }));
+                        }, children: restoreLabel })), onRenameFile && (_jsx("button", { type: "button", role: "menuitem", className: "ds-tree-context-menu-item", onClick: () => {
+                            void handleRename(contextMenu.path);
+                            closeContextMenu();
+                        }, children: "Rename\u2026" })), onDeleteFile && contextMenu.status !== 'deleted' && (_jsx("button", { type: "button", role: "menuitem", className: "ds-tree-context-menu-item", onClick: () => {
+                            void handleDelete(contextMenu.path);
+                            closeContextMenu();
+                        }, children: "Delete\u2026" }))] }))] }));
 }
 // Re-export the highlight helper for any consumer that wants the
 // read-only file-view treatment without mounting the full tree.

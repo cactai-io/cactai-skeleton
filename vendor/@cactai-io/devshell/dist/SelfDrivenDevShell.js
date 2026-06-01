@@ -639,6 +639,48 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 }, onDiscardAllPending: async () => {
                     await fetch('/api/git/pending', { method: 'DELETE' });
                     setPendingFiles([]);
+                }, onCreateFile: async (path, content = '') => {
+                    const res = await fetch('/api/git/file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path, content }),
+                    });
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        recordFetchError('pending', { status: res.status, code: body.error, detail: body.detail });
+                        return;
+                    }
+                    // Surface the new staged row immediately; the file-tree picks it
+                    // up via the next /api/git/tree-with-pending poll regardless.
+                    setPendingFiles(prev => prev.find(p => p.path === path)
+                        ? prev
+                        : [...prev, { path, operation: 'create', linesAdded: 0, linesRemoved: 0, lastEditedAt: new Date().toISOString() }]);
+                }, onRenameFile: async (path, newPath) => {
+                    const res = await fetch('/api/git/file', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path, new_path: newPath }),
+                    });
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        recordFetchError('pending', { status: res.status, code: body.error, detail: body.detail });
+                        return;
+                    }
+                    setPendingFiles(prev => [
+                        ...prev.filter(p => p.path !== path),
+                        { path, operation: 'rename', newPath, linesAdded: 0, linesRemoved: 0, lastEditedAt: new Date().toISOString() },
+                    ]);
+                }, onDeleteFile: async (path) => {
+                    const res = await fetch(`/api/git/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        recordFetchError('pending', { status: res.status, code: body.error, detail: body.detail });
+                        return;
+                    }
+                    setPendingFiles(prev => [
+                        ...prev.filter(p => p.path !== path),
+                        { path, operation: 'delete', linesAdded: 0, linesRemoved: 0, lastEditedAt: new Date().toISOString() },
+                    ]);
                 }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, workflowForm: workflowForm ?? undefined, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: async (choices) => {
                     // Form submit → synthetic stage_step input. Builds the canonical
                     // token shape Branch 1 already handles:
@@ -726,6 +768,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         if (url)
                             window.open(url, '_blank', 'noopener,noreferrer');
                     },
+                    // ⓘ guide button → re-opens the onboarding modal over the chat
+                    // area. The modal's localStorage gate already remembers that
+                    // it's been seen; this lets the developer revisit any time.
+                    onOpenGuide: () => setOnboardingOpen(true),
                 }, buildProps: {
                     tools: [],
                     // Capability config lives on the customer DB. The skeleton's

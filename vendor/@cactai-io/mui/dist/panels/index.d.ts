@@ -48,8 +48,12 @@ export interface WorkspacePanelProps {
     syncState: SyncState;
     /** Open the pending-edits modal. Called when the header button is shown. */
     onViewPendingEdits: () => void;
+    /** Click handler for the ⓘ guide button next to the project name. When
+     *  provided, renders the button; the host wires it to the OnboardingModal
+     *  re-entry point. */
+    onOpenGuide?: () => void;
 }
-export declare function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, }: WorkspacePanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, }: WorkspacePanelProps): import("react/jsx-runtime").JSX.Element;
 export interface BuildPanelProps {
     /** Installed-tab data. */
     skills: SkillDescriptor[];
