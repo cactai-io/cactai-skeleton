@@ -340,40 +340,12 @@ async function applySignupMode(
     return true;
   }
 
-  if (mode === 'single_user_shared') {
-    if (!await bootstrapAppUser()) return 'bootstrap_failed';
-    const tenantId = await getDefaultTenantId();
-    if (!tenantId) {
-      await audit({
-        user_id: userId, tenant_id: null, lens: null,
-        action: 'bootstrap.failed', target_type: 'tenant', target_id: null,
-        metadata: { step: 'default_tenant_lookup', mode, error: 'no_default_tenant' },
-      });
-      return 'bootstrap_failed';
-    }
-    if (!await insertMember(tenantId, 'user')) return 'bootstrap_failed';
-    return null;
-  }
-
-  if (mode === 'single_user_isolated') {
-    if (!await bootstrapAppUser()) return 'bootstrap_failed';
-    const tenantRes = await createTenantFor(email);
-    if (!tenantRes.tenantId) {
-      await audit({
-        user_id: userId, tenant_id: null, lens: null,
-        action: 'bootstrap.failed', target_type: 'tenant', target_id: null,
-        metadata: { step: 'tenant_create', mode, error: tenantRes.error },
-      });
-      return 'bootstrap_failed';
-    }
-    await audit({
-      user_id: userId, tenant_id: tenantRes.tenantId, lens: null,
-      action: 'tenant.created', target_type: 'tenant', target_id: tenantRes.tenantId,
-      metadata: { mode, display_name: email },
-    });
-    if (!await insertMember(tenantRes.tenantId, 'user')) return 'bootstrap_failed';
-    return null;
-  }
+  // single_user_shared / single_user_isolated branches removed 2026-05-31.
+  // Product only supports two signup modes now (multi_user_single_workspace
+  // and multi_user_multi_workspace) per the role + access architecture
+  // decision — single-user apps are just multi-tenant apps where each
+  // tenant happens to have one user (Instagram model). See
+  // memory/operator-and-role-architecture.md.
 
   if (mode === 'multi_user_single_workspace') {
     const tenantId = await getDefaultTenantId();
