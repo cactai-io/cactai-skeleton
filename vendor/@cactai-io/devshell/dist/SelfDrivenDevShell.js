@@ -31,7 +31,7 @@ import { jsxs as _jsxs, jsx as _jsx, Fragment as _Fragment } from "react/jsx-run
 import React, { useEffect, useState } from 'react';
 import { CactaiClient } from '@cactai-io/client';
 import { SAMTheme } from '@cactai-io/themes';
-import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, } from '@cactai-io/mui';
+import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, OnboardingModal, WorkflowCompletionModal, } from '@cactai-io/mui';
 export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, userRole, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
     const [shell, setShell] = useState(null);
     const [sessionId, setSessionId] = useState(null);
@@ -554,6 +554,46 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const syncState = pendingFiles.length > 0
         ? { branch: 'local', uncommittedFiles: pendingFiles.map(f => f.path) }
         : { branch: 'dev', synced: true };
+    // Onboarding modal state. Opens on first DevShell mount per project
+    // (localStorage gated; project-scoped key). Persistent re-entry via
+    // a custom event the IDE shell can dispatch.
+    const onboardingKey = `cactai_onboarding_seen_${projectId}`;
+    const [onboardingOpen, setOnboardingOpen] = useState(typeof window !== 'undefined'
+        ? !window.localStorage.getItem(onboardingKey)
+        : false);
+    const dismissOnboarding = () => {
+        setOnboardingOpen(false);
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(onboardingKey, new Date().toISOString());
+        }
+    };
+    useEffect(() => {
+        if (typeof window === 'undefined')
+            return;
+        const handler = () => setOnboardingOpen(true);
+        window.addEventListener('cactai:onboarding:open', handler);
+        return () => window.removeEventListener('cactai:onboarding:open', handler);
+    }, []);
+    // Workflow-completion modal state. Fires once when workflow_step
+    // transitions to 'complete'. localStorage gates a re-trigger so a
+    // refresh after dismissal doesn't bring it back.
+    const completionKey = `cactai_workflow_complete_seen_${projectId}`;
+    const [completionOpen, setCompletionOpen] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined')
+            return;
+        if (workflowStep !== 'complete')
+            return;
+        if (window.localStorage.getItem(completionKey))
+            return;
+        setCompletionOpen(true);
+    }, [workflowStep, completionKey]);
+    const dismissCompletion = () => {
+        setCompletionOpen(false);
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(completionKey, new Date().toISOString());
+        }
+    };
     // decisions / backlog / sprints / workflowStep are stateful (set by
     // the polling effect above).
     // Skills come from MUIShell's own registry — already populated when
@@ -979,7 +1019,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             }
                         },
                     }
-                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors })] }));
+                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl })] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
 // Renders only when at least one fetch source is in error. Lives at
