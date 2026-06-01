@@ -23,12 +23,16 @@ import React, { useEffect, useState } from 'react';
 import { installCaptureHandlers } from '@/lib/capture-thumbnail';
 
 interface Props {
-  userId:     string;
-  userEmail:  string;
-  userRole:   string;
-  allRoles:   Array<{ role: string }>;
-  cactaiBase: string;   // real api.cactai.io URL — used only by the thumbnail uploader
-  projectId:  string;
+  userId:      string;
+  userEmail:   string;
+  userRole:    string;
+  allRoles:    Array<{ role: string }>;
+  cactaiBase:  string;   // real api.cactai.io URL — used only by the thumbnail uploader
+  projectId:   string;
+  /** Project's display name (from platform projects.name). Server-side
+   *  fetched in page.tsx and passed here so the IDE topbar shows the
+   *  developer's chosen name instead of the literal 'App' fallback. */
+  projectName: string;
 }
 
 export const DevShellWithThumbnail: React.FC<Props> = (props) => {
@@ -113,6 +117,7 @@ export const DevShellWithThumbnail: React.FC<Props> = (props) => {
     <Comp
       cactaiBase="/api/cactai"
       projectId={props.projectId}
+      projectName={props.projectName}
       userId={props.userId}
       userEmail={props.userEmail}
       userRole={props.userRole}
