@@ -92,7 +92,7 @@ export type { FileConflictModalProps } from './editor/FileConflictModal.js';
 export { PendingFilesManager, setActivePendingFilesManager, getActivePendingFilesManager, diffLineCounts, } from './staging/PendingFilesManager.js';
 export type { PendingFilesManagerInit, SetPendingFileOpts, } from './staging/PendingFilesManager.js';
 export { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel, } from './panels/index.js';
-export type { WorkspacePanelProps, BuildPanelProps, SchemaPanelProps, AppConfigurationPanelProps, SchemaTable, SchemaField, MigrationRecord, MarketplaceItem, CredentialsRecord, RoleCatalogEntry, RolePatch, AIKeysPolicyState, AIPolicyPatch, } from './panels/index.js';
+export type { WorkspacePanelProps, BuildPanelProps, SchemaPanelProps, AppConfigurationPanelProps, SchemaTable, SchemaField, MigrationRecord, MarketplaceItem, CredentialsRecord, RoleCatalogEntry, RolePatch, AIKeysPolicyState, AIPolicyPatch, TierEntry, TierBudgetPatch, } from './panels/index.js';
 export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export type { CapabilityListPanelProps } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';

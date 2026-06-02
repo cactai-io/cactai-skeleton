@@ -180,6 +180,22 @@ export interface AppConfigurationPanelProps {
     aiPolicy?: AIKeysPolicyState;
     /** Persist the global policy and/or one provider's override. */
     onAIPolicyPatch?: (patch: AIPolicyPatch) => Promise<void>;
+    /** Live tiers + per-tier per-provider budgets (customer DB app_tiers +
+     *  app_tier_budgets) for the Tiers tab. */
+    tiers?: TierEntry[];
+    /** Persist one (tier, provider) budget. */
+    onTierBudgetPatch?: (patch: TierBudgetPatch) => Promise<void>;
+}
+export interface TierEntry {
+    tier_id: string;
+    label: string;
+    rank: number;
+    budgets: Record<string, number | null>;
+}
+export interface TierBudgetPatch {
+    tier_id: string;
+    provider_id: string;
+    budget: number | null;
 }
 export interface AIKeysPolicyState {
     global_policy: 'included' | 'byok';
@@ -212,4 +228,4 @@ export interface RolePatch {
     rank?: number;
     capabilities?: string[];
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, tiers, onTierBudgetPatch, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;

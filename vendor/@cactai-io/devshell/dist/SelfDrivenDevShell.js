@@ -803,6 +803,40 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             recordFetchError('ai_policy_save', { status: res.status, code: body.error, detail: body.detail });
         }
     };
+    // Tiers + per-tier per-provider budgets (customer DB app_tiers +
+    // app_tier_budgets) for the App Configuration → Tiers tab.
+    const [tiers, setTiers] = useState(undefined);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/devshell/tiers');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (!cancelled && Array.isArray(data.tiers))
+                    setTiers(data.tiers);
+            }
+            catch {
+                // Non-fatal — Tiers tab falls back to the default preview.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+    const onTierBudgetPatch = async (patch) => {
+        setTiers(prev => prev?.map(t => t.tier_id === patch.tier_id
+            ? { ...t, budgets: { ...t.budgets, [patch.provider_id]: patch.budget } }
+            : t));
+        const res = await fetch('/api/devshell/tiers', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            recordFetchError('tier_save', { status: res.status, code: body.error, detail: body.detail });
+        }
+    };
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1318,6 +1352,8 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     onAgentToggle,
                     aiPolicy,
                     onAIPolicyPatch,
+                    tiers,
+                    onTierBudgetPatch,
                     // MCP — devshell-scope integrations for this project (sprint-1
                     // UI: persisted-but-inert). Catalog + explainer from mui;
                     // handlers hit /v1/projects/:id/mcp/devshell through the proxy.
