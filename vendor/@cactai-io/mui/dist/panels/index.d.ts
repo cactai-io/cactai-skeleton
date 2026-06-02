@@ -154,5 +154,9 @@ export interface AppConfigurationPanelProps {
     }) => Promise<void> | void;
     onMCPRemove?: (id: string) => Promise<void> | void;
     onMCPToggle?: (id: string, enabled: boolean) => Promise<void> | void;
+    /** Theme editor for the Design tab. The host renders a <ThemeInspector />
+     *  here (it carries projectId / apiBaseUrl / previewUrl). Migrated off the
+     *  avatar-menu modal into App Configuration → Design. */
+    themeInspectorSlot?: import('react').ReactNode;
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
