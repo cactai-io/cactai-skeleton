@@ -723,6 +723,38 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             recordFetchError('role_save', { status: res.status, code: body.error, detail: body.detail });
         }
     };
+    // Per-agent enable/disable overrides (customer DB app_agent_config) for
+    // the App Configuration → Agents tab. Sparse map; absent = enabled.
+    const [agentConfig, setAgentConfig] = useState(undefined);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/devshell/agents');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (!cancelled && data.config)
+                    setAgentConfig(data.config);
+            }
+            catch {
+                // Non-fatal — Agents tab defaults everything to enabled.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+    const onAgentToggle = async (agentId, enabled) => {
+        setAgentConfig(prev => ({ ...(prev ?? {}), [agentId]: enabled }));
+        const res = await fetch('/api/devshell/agents', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id: agentId, enabled }),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            recordFetchError('agent_save', { status: res.status, code: body.error, detail: body.detail });
+        }
+    };
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1234,6 +1266,8 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     capabilityConfig: capabilityConfig ?? undefined,
                     roleCatalog,
                     onRolePatch,
+                    agentConfig,
+                    onAgentToggle,
                     // MCP — devshell-scope integrations for this project (sprint-1
                     // UI: persisted-but-inert). Catalog + explainer from mui;
                     // handlers hit /v1/projects/:id/mcp/devshell through the proxy.

@@ -261,18 +261,18 @@ const AGENT_CATALOG = [
         description: 'Provider-native agentic coding via the OpenAI Agents SDK run loop, with a sandbox and file operations. The coding dispatcher routes to this or Claude per task.',
     },
 ];
-function AgentsTab({ onOpenAuthoring }) {
-    const [disabled, setDisabled] = useState(() => new Set());
-    const toggle = (id) => setDisabled(prev => {
-        const next = new Set(prev);
-        if (next.has(id))
-            next.delete(id);
-        else
-            next.add(id);
-        return next;
-    });
+function AgentsTab({ onOpenAuthoring, agentConfig, onAgentToggle }) {
+    // Optimistic local overrides layered over the persisted config; an agent
+    // is on unless explicitly disabled (in either layer).
+    const [overrides, setOverrides] = useState({});
+    const isOn = (id) => (overrides[id] ?? agentConfig?.[id] ?? true) === true;
+    const toggle = (id) => {
+        const next = !isOn(id);
+        setOverrides(prev => ({ ...prev, [id]: next }));
+        void onAgentToggle?.(id, next);
+    };
     return (_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "The agents that power your app. These built-ins ship with every Cactai app; author your own in Studio. Enable/disable + per-agent configuration persist with the functional build." }), _jsx("button", { className: "ds-btn-ghost", onClick: () => onOpenAuthoring?.('agent'), style: { fontSize: 11.5, padding: '4px 12px', flexShrink: 0 }, children: "+ Add agent" })] }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: AGENT_CATALOG.map(a => {
-                    const on = !disabled.has(a.id);
+                    const on = isOn(a.id);
                     return (_jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'flex-start', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: a.name }), _jsx("span", { className: `ds-badge ${a.origin === 'provider' ? 'ds-badge-marketplace' : 'ds-badge-sdk'}`, children: a.origin === 'provider' ? a.provider : 'built-in' }), on && _jsx("span", { className: "ds-badge ds-badge-active", children: "active" })] }), _jsx("div", { style: { fontSize: 11, color: 'var(--ds-text-3)', lineHeight: 1.45 }, children: a.description })] }), _jsxs("label", { className: "ds-toggle", title: on ? 'Disable' : 'Enable', children: [_jsx("input", { type: "checkbox", checked: on, onChange: () => toggle(a.id) }), _jsx("span", { className: "ds-toggle-track" }), _jsx("span", { className: "ds-toggle-thumb" })] })] }) }, a.id));
                 }) })] }));
 }
@@ -300,7 +300,7 @@ function AIPolicyBudgets() {
                                                 } }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: BUDGET_UNIT[group.category] ?? 'units / mo' })] })) : (_jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, cursor: 'pointer' }, title: "Lets project members test your BYOK app using your DevShell keys.", children: [_jsx("input", { type: "checkbox", checked: teamKeys.has(p.id), onChange: () => toggleTeam(p.id) }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "Use DevShell keys for team testing" })] }))] }, p.id));
                         }) })] }, group.category))), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: "Budgets use each provider's native unit (no lossy dollar conversion). Included providers get developer-set budgets; BYOK passes a budget surface to each end user. Persistence, alert thresholds, the \u201CAdd more\u201D deep links, and the dispatcher routing check wire up with the functional build." })] }));
 }
-export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, }) {
+export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, }) {
     const [tab, setTab] = useState('workflow');
     const [editingKey, setEditingKey] = useState(null);
     const [editingVal, setEditingVal] = useState('');
@@ -355,7 +355,7 @@ export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredent
                                                                 outline: 'none',
                                                             }, onKeyDown: e => { if (e.key === 'Enter')
                                                                 saveEdit(); if (e.key === 'Escape')
-                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(AIPolicyBudgets, {})] })), tab === 'agents' && _jsx(AgentsTab, { onOpenAuthoring: onOpenAuthoring }), tab === 'roles' && _jsx(RolesTab, { roleCatalog: roleCatalog, onRolePatch: onRolePatch }), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
+                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(AIPolicyBudgets, {})] })), tab === 'agents' && _jsx(AgentsTab, { onOpenAuthoring: onOpenAuthoring, agentConfig: agentConfig, onAgentToggle: onAgentToggle }), tab === 'roles' && _jsx(RolesTab, { roleCatalog: roleCatalog, onRolePatch: onRolePatch }), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
                 ? (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))
                 : _jsx(ConfigScoped, { title: "Integrations", body: "Connect Model Context Protocol (MCP) servers your app's agent can use. Available once integrations are wired for this project." })), tab === 'design' && (_jsxs(_Fragment, { children: [personality && onPersonalityPatch && (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Personality" }), editingPersonality && onPersonalityLoad && onPersonalitySave && onPersonalityTest
                                 ? (_jsx(PersonalityEditor, { id: editingPersonality, onLoad: onPersonalityLoad, onSave: onPersonalitySave, onTest: onPersonalityTest, onClose: () => setEditingPersonality(null) }))

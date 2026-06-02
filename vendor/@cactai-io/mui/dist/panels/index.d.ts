@@ -170,6 +170,11 @@ export interface AppConfigurationPanelProps {
     roleCatalog?: RoleCatalogEntry[];
     /** Persist a single role's editable fields. */
     onRolePatch?: (patch: RolePatch) => Promise<void>;
+    /** Per-agent enable/disable overrides (customer DB app_agent_config).
+     *  Sparse: an agent absent from the map is enabled. */
+    agentConfig?: Record<string, boolean>;
+    /** Persist one agent's enabled state. */
+    onAgentToggle?: (agentId: string, enabled: boolean) => Promise<void>;
 }
 export interface RoleCatalogEntry {
     role: string;
@@ -185,4 +190,4 @@ export interface RolePatch {
     rank?: number;
     capabilities?: string[];
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
