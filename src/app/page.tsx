@@ -1,9 +1,8 @@
 // src/app/page.tsx
-// Root page — checks env vars, then routes by role and deployment environment.
+// Root page — checks env vars, then routes by role.
 //
 // Routing:
-//   VERCEL_ENV=preview  + dev/collaborator → /dev  (DevShell)
-//   VERCEL_ENV=production + dev/collaborator → /manage (management panel)
+//   dev/collaborator → /dev (DevShell) — app management is platform-side now
 //   Any env + app roles (super_admin, admin, user) → /app
 //   Unauthenticated → /auth/login
 //   Provisioning incomplete → holding screen

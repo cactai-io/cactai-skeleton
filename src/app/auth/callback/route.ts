@@ -388,15 +388,16 @@ async function applySignupMode(
       });
       return 'bootstrap_failed';
     }
-    // Production workspace owner also gets platform_role='dev' so getPostLoginRedirect
-    // routes them straight into /manage (the management panel) instead of the
-    // generic /app page. The platform_roles table lives on the customer DB and
-    // gates which surfaces this skeleton's auth helpers expose — granting 'dev'
-    // here makes the first-and-only owner of the deployed app the developer
-    // by default, matching the "first user becomes super_admin and lands in
-    // the management panel" expectation. Subsequent users only get a
-    // tenant_members row (in the invited / collaborator flows), so platform
-    // role stays scoped to the original owner.
+    // Production workspace owner also gets platform_role='dev' so
+    // getPostLoginRedirect routes them to the in-app DevShell (/dev) instead of
+    // the generic /app page. The platform_roles table lives on the customer DB
+    // and gates which surfaces this skeleton's auth helpers expose — granting
+    // 'dev' here makes the first-and-only owner of the deployed app the
+    // developer by default. Subsequent users only get a tenant_members row (in
+    // the invited / collaborator flows), so platform role stays scoped to the
+    // original owner. (App management itself is platform-side now — the
+    // deployed-app management panel was removed; the dev-role bootstrap here is
+    // pending the platform Tenant Management auth-flow review.)
     const { error: prError } = await admin
       .from('platform_roles')
       .upsert({ user_id: userId, role: 'dev' }, { onConflict: 'user_id,role' });
@@ -407,7 +408,7 @@ async function applySignupMode(
         metadata: { step: 'platform_roles_insert', mode, error: prError.message },
       });
       // Non-fatal: the user still has super_admin on the tenant; they just
-      // won't land in /manage by default. Surface to audit but continue.
+      // won't get the dev landing by default. Surface to audit but continue.
     }
     for (const role of catalog) {
       await audit({

@@ -1,8 +1,12 @@
-// src/app/api/manage/env-status/route.ts
+// src/app/api/devshell/env-status/route.ts
 //
 // Runtime check of build-time env vars + DevShell BYOK status. Answers the
 // question from the *app side*: "did the wizard's provisioner actually wire
 // everything this deploy needs to function?"
+//
+// Consumed by DevShell preferences (src/app/dev/preferences). (Relocated here
+// from /api/manage/env-status when the deployed-app management panel was
+// removed — management moved platform-side. This check is DevShell-scoped.)
 //
 // Two reads:
 //   1. process.env probe for the build-env vars the wizard sets on Vercel
@@ -14,7 +18,7 @@
 //      inject into every platform shell call).
 //
 // Returns only present/absent flags — never values. Access: any dev /
-// collaborator session (covers /manage and DevShell's /dev/preferences).
+// collaborator session.
 
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';

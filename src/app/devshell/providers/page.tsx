@@ -2,7 +2,7 @@
 //
 // v1.3.5 2026-05-29 — DevShell provider routing UI (dev role only).
 //
-// Lives in /devshell/* — a separate top-level route from /manage/*
+// Lives in /devshell/* — DevShell-scope provider config.
 // because DevShell preferences serve the developer's own dev-time
 // agent, not the deployed app's runtime. Storage shape:
 // project_state.decisions.capability_config_v2.devshell.priority_by_category.
@@ -14,7 +14,7 @@
 // directly — the priority list answers "no preference, what's the
 // default?" which is the common case in non-repetitive dev work.
 //
-// Different from /manage/providers/ (app-runtime config), which uses
+// (App-runtime provider config will live in DevShell App Configuration.)
 // per-tool dropdown selection — apps are repetitive, so explicit
 // per-tool pinning matters there more than fallback chains.
 

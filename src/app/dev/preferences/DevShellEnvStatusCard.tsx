@@ -1,8 +1,8 @@
 // src/app/dev/preferences/DevShellEnvStatusCard.tsx
 //
-// DevShell-flavored env-var status card. Hits the same /api/manage/env-status
-// endpoint as the management panel's EnvStatusCard, but uses the /dev surface's
-// hardcoded dark palette so it visually matches the rest of /dev/preferences.
+// DevShell-flavored env-var status card. Hits /api/devshell/env-status and uses
+// the /dev surface's hardcoded dark palette so it visually matches the rest of
+// /dev/preferences.
 
 'use client';
 
@@ -29,7 +29,7 @@ export function DevShellEnvStatusCard(): React.ReactElement {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch('/api/manage/env-status', { cache: 'no-store' });
+        const res = await fetch('/api/devshell/env-status', { cache: 'no-store' });
         if (!res.ok) {
           const body = await res.json().catch(() => ({})) as { error?: string };
           throw new Error(body.error ?? `status_${res.status}`);

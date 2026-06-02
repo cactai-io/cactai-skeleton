@@ -127,9 +127,7 @@ export async function sendInvitationEmail(opts: SendOpts): Promise<void> {
       condition_key:     'invitations.config_missing',
       severity:          'warning',
       title:             'Invitation email is not configured',
-      body:              `Email delivery is set to Resend but the API key or from-address is missing. Configure them in the management panel's email settings to enable automatic delivery. Until then, invitation links must be shared manually.`,
-      action_kind:       'navigate',
-      action_payload:    { href: '/manage/email-invitations' },
+      body:              `Email delivery is set to Resend but the API key or from-address is missing. Until invitation email is configured, invitation links must be shared manually.`,
     });
     return;
   }

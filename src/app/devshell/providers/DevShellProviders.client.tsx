@@ -138,8 +138,7 @@ export function DevShellProvidersClient(): React.JSX.Element {
             <h2 style={categoryTitleStyle}>{label}</h2>
             {ordered.length === 1 ? (
               <p style={singleNoteStyle}>
-                Only one provider configured. Add more in the project wizard or under{' '}
-                <code style={{ fontSize: 12 }}>/manage/providers</code>.
+                Only one provider configured. Add more in the project wizard.
               </p>
             ) : (
               <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>

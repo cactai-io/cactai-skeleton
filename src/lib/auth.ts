@@ -112,21 +112,14 @@ export async function requireAppRole(): Promise<SessionUser> {
   return requireAuth();
 }
 
-// /manage is only for dev role, on production deployments. Used to manage
-// customer accounts (suspend, reset password, etc.) — separate from the
-// developer's own access to /app via tenant_members rows.
-export async function requireManageRole(): Promise<SessionUser> {
-  const user = await requireAuth();
-  if (user.platform_role !== 'dev') redirect('/app');
-  return user;
-}
-
 export function getPostLoginRedirect(user: SessionUser): string {
   if (user.platform_role === 'dev' || user.platform_role === 'collaborator') {
-    // Production devs land on /manage. Preview-side devs land on /dev.
-    // Per-tab lens switching from either surface opens new lens tabs.
-    const isProduction = process.env.VERCEL_ENV === 'production';
-    return isProduction ? '/manage' : '/dev';
+    // The deployed-app management panel was removed — app management is
+    // platform-side now (Cactai dashboard → Tenant Management). Devs land on
+    // the in-app DevShell. NOTE: the deeper auth-flow review (what a dev role
+    // means inside the deployed app, role bootstrap) is deferred to the
+    // platform Tenant Management rebuild.
+    return '/dev';
   }
   return '/app';
 }
