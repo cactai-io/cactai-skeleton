@@ -163,6 +163,55 @@ function TiersTab() {
     const set = DEFAULT_TIER_SETS.find(s => s.id === pick) ?? DEFAULT_TIER_SETS[0];
     return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Tiers" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)' }, children: "Pricing/access tiers, each with per-provider budgets for your Included providers. Defaults are seeded during the workflow; view and adjust them here." }), _jsx("div", { style: { display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }, children: DEFAULT_TIER_SETS.map(s => (_jsx("button", { className: `ds-view-btn${pick === s.id ? ' ds-view-active' : ''}`, onClick: () => setPick(s.id), style: { fontSize: 11 }, children: s.label }, s.id))) }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: set.tiers.map(t => (_jsxs("div", { className: "ds-card", style: { display: 'flex', alignItems: 'center', gap: 10 }, children: [_jsx("span", { style: { fontSize: 12, color: 'var(--ds-text)', fontWeight: 600, flex: 1 }, children: t }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "budgets per provider \u2014 set with functional build" })] }, t))) })] }));
 }
+// Built-in agents that ship with every Cactai app, plus the provider-native
+// coding agents the Agent SDK dispatcher routes between. This is the minimum
+// "framework first" population of the Agents tab — the real list drawn from
+// the platform's own agent definitions (packages/core agent + agent-sdk,
+// packages/mui agent). Per-agent configuration + editing the developer's own
+// agents wire up with the functional build.
+const AGENT_CATALOG = [
+    {
+        id: 'gas_orchestrator',
+        name: 'GAS Orchestration Agent',
+        origin: 'platform',
+        description: "Your app's conversational brain. Each turn it returns a typed decision via the model's native tool use, and the orchestration engine acts on it — it reasons, it never executes directly.",
+    },
+    {
+        id: 'mui_agent',
+        name: 'MUI Rendering Agent',
+        origin: 'platform',
+        description: 'Decides how every response is presented. Selects the right skill deterministically and returns a render decision; the skills do the actual rendering.',
+    },
+    {
+        id: 'claude_agent_sdk',
+        name: 'Claude Agent SDK',
+        origin: 'provider',
+        provider: 'Anthropic',
+        description: 'Provider-native agentic coding for sprint-level work — the Claude Code preset with GitHub MCP, owning the branch lifecycle and streaming file writes.',
+    },
+    {
+        id: 'openai_agents_sdk',
+        name: 'OpenAI Agents SDK',
+        origin: 'provider',
+        provider: 'OpenAI',
+        description: 'Provider-native agentic coding via the OpenAI Agents SDK run loop, with a sandbox and file operations. The coding dispatcher routes to this or Claude per task.',
+    },
+];
+function AgentsTab({ onOpenAuthoring }) {
+    const [disabled, setDisabled] = useState(() => new Set());
+    const toggle = (id) => setDisabled(prev => {
+        const next = new Set(prev);
+        if (next.has(id))
+            next.delete(id);
+        else
+            next.add(id);
+        return next;
+    });
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "The agents that power your app. These built-ins ship with every Cactai app; author your own in Studio. Enable/disable + per-agent configuration persist with the functional build." }), _jsx("button", { className: "ds-btn-ghost", onClick: () => onOpenAuthoring?.('agent'), style: { fontSize: 11.5, padding: '4px 12px', flexShrink: 0 }, children: "+ Add agent" })] }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: AGENT_CATALOG.map(a => {
+                    const on = !disabled.has(a.id);
+                    return (_jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'flex-start', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: a.name }), _jsx("span", { className: `ds-badge ${a.origin === 'provider' ? 'ds-badge-marketplace' : 'ds-badge-sdk'}`, children: a.origin === 'provider' ? a.provider : 'built-in' }), on && _jsx("span", { className: "ds-badge ds-badge-active", children: "active" })] }), _jsx("div", { style: { fontSize: 11, color: 'var(--ds-text-3)', lineHeight: 1.45 }, children: a.description })] }), _jsxs("label", { className: "ds-toggle", title: on ? 'Disable' : 'Enable', children: [_jsx("input", { type: "checkbox", checked: on, onChange: () => toggle(a.id) }), _jsx("span", { className: "ds-toggle-track" }), _jsx("span", { className: "ds-toggle-thumb" })] })] }) }, a.id));
+                }) })] }));
+}
 export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, }) {
     const [tab, setTab] = useState('workflow');
     const [editingKey, setEditingKey] = useState(null);
@@ -218,7 +267,7 @@ export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredent
                                                                 outline: 'none',
                                                             }, onKeyDown: e => { if (e.key === 'Enter')
                                                                 saveEdit(); if (e.key === 'Escape')
-                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(ConfigScoped, { title: "Keys policy + budgets", body: "Coming next: the Included / BYOK / Hybrid keys policy with per-provider overrides, provider-native budgets + alerts, and the \u201Cuse DevShell keys for testing\u201D toggle for project members." })] })), tab === 'agents' && (_jsx(ConfigScoped, { title: "Agents", body: "See, enable, disable, add, and edit the agents that power your app. Framework first; the focused configuration pass lands next." })), tab === 'roles' && _jsx(RolesTab, {}), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
+                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(ConfigScoped, { title: "Keys policy + budgets", body: "Coming next: the Included / BYOK / Hybrid keys policy with per-provider overrides, provider-native budgets + alerts, and the \u201Cuse DevShell keys for testing\u201D toggle for project members." })] })), tab === 'agents' && _jsx(AgentsTab, { onOpenAuthoring: onOpenAuthoring }), tab === 'roles' && _jsx(RolesTab, {}), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
                 ? (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))
                 : _jsx(ConfigScoped, { title: "Integrations", body: "Connect Model Context Protocol (MCP) servers your app's agent can use. Available once integrations are wired for this project." })), tab === 'design' && (_jsxs(_Fragment, { children: [personality && onPersonalityPatch && (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Personality" }), editingPersonality && onPersonalityLoad && onPersonalitySave && onPersonalityTest
                                 ? (_jsx(PersonalityEditor, { id: editingPersonality, onLoad: onPersonalityLoad, onSave: onPersonalitySave, onTest: onPersonalityTest, onClose: () => setEditingPersonality(null) }))
