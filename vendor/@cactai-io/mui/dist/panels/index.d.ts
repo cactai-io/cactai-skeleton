@@ -122,7 +122,7 @@ export interface SchemaPanelProps {
 export declare function SchemaPanel({ tables, migrations, onAddTable, onEditTable, supabaseProjectUrl }: SchemaPanelProps): import("react/jsx-runtime").JSX.Element;
 import type { CapabilityCatalogueItem, CapabilityConfig, CapabilityConfigPatch, DevAuthoredPersonalityRecord, DevAuthoredPersonalityEditPatch, ProductPersonality, ProjectBYOKResponse, ProjectBYOKPatch, ProjectPersonalityResponse, ProjectPersonalityPatch, ProjectWorkflowResponse, ProjectWorkflowPatch, MCPServerPublic, MCPAuthType } from '@cactai-io/types';
 import { type MCPCatalogEntry } from './MCPManager.js';
-export interface ProjectSettingsPanelProps {
+export interface AppConfigurationPanelProps {
     credentials: Partial<CredentialsRecord>;
     /** URL of the Cactai platform dashboard. Passed by the host so this
      *  package carries no hardcoded environment URL. */
@@ -155,4 +155,4 @@ export interface ProjectSettingsPanelProps {
     onMCPRemove?: (id: string) => Promise<void> | void;
     onMCPToggle?: (id: string, enabled: boolean) => Promise<void> | void;
 }
-export declare function ProjectSettingsPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }: ProjectSettingsPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;

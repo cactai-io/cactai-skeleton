@@ -5,5 +5,6 @@ export interface CapabilityListPanelProps {
     config: CapabilityScopeConfig;
     allowHide: boolean;
     onPatch: (patch: CapabilityConfigPatch) => Promise<void>;
+    only?: 'tool' | 'skill';
 }
-export declare function CapabilityListPanel({ scope, catalogue, config, allowHide, onPatch, }: CapabilityListPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function CapabilityListPanel({ scope, catalogue, config, allowHide, onPatch, only, }: CapabilityListPanelProps): import("react/jsx-runtime").JSX.Element;

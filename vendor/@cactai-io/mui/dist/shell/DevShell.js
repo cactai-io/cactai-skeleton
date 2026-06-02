@@ -16,7 +16,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   collapse / expand control; the rail no longer has a Files icon.
 //   Build is the merged Capabilities + Marketplace section, rendered via
 //   BuildPanel with Installed | Browse tabs.
-//   Project settings is the ProjectSettingsPanel — per-project credentials
+//   Project settings is the AppConfigurationPanel — per-project credentials
 //   + collaborators + link out to Platform /settings for developer-scoped
 //   settings.
 //
@@ -43,7 +43,7 @@ import { StudioOverlay } from '../components/StudioOverlay.js';
 import { DevChatPanel } from '../components/DevChatPanel.js';
 import { FileTree } from '../components/FileTree.js';
 import { WorkflowSurface } from '../workflow/index.js';
-import { WorkspacePanel, BuildPanel, SchemaPanel, ProjectSettingsPanel, } from '../panels/index.js';
+import { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel, } from '../panels/index.js';
 import { DevShellPreferencesModal } from '../panels/DevShellPreferencesModal.js';
 import { injectDevShellStyles } from './DevShellStyles.js';
 import { ThemeInspector } from '../inspector/ThemeInspector.js';
@@ -644,7 +644,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             case 'schema':
                 return wrap(_jsx(SchemaPanel, { ...schemaProps }));
             case 'project-settings':
-                return wrap(_jsx(ProjectSettingsPanel, { ...settingsProps, dashboardUrl: dashboardUrl }));
+                return wrap(_jsx(AppConfigurationPanel, { ...settingsProps, dashboardUrl: dashboardUrl }));
             default:
                 return null;
         }

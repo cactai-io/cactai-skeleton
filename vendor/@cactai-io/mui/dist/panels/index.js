@@ -17,7 +17,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   BuildPanel replaces the old Capabilities + Marketplace pair with one
 //   panel exposing Installed | Browse tabs.
 //   WorkspacePanel drops sprint summary (now lives only in Plan view).
-//   ProjectSettingsPanel drops theme (Platform owns it via the shared
+//   AppConfigurationPanel drops theme (Platform owns it via the shared
 //   cactai-theme localStorage key) and adds a single outbound link to the
 //   Platform dashboard for developer-scoped settings.
 import { useState } from 'react';
@@ -121,19 +121,28 @@ import { PersonalityEditor, } from './PersonalityEditor.js';
 import { WorkflowSection, } from './WorkflowSection.js';
 import { BYOKSection, } from './BYOKSection.js';
 import { MCPManager } from './MCPManager.js';
-export function ProjectSettingsPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }) {
-    const [tab, setTab] = useState('configuration');
+function ConfigLoading({ title }) {
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: title }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5 }, children: "Loading\u2026" })] }));
+}
+// A scoped App Configuration tab whose functional build lands next. Describes
+// what the tab configures so the surface is legible (and so guide content can
+// be written against a known shape) before the full feature is wired.
+function ConfigScoped({ title, body }) {
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: title }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, lineHeight: 1.55, color: 'var(--ds-text-2)' }, children: body })] }));
+}
+export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, }) {
+    const [tab, setTab] = useState('workflow');
     const [editingKey, setEditingKey] = useState(null);
     const [editingVal, setEditingVal] = useState('');
     // Personality editor surface state. When set, the editor replaces the
     // picker; closing the editor returns to the picker.
     const [editingPersonality, setEditingPersonality] = useState(null);
+    // AI tab shows ONLY runtime AI provider keys. GitHub / Vercel / Supabase are
+    // infrastructure — set once at the wizard, never editable here (see
+    // infrastructure-immutability). Stripe lives in the Portal's Payments section,
+    // not in build-time App Configuration.
     const credFields = [
         { key: 'anthropic_api_key', label: 'Anthropic API key', placeholder: 'sk-ant-…' },
-        { key: 'github_token', label: 'GitHub token', placeholder: 'ghp_…' },
-        { key: 'vercel_api_token', label: 'Vercel API token', placeholder: 'vercel_…' },
-        { key: 'supabase_url', label: 'Supabase URL', placeholder: 'https://xxx.supabase.co' },
-        { key: 'stripe_secret_key', label: 'Stripe secret key', placeholder: 'sk_live_…' },
     ];
     function startEdit(key) {
         setEditingKey(key);
@@ -146,21 +155,25 @@ export function ProjectSettingsPanel({ credentials, dashboardUrl, onSaveCredenti
         setEditingKey(null);
         setEditingVal('');
     }
-    // The Integrations (MCP) tab only appears when the host wires MCP
-    // handlers — sprint-1 UI surface, persisted-but-inert.
     const mcpAvailable = !!(onMCPAdd && onMCPRemove && onMCPToggle);
     const tabs = [
-        { key: 'configuration', label: 'Configuration' },
-        { key: 'credentials', label: 'Credentials' },
-        ...(mcpAvailable ? [{ key: 'integrations', label: 'Integrations' }] : []),
+        { key: 'workflow', label: 'Workflow' },
+        { key: 'tools', label: 'Tools' },
+        { key: 'skills', label: 'Skills' },
+        { key: 'ai', label: 'AI' },
+        { key: 'agents', label: 'Agents' },
+        { key: 'roles', label: 'Roles' },
+        { key: 'tiers', label: 'Tiers' },
+        { key: 'integrations', label: 'Integrations' },
+        { key: 'design', label: 'Design' },
     ];
-    return (_jsxs("div", { className: "ds-panel", children: [_jsx("div", { style: { display: 'flex', gap: 4 }, children: tabs.map((t) => (_jsx("button", { className: `ds-view-btn${tab === t.key ? ' ds-view-active' : ''}`, onClick: () => setTab(t.key), style: { fontSize: 11.5 }, children: t.label }, t.key))) }), tab === 'configuration' && (_jsxs(_Fragment, { children: [workflow && onWorkflowPatch
-                        ? _jsx(WorkflowSection, { response: workflow, onPatch: onWorkflowPatch, marketplaceUrl: marketplaceWorkflowsUrl })
-                        : (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Workflow" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5 }, children: "Workflow data is loading\u2026" })] })), personality && onPersonalityPatch && (_jsx("div", { className: "ds-panel-section", children: editingPersonality && onPersonalityLoad && onPersonalitySave && onPersonalityTest
-                            ? (_jsx(PersonalityEditor, { id: editingPersonality, onLoad: onPersonalityLoad, onSave: onPersonalitySave, onTest: onPersonalityTest, onClose: () => setEditingPersonality(null) }))
-                            : (_jsx(PersonalityPickerPanel, { active_id: personality.active_id, available: personality.available, onConfirm: onPersonalityPatch, onOpenEditor: (id) => setEditingPersonality(id), onCreate: onCreatePersonality })) })), capabilityCatalogue && capabilityConfig && onCapabilityPatch
-                        ? (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Tools and skills" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Pick which tools and skills are available in your deployed app. DevShell preferences (avatar menu) controls the same lists for the IDE." }), _jsx(CapabilityListPanel, { scope: "appshell", catalogue: capabilityCatalogue, config: capabilityConfig.appshell, allowHide: true, onPatch: onCapabilityPatch })] }))
-                        : (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Tools and skills" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5 }, children: "Catalogue is loading\u2026" })] }))] })), tab === 'credentials' && (_jsxs(_Fragment, { children: [_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Providers" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Per-project API keys for the services your agent talks to. All values are stored encrypted on your own Supabase." }), credFields.map(({ key, label, placeholder }) => (_jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsx("div", { style: { fontSize: 12, fontWeight: 500, color: 'var(--ds-text)', marginBottom: 3 }, children: label }), editingKey === key ? (_jsxs("div", { style: { display: 'flex', gap: 6 }, children: [_jsx("input", { type: "password", value: editingVal, onChange: e => setEditingVal(e.target.value), placeholder: placeholder, autoFocus: true, style: {
+    return (_jsxs("div", { className: "ds-panel", children: [_jsx("div", { style: { display: 'flex', gap: 4 }, children: tabs.map((t) => (_jsx("button", { className: `ds-view-btn${tab === t.key ? ' ds-view-active' : ''}`, onClick: () => setTab(t.key), style: { fontSize: 11.5 }, children: t.label }, t.key))) }), tab === 'workflow' && (workflow && onWorkflowPatch
+                ? _jsx(WorkflowSection, { response: workflow, onPatch: onWorkflowPatch, marketplaceUrl: marketplaceWorkflowsUrl })
+                : _jsx(ConfigLoading, { title: "Workflow" })), tab === 'tools' && (capabilityCatalogue && capabilityConfig && onCapabilityPatch
+                ? (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Which tools your deployed app can use. The IDE's own tools are set in DevShell Configuration." }), _jsx(CapabilityListPanel, { scope: "appshell", catalogue: capabilityCatalogue, config: capabilityConfig.appshell, allowHide: true, onPatch: onCapabilityPatch, only: "tool" })] }))
+                : _jsx(ConfigLoading, { title: "Tools" })), tab === 'skills' && (capabilityCatalogue && capabilityConfig && onCapabilityPatch
+                ? (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Which skills your deployed app offers. The IDE's own skills are set in DevShell Configuration." }), _jsx(CapabilityListPanel, { scope: "appshell", catalogue: capabilityCatalogue, config: capabilityConfig.appshell, allowHide: true, onPatch: onCapabilityPatch, only: "skill" })] }))
+                : _jsx(ConfigLoading, { title: "Skills" })), tab === 'ai' && (_jsxs(_Fragment, { children: [_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "AI providers" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Per-project AI provider keys, stored encrypted on your own Supabase." }), credFields.map(({ key, label, placeholder }) => (_jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsx("div", { style: { fontSize: 12, fontWeight: 500, color: 'var(--ds-text)', marginBottom: 3 }, children: label }), editingKey === key ? (_jsxs("div", { style: { display: 'flex', gap: 6 }, children: [_jsx("input", { type: "password", value: editingVal, onChange: e => setEditingVal(e.target.value), placeholder: placeholder, autoFocus: true, style: {
                                                                 flex: 1,
                                                                 background: 'var(--ds-canvas)',
                                                                 border: '1px solid var(--ds-border)',
@@ -172,6 +185,12 @@ export function ProjectSettingsPanel({ credentials, dashboardUrl, onSaveCredenti
                                                                 outline: 'none',
                                                             }, onKeyDown: e => { if (e.key === 'Enter')
                                                                 saveEdit(); if (e.key === 'Escape')
-                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch })] })), tab === 'integrations' && mcpAvailable && (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))] }));
+                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(ConfigScoped, { title: "Keys policy + budgets", body: "Coming next: the Included / BYOK / Hybrid keys policy with per-provider overrides, provider-native budgets + alerts, and the \u201Cuse DevShell keys for testing\u201D toggle for project members." })] })), tab === 'agents' && (_jsx(ConfigScoped, { title: "Agents", body: "See, enable, disable, add, and edit the agents that power your app. Framework first; the focused configuration pass lands next." })), tab === 'roles' && (_jsx(ConfigScoped, { title: "Roles", body: "Design your app's role catalog \u2014 ranks, names, capabilities, and defaults \u2014 plus the top-role \u201Ccan grant own role\u201D flag. This is role DESIGN; managing actual users lives in the Portal." })), tab === 'tiers' && (_jsx(ConfigScoped, { title: "Tiers", body: "Per-tier, per-provider budgets for your Included providers. Builds on the Providers \u2192 Roles \u2192 Tiers dependency chain, with inline guidance rather than hard blocks." })), tab === 'integrations' && (mcpAvailable
+                ? (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))
+                : _jsx(ConfigScoped, { title: "Integrations", body: "Connect Model Context Protocol (MCP) servers your app's agent can use. Available once integrations are wired for this project." })), tab === 'design' && (personality && onPersonalityPatch
+                ? (_jsx("div", { className: "ds-panel-section", children: editingPersonality && onPersonalityLoad && onPersonalitySave && onPersonalityTest
+                        ? (_jsx(PersonalityEditor, { id: editingPersonality, onLoad: onPersonalityLoad, onSave: onPersonalitySave, onTest: onPersonalityTest, onClose: () => setEditingPersonality(null) }))
+                        : (_jsx(PersonalityPickerPanel, { active_id: personality.active_id, available: personality.available, onConfirm: onPersonalityPatch, onOpenEditor: (id) => setEditingPersonality(id), onCreate: onCreatePersonality })) }))
+                : _jsx(ConfigLoading, { title: "Design" }))] }));
 }
 //# sourceMappingURL=index.js.map

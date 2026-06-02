@@ -4,7 +4,7 @@ import type { MorphState } from '@cactai-io/types';
 import type { PersonalityCharacter } from '@cactai-io/types';
 import type { ChatMessage } from '../components/DevChatPanel.js';
 import type { FileNode } from '../components/FileTree.js';
-import type { WorkspacePanelProps, BuildPanelProps, SchemaPanelProps, ProjectSettingsPanelProps } from '../panels/index.js';
+import type { WorkspacePanelProps, BuildPanelProps, SchemaPanelProps, AppConfigurationPanelProps } from '../panels/index.js';
 import type { SkillDescriptor } from '../types/mui.types.js';
 import type { SprintRecord, GoalBacklogEntry, SurfaceFormField, WorkflowDecisionRecord } from '@cactai-io/types';
 import type { CommitListItem } from '../commit/CommitHistoryModal.js';
@@ -197,7 +197,7 @@ export interface DevShellProps {
     skills: SkillDescriptor[];
     schemaProps: SchemaPanelProps;
     /** Project settings panel props — dashboardUrl is injected by the shell. */
-    settingsProps: Omit<ProjectSettingsPanelProps, 'dashboardUrl'>;
+    settingsProps: Omit<AppConfigurationPanelProps, 'dashboardUrl'>;
     /** v1.2 Thread 06: catalogue + devshell-scope config + patch callback
      *  used by the "DevShell preferences" entry in the avatar menu. When
      *  omitted, the avatar menu falls back to a stub message ("DevShell

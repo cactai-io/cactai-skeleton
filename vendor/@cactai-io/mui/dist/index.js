@@ -115,11 +115,11 @@ export { FileConflictModal } from './editor/FileConflictModal.js';
 export { PendingFilesManager, setActivePendingFilesManager, getActivePendingFilesManager, diffLineCounts, } from './staging/PendingFilesManager.js';
 // Panels
 // v1.1 IA: BuildPanel replaces the old Capabilities + Marketplace pair;
-// ProjectSettingsPanel is the canonical name for the project-settings panel.
+// AppConfigurationPanel is the canonical name for the project-settings panel.
 // v1.2 adds CapabilityListPanel (tools/skills), PersonalityPickerPanel +
 // PersonalityEditor (Thread 07), WorkflowSection + BYOKSection
 // (Thread 08), and DevShellPreferencesModal (Thread 06 Surface 2).
-export { WorkspacePanel, BuildPanel, SchemaPanel, ProjectSettingsPanel, } from './panels/index.js';
+export { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel, } from './panels/index.js';
 export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';
 export { PersonalityEditor } from './panels/PersonalityEditor.js';

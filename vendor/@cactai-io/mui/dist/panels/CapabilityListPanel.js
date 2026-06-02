@@ -25,7 +25,7 @@ function isEnabled(item, scope) {
         return explicit;
     return item.source !== 'built_in_paid';
 }
-export function CapabilityListPanel({ scope, catalogue, config, allowHide, onPatch, }) {
+export function CapabilityListPanel({ scope, catalogue, config, allowHide, onPatch, only, }) {
     // Per-row loading + error state. Keyed by `${kind}:${id}` so the same
     // row can't collide with another section's row of the same id.
     const [rowLoading, setRowLoading] = useState({});
@@ -106,6 +106,6 @@ export function CapabilityListPanel({ scope, catalogue, config, allowHide, onPat
     function renderSection(title, items, hidden) {
         return (_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { className: "ds-panel-section-title", style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }, children: [_jsx("span", { children: title }), allowHide && hidden.length > 0 && (_jsx("button", { className: "ds-btn-ghost", onClick: () => setShowHidden((s) => !s), style: { fontSize: 11 }, children: showHidden ? 'Hide hidden' : `Show hidden (${hidden.length})` }))] }), items.length === 0 && hidden.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "None available." })), items.map(renderRow), showHidden && hidden.length > 0 && (_jsxs(_Fragment, { children: [_jsx("div", { style: { fontSize: 11, color: 'var(--ds-text-3)', margin: '8px 0 4px' }, children: "Hidden \u2014 re-enable to surface in this scope." }), hidden.map(renderRow)] }))] }));
     }
-    return (_jsxs("div", { children: [renderSection('Available tools', grouped.tools, grouped.toolsHidden), renderSection('Available skills', grouped.skills, grouped.skillsHidden), _jsx("div", { className: "ds-panel-section", children: _jsx("button", { className: "ds-btn-ghost", onClick: applyReset, disabled: resetting, style: { fontSize: 11.5 }, children: resetting ? 'Resetting…' : 'Reset to defaults' }) }), _jsx("style", { children: `@keyframes ds-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }` })] }));
+    return (_jsxs("div", { children: [only !== 'skill' && renderSection('Available tools', grouped.tools, grouped.toolsHidden), only !== 'tool' && renderSection('Available skills', grouped.skills, grouped.skillsHidden), _jsx("div", { className: "ds-panel-section", children: _jsx("button", { className: "ds-btn-ghost", onClick: applyReset, disabled: resetting, style: { fontSize: 11.5 }, children: resetting ? 'Resetting…' : 'Reset to defaults' }) }), _jsx("style", { children: `@keyframes ds-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }` })] }));
 }
 //# sourceMappingURL=CapabilityListPanel.js.map
