@@ -20,6 +20,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   NotificationBell,
   AvatarMenu,
@@ -59,12 +60,28 @@ const brandShellTokens: ShellTokens = {
   font:       'var(--f-ui)',
 };
 
-function NavItem({ href, label, active }: { href: string; label: string; active?: boolean }) {
+// Stroke-icon paths for each management section (feather-style, 24 viewBox).
+// Each section gets a distinct glyph; Overview is the single "home".
+const NAV: Array<{ href: string; label: string; icon: string }> = [
+  { href: '/manage',                   label: 'Overview',           icon: 'M3 12L12 4l9 8M5 10v10h14V10' },
+  { href: '/manage/customers',         label: 'Customers',          icon: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' },
+  { href: '/manage/providers',         label: 'Providers',          icon: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01' },
+  { href: '/manage/ai-configuration',  label: 'AI configuration',   icon: 'M7 7h10v10H7zM9 3v2M15 3v2M9 19v2M15 19v2M5 9H3M5 15H3M21 9h-2M21 15h-2' },
+  { href: '/manage/email-invitations', label: 'Email & invitations', icon: 'M4 4h16v16H4zM22 6l-10 7L2 6' },
+  { href: '/manage/signup-policy',     label: 'Signup policy',       icon: 'M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11' },
+  { href: '/manage/auth-providers',    label: 'Auth providers',      icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
+  { href: '/manage/build-status',      label: 'Build status',        icon: 'M22 12h-4l-3 9L9 3l-3 9H2' },
+];
+
+function NavItem({ href, label, icon, active }: { href: string; label: string; icon: string; active?: boolean }) {
   return (
     <a
       href={href}
+      aria-current={active ? 'page' : undefined}
       style={{
-        display:        'block',
+        display:        'flex',
+        alignItems:     'center',
+        gap:            10,
         padding:        '8px 14px',
         borderRadius:   'var(--r)',
         fontSize:       13,
@@ -74,6 +91,9 @@ function NavItem({ href, label, active }: { href: string; label: string; active?
         textDecoration: 'none',
       }}
     >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden="true">
+        <path d={icon} />
+      </svg>
       {label}
     </a>
   );
@@ -81,6 +101,15 @@ function NavItem({ href, label, active }: { href: string; label: string; active?
 
 export function ManagementShellProvider({ user, availableRoles, appIdentity, children }: Props) {
   const identity = resolveAppIdentity(appIdentity);
+  const pathname = usePathname();
+
+  // Active section: exact match for Overview (so "home" is exactly one place —
+  // it never stays lit on a sub-route), prefix match for the rest so a deeper
+  // path under a section keeps that section highlighted.
+  const isActive = useCallback((href: string): boolean => {
+    if (href === '/manage') return pathname === '/manage';
+    return pathname === href || pathname.startsWith(href + '/');
+  }, [pathname]);
 
   // Theme switcher: light / dark / system, persisted to localStorage and
   // applied via the data-theme attribute on documentElement.
@@ -197,14 +226,9 @@ export function ManagementShellProvider({ user, availableRoles, appIdentity, chi
           {brandMark}
           <div style={{ fontSize: 14, fontWeight: 600 }}>{identity.app_name}</div>
         </div>
-        <NavItem href="/manage"                   label="Overview" />
-        <NavItem href="/manage/customers"         label="Customers" />
-        <NavItem href="/manage/providers"         label="Providers" />
-        <NavItem href="/manage/ai-configuration"  label="AI configuration" />
-        <NavItem href="/manage/email-invitations" label="Email & invitations" />
-        <NavItem href="/manage/signup-policy"     label="Signup policy" />
-        <NavItem href="/manage/auth-providers"    label="Auth providers" />
-        <NavItem href="/manage/build-status"      label="Build status" />
+        {NAV.map(item => (
+          <NavItem key={item.href} href={item.href} label={item.label} icon={item.icon} active={isActive(item.href)} />
+        ))}
       </nav>
 
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
