@@ -1,5 +1,5 @@
 'use client';
-import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 // packages/mui/src/panels/DevShellPreferencesModal.tsx
 // v1.2 Thread 06 — Surface 2 of tool/skill availability config.
 //
@@ -12,8 +12,9 @@ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-run
 // The avatar menu already has a "DevShell preferences" header (theme
 // switcher etc.) in v1.1. The new entry lives below the theme buttons
 // and opens this modal, leaving the existing theme controls in place.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { CapabilityListPanel } from './CapabilityListPanel.js';
+import { groupAIProviders, CATEGORY_LABEL, BUDGET_UNIT } from './aiProviders.js';
 const LANDING_KEY = 'cactai_devshell_landing';
 const LANDING_OPTIONS = [
     { value: 'build', label: 'Build' },
@@ -21,6 +22,29 @@ const LANDING_OPTIONS = [
     { value: 'test_drive', label: 'Test Drive' },
     { value: 'last', label: 'Where I left off' },
 ];
+// DevShell Configuration → AI. Mirrors App Configuration's AI tab MINUS the
+// 3-state policy + Tiers — this scope is just the developer. Framework-first:
+// the same real provider catalogue with per-provider key + budget. Key
+// storage + budget persistence wire from SelfDrivenDevShell (devshell BYOK
+// scope) with the functional build.
+const DS_INPUT = {
+    background: 'var(--ds-canvas)', border: '1px solid var(--ds-border)',
+    borderRadius: 'var(--ds-r-sm)', padding: '4px 8px', color: 'var(--ds-text)',
+    fontSize: 11.5, fontFamily: 'var(--f-mono)', outline: 'none',
+};
+function DevShellAITab() {
+    const grouped = useMemo(() => groupAIProviders(), []);
+    const [budget, setBudget] = useState({});
+    return (_jsxs("div", { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 10, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "Your DevShell AI provider keys + budgets \u2014 the keys the IDE's agent uses while you build. Just you: no Included/BYOK policy or Tiers. Stored encrypted; budgets use each provider's native unit." }), grouped.map(group => (_jsxs("div", { style: { marginBottom: 12 }, children: [_jsx("div", { style: { fontSize: 11, fontWeight: 600, color: 'var(--ds-text-2)', margin: '4px 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }, children: CATEGORY_LABEL[group.category] ?? group.category }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: group.providers.map(p => (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12, flex: 1, minWidth: 120 }, children: p.name }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: "Not set" }), _jsx("button", { className: "ds-btn-ghost", style: { fontSize: 11, padding: '3px 10px' }, children: "Set key" })] }), _jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }, children: [_jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "Budget" }), _jsx("input", { type: "number", min: 0, value: budget[p.id] ?? '', onChange: e => setBudget(prev => ({ ...prev, [p.id]: e.target.value })), placeholder: "0", style: { ...DS_INPUT, width: 110 } }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: BUDGET_UNIT[group.category] ?? 'units / mo' })] })] }, p.id))) })] }, group.category))), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: "Key storage + budget persistence wire from SelfDrivenDevShell (devshell BYOK scope) with the functional build." })] }));
+}
+// DevShell Configuration → Integrations. The IDE-scope MCP servers (separate
+// from the app's Integrations). Framework-first add form; the connected-server
+// list + enable/disable wire from SelfDrivenDevShell (devshell MCP scope).
+function DevShellIntegrationsTab() {
+    const [label, setLabel] = useState('');
+    const [url, setUrl] = useState('');
+    return (_jsxs("div", { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 10, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "Connect MCP servers the IDE's agent can use while you build. DevShell scope \u2014 these are yours, separate from your app's Integrations." }), _jsxs("div", { className: "ds-card", children: [_jsx("div", { className: "ds-card-title", style: { fontSize: 12, marginBottom: 6 }, children: "Add MCP server" }), _jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: [_jsx("input", { value: label, onChange: e => setLabel(e.target.value), placeholder: "Label (e.g. GitHub)", style: { ...DS_INPUT, fontFamily: 'var(--f-ui)' } }), _jsx("input", { value: url, onChange: e => setUrl(e.target.value), placeholder: "SSE endpoint URL", style: DS_INPUT }), _jsx("button", { className: "ds-btn-primary", disabled: !label || !url, style: { fontSize: 11.5, padding: '5px 12px', alignSelf: 'flex-start' }, children: "Connect" })] })] }), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 8 }, children: "Connected servers + enable/disable wire from SelfDrivenDevShell (devshell MCP scope) with the functional build." })] }));
+}
 export function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant = 'modal' }) {
     // DevShell Configuration 5-tab layout (locked spec). Preferences holds the
     // theme hint + layout (rail auto-hide) + startup view. Tools/Skills are the
@@ -49,7 +73,7 @@ export function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, 
             { key: 'ai', label: 'AI' },
             { key: 'integrations', label: 'Integrations' },
         ].map(t => (_jsx("button", { className: `ds-view-btn${tab === t.key ? ' ds-view-active' : ''}`, onClick: () => setTab(t.key), style: { fontSize: 11.5 }, children: t.label }, t.key))) }));
-    const bodyInner = (_jsxs(_Fragment, { children: [tab === 'tools' && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Which tools are available in the IDE for this project. Your deployed app's tools are configured separately in App Configuration." }), _jsx(CapabilityListPanel, { scope: "devshell", catalogue: catalogue, config: config, allowHide: false, onPatch: onPatch, only: "tool" })] })), tab === 'skills' && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Which skills are available in the IDE for this project. Your deployed app's skills are configured separately in App Configuration." }), _jsx(CapabilityListPanel, { scope: "devshell", catalogue: catalogue, config: config, allowHide: false, onPatch: onPatch, only: "skill" })] })), tab === 'preferences' && (_jsx(_Fragment, { children: _jsx("div", { className: "ds-card", children: _jsxs("div", { className: "ds-card-body", style: { fontSize: 12, lineHeight: 1.5 }, children: [_jsx("div", { style: { fontWeight: 500, color: 'var(--ds-text)', marginBottom: 6 }, children: "Startup view" }), _jsx("div", { style: { color: 'var(--ds-text-2)', marginBottom: 8 }, children: "Which page DevShell opens to when you enter this project. Applies the next time you open the IDE." }), _jsx("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 6 }, children: LANDING_OPTIONS.map(opt => (_jsx("button", { type: "button", className: `ds-view-btn${landing === opt.value ? ' ds-view-active' : ''}`, onClick: () => setLanding(opt.value), style: { fontSize: 11.5 }, children: opt.label }, opt.value))) })] }) }) })), tab === 'ai' && (_jsx("div", { className: "ds-card", children: _jsx("div", { className: "ds-card-body", style: { fontSize: 12, lineHeight: 1.55, color: 'var(--ds-text-2)' }, children: "Your DevShell AI provider keys + per-provider budgets \u2014 the keys the IDE's agent uses while you build. Coming next; mirrors App Configuration's AI tab without the 3-state policy or Tiers (this scope is just you)." }) })), tab === 'integrations' && (_jsx("div", { className: "ds-card", children: _jsx("div", { className: "ds-card-body", style: { fontSize: 12, lineHeight: 1.55, color: 'var(--ds-text-2)' }, children: "Connect MCP servers the IDE's agent can use while you build. Coming next." }) }))] }));
+    const bodyInner = (_jsxs(_Fragment, { children: [tab === 'tools' && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Which tools are available in the IDE for this project. Your deployed app's tools are configured separately in App Configuration." }), _jsx(CapabilityListPanel, { scope: "devshell", catalogue: catalogue, config: config, allowHide: false, onPatch: onPatch, only: "tool" })] })), tab === 'skills' && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8 }, children: "Which skills are available in the IDE for this project. Your deployed app's skills are configured separately in App Configuration." }), _jsx(CapabilityListPanel, { scope: "devshell", catalogue: catalogue, config: config, allowHide: false, onPatch: onPatch, only: "skill" })] })), tab === 'preferences' && (_jsx(_Fragment, { children: _jsx("div", { className: "ds-card", children: _jsxs("div", { className: "ds-card-body", style: { fontSize: 12, lineHeight: 1.5 }, children: [_jsx("div", { style: { fontWeight: 500, color: 'var(--ds-text)', marginBottom: 6 }, children: "Startup view" }), _jsx("div", { style: { color: 'var(--ds-text-2)', marginBottom: 8 }, children: "Which page DevShell opens to when you enter this project. Applies the next time you open the IDE." }), _jsx("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 6 }, children: LANDING_OPTIONS.map(opt => (_jsx("button", { type: "button", className: `ds-view-btn${landing === opt.value ? ' ds-view-active' : ''}`, onClick: () => setLanding(opt.value), style: { fontSize: 11.5 }, children: opt.label }, opt.value))) })] }) }) })), tab === 'ai' && _jsx(DevShellAITab, {}), tab === 'integrations' && _jsx(DevShellIntegrationsTab, {})] }));
     // Full-page variant — fills the DevShell workspace content area. No
     // overlay/backdrop; a header row with a Back affordance returns to the
     // last active IDE view.
