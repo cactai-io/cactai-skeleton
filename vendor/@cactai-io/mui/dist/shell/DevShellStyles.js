@@ -1459,6 +1459,44 @@ body.cactai-shell-body-lock {
   background: var(--ds-elevated);
   outline: none;
 }
+
+/* Manually-collapsed nav rail — thin re-open strip (mirrors the chat tab). */
+[data-cactai-shell] .ds-rail-collapsed-tab {
+  width: 18px;
+  background: var(--ds-surface);
+  border-right: 1px solid var(--ds-border-soft);
+  border-top: none; border-bottom: none; border-left: none;
+  cursor: pointer;
+  color: var(--ds-text-2);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: calc((var(--ds-header-h) - 16px) / 2);
+  transition: color var(--d-base) var(--ease), background var(--d-base) var(--ease);
+}
+[data-cactai-shell] .ds-rail-collapsed-tab:hover,
+[data-cactai-shell] .ds-rail-collapsed-tab:focus-visible {
+  color: var(--ds-text);
+  background: var(--ds-elevated);
+  outline: none;
+}
+/* Bottom-of-rail manual collapse control (the previously-empty rail slot). */
+[data-cactai-shell] .ds-rail-collapse {
+  background: transparent;
+  border: none;
+  color: var(--ds-text-3);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 8px 0;
+  width: 100%;
+  transition: color var(--d-base) var(--ease);
+}
+[data-cactai-shell] .ds-rail-collapse:hover,
+[data-cactai-shell] .ds-rail-collapse:focus-visible {
+  color: var(--ds-text);
+  outline: none;
+}
 [data-cactai-shell] .ds-chat-collapsed-unread {
   position: absolute;
   /* Sit beside the (now top-anchored) expand arrow rather than floating
