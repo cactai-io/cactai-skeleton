@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { CactaiClient } from '@cactai-io/client';
 import { PrimitiveTreeRenderer, type PrimitiveNode } from '@cactai-io/primitives';
 import { SAMTheme } from '@cactai-io/themes';
+import { SupportLauncher } from './SupportLauncher.client';
 import type { SessionUser } from '@/lib/auth';
 
 interface AppShellProviderProps {
@@ -123,6 +124,11 @@ export function AppShellProvider({ user, children }: AppShellProviderProps) {
           onRegenerateSkill={onRegenerateSkill}
         />
       )}
+      {/* Minimum-required support affordance: a self-contained launcher →
+          create-ticket + two-way chat modal. The developer can relocate this
+          into their own app's avatar menu; it ships on by default so every app
+          has support discoverable on day one. */}
+      <SupportLauncher />
     </div>
   );
 }
