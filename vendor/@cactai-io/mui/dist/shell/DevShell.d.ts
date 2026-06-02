@@ -12,7 +12,7 @@ import type { Resolution } from '../commit/CommitConflictModal.js';
 import type { SyncState, PendingFileSummary } from '../commit/types.js';
 export type DevShellView = 'build' | 'plan' | 'test_drive';
 export type RoleViewRole = string;
-export type RailSection = 'workspace' | 'build' | 'schema' | 'project-settings';
+export type RailSection = 'workspace' | 'build' | 'authoring' | 'schema' | 'project-settings';
 /**
  * Optional second argument to onCommitToDev. Allows the shell to pass
  * conflict resolutions (Thread 11) and revert metadata (Thread 12)

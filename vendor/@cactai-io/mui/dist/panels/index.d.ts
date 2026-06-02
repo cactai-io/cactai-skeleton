@@ -1,4 +1,5 @@
 import type { SkillDescriptor } from '../types/mui.types.js';
+import type { AuthoringType } from '../authoring/AuthoringInterface.js';
 export interface SchemaTable {
     name: string;
     fields: SchemaField[];
@@ -158,5 +159,10 @@ export interface AppConfigurationPanelProps {
      *  here (it carries projectId / apiBaseUrl / previewUrl). Migrated off the
      *  avatar-menu modal into App Configuration → Design. */
     themeInspectorSlot?: import('react').ReactNode;
+    /** Deep-link to the Studio rail page with a specific authoring tool open.
+     *  The Config tabs' "+ Create …" launchers call this instead of opening
+     *  the authoring interface inline — authoring is anchored in Studio, not
+     *  here. Supplied by the DevShell shell. */
+    onOpenAuthoring?: (type: AuthoringType) => void;
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;

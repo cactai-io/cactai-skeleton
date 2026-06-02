@@ -47,6 +47,7 @@ import { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel, } from 
 import { DevShellPreferencesModal } from '../panels/DevShellPreferencesModal.js';
 import { injectDevShellStyles } from './DevShellStyles.js';
 import { ThemeInspector } from '../inspector/ThemeInspector.js';
+import { AuthoringHub } from '../authoring/AuthoringHub.js';
 import { bindSection, SHARED_STORAGE_KEYS } from '@cactai-io/brand-tokens';
 // Canonical brand mark — three sunset-gradient rectangles. Same SVG
 // used in the platform dashboard, the marketplace storefront, and
@@ -96,7 +97,7 @@ function resolveInitialView(pid) {
         return 'build';
     }
 }
-const SECTIONS = ['workspace', 'build', 'schema', 'project-settings'];
+const SECTIONS = ['workspace', 'build', 'authoring', 'schema', 'project-settings'];
 const S_LABEL = {
     workspace: 'Workspace',
     // 'build' is the stable internal section key for backwards-compat with
@@ -104,6 +105,11 @@ const S_LABEL = {
     // skills + tools the developer authors or installs from the
     // marketplace, per user direction 2026-05-30).
     build: 'Library',
+    // 'authoring' is the Studio — the canonical home for the built-in
+    // authoring tools (tool/skill/agent/personality/character). Locked
+    // 2026-06-02: authoring is NOT anchored in the Library; it gets its own
+    // rail page, openable directly or deep-linked from where output is used.
+    authoring: 'Studio',
     schema: 'Schema',
     'project-settings': 'Configuration',
 };
@@ -114,6 +120,7 @@ const S_LABEL = {
 // while the panel header itself stays the short "Project settings" label.
 const S_TOOLTIP = {
     build: "Library — your collection of skills and tools (authored or installed).",
+    authoring: "Studio — author the building blocks of your app: tools, skills, agents, personalities, and characters.",
     'project-settings': "Configuration — this app's workflow, available tools, skills, AI providers, agents, user roles, tiers, integrations, and design.",
 };
 const S_ICON = {
@@ -121,6 +128,8 @@ const S_ICON = {
     workspace: 'M3 12L12 4l9 8M5 10v10h14V10',
     // Build: cube + stack (combines skills/tools + marketplace install).
     build: 'M12 2L3 7v10l9 5 9-5V7l-9-5zM3 7l9 5 9-5M12 12v10',
+    // Studio: a pen-nib / author mark (Feather "edit-3").
+    authoring: 'M12 20h9 M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z',
     schema: 'M12 2C6.48 2 3 3.79 3 6v12c0 2.21 3.48 4 9 4s9-1.79 9-4V6c0-2.21-3.48-4-9-4zM3 11c0 1.66 3.48 3 9 3s9-1.34 9-3',
     'project-settings': 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
 };
@@ -288,6 +297,10 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // v1.2 Thread 06 — DevShell preferences modal (capability config in
     // scope='devshell'). Opened from the avatar menu.
     const [prefsOpen, setPrefsOpen] = useState(false);
+    // Studio (authoring) rail page — which built-in authoring tool is open.
+    // null shows the picker grid. Owned here (not inside AuthoringHub) so an
+    // external launcher can deep-link straight to a specific tool.
+    const [authoringType, setAuthoringType] = useState(null);
     const [hasUnread, setHasUnread] = useState(false);
     const [commitModal, setCommitModal] = useState({ kind: 'none' });
     const [committing, setCommitting] = useState(false);
@@ -367,6 +380,11 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         // Any rail navigation dismisses the DevShell Configuration page so the
         // selected section's panel is visible rather than hidden behind it.
         setPrefsOpen(false);
+        // Clicking the Studio rail button lands on its picker grid; deep-links
+        // from external launchers go through openAuthoring instead and keep
+        // their target tool.
+        if (s === 'authoring')
+            setAuthoringType(null);
         // The rail-section panels (Workspace / Build / Schema / Project
         // settings) render in the Build view's content slot. Plan and Test
         // Drive occupy that same slot with their own content, so a rail click
@@ -376,6 +394,18 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         // behaves as consistent left-nav regardless of the active top tab.
         setSection(s);
         onSectionChange?.(s);
+        setView('build');
+        onViewChange?.('build');
+    }, [onSectionChange, onViewChange]);
+    // Open the Studio rail page with a specific authoring tool active.
+    // Called both by the Studio rail button (type omitted → picker grid) and
+    // by the launchers placed where a tool's output is used (Config tabs,
+    // etc.), which deep-link to the tool here rather than opening it inline.
+    const openAuthoring = useCallback((type = null) => {
+        setPrefsOpen(false);
+        setAuthoringType(type);
+        setSection('authoring');
+        onSectionChange?.('authoring');
         setView('build');
         onViewChange?.('build');
     }, [onSectionChange, onViewChange]);
@@ -627,6 +657,9 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         const panelGradient = {
             workspace: 'ember',
             build: 'coral',
+            // Studio takes 'rose' — the accent freed when Marketplace merged
+            // into the Library.
+            authoring: 'rose',
             schema: 'cyan-teal',
             'project-settings': 'violet',
         };
@@ -653,10 +686,12 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                 return wrap(_jsx(WorkspacePanel, { ...workspaceProps, projectName: projectName, githubRepoUrl: githubRepoUrl, vercelDashUrl: vercelDashUrl, vercelPreviewUrl: vercelPreviewUrl, syncState: syncState, onViewPendingEdits: () => openPendingEdits() }));
             case 'build':
                 return wrap(_jsx(BuildPanel, { ...buildProps, skills: skills }));
+            case 'authoring':
+                return wrap(_jsx(AuthoringHub, { activeType: authoringType, onSelectType: setAuthoringType, onBack: () => setAuthoringType(null) }));
             case 'schema':
                 return wrap(_jsx(SchemaPanel, { ...schemaProps }));
             case 'project-settings':
-                return wrap(_jsx(AppConfigurationPanel, { ...settingsProps, dashboardUrl: dashboardUrl, themeInspectorSlot: _jsx(ThemeInspector, { projectId: projectId, apiBaseUrl: apiBaseUrl, previewUrl: studioPreviewUrl, onClose: () => { } }) }));
+                return wrap(_jsx(AppConfigurationPanel, { ...settingsProps, dashboardUrl: dashboardUrl, onOpenAuthoring: openAuthoring, themeInspectorSlot: _jsx(ThemeInspector, { projectId: projectId, apiBaseUrl: apiBaseUrl, previewUrl: studioPreviewUrl, onClose: () => { } }) }));
             default:
                 return null;
         }
