@@ -58,10 +58,16 @@ export const DEVSHELL_CSS = `
     var(--g-stop-3) 65%, var(--g-stop-4) 100%));
 
   /* Glow — derived from the active section's solid accent. Falls back to
-     the brand accent if no section is bound. */
-  --ds-glow:       0 0 6px color-mix(in srgb, var(--accent-solid, var(--c-accent)) 40%, transparent);
-  --ds-glow-hover: 0 0 12px color-mix(in srgb, var(--accent-solid, var(--c-accent)) 50%, transparent),
-                   var(--elev-2);
+     the brand accent if no section is bound. Pure colored glow, IDENTICAL
+     in light and dark: the prior --ds-glow-hover appended --elev-2 (a
+     black drop-shadow) which made light mode read as a shadow and dark as
+     a glow. Dropped so the effect is the same colored profile in both. */
+  --ds-glow:       0 0 8px color-mix(in srgb, var(--accent-solid, var(--c-accent)) 45%, transparent);
+  --ds-glow-hover: 0 0 14px color-mix(in srgb, var(--accent-solid, var(--c-accent)) 60%, transparent);
+  /* Behind-icon light layer — the blurred sunset gradient that sits under
+     a translucent icon and lights up on hover (dim) / active (bright).
+     The button needs no border: this glow's soft edge defines its shape. */
+  --ds-icon-glow:  var(--ds-grad-135);
 
   /* Radius — DevShell scale anchored to brand tokens. */
   --ds-r-sm:   var(--r-sm);
@@ -248,8 +254,11 @@ body.cactai-shell-body-lock {
   gap: 4px;
 }
 
-/* View buttons — Plan/Build group (gradient when active). Hover uses the
-   universal interactive pattern: lift, accent border, accent glow. */
+/* View buttons — Plan/Build/Test Drive tabs. EXCEPTION to the icon-glow
+   rule: these are tab selectors. They do NOT move and do NOT glow; at rest
+   they carry a surface-tone outline (definition that they're selectable),
+   and on selection they take a FULL gradient fill. Hover just firms the
+   outline + text so the affordance reads without movement. */
 [data-cactai-shell] .ds-view-btn {
   padding: 5px 13px;
   border-radius: var(--ds-r-pill);
@@ -258,33 +267,26 @@ body.cactai-shell-body-lock {
   font-weight: 500;
   color: var(--ds-text-2);
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid var(--ds-btn-edge);
   background: transparent;
   letter-spacing: -0.005em;
-  transition: transform var(--d-base) var(--ease),
-              border-color var(--d-base) var(--ease),
-              box-shadow var(--d-base) var(--ease),
-              color var(--d-base) var(--ease);
+  transition: border-color var(--d-base) var(--ease),
+              color var(--d-base) var(--ease),
+              background var(--d-base) var(--ease);
   white-space: nowrap;
 }
 [data-cactai-shell] .ds-view-btn:hover:not(.ds-view-active):not(:disabled),
 [data-cactai-shell] .ds-view-btn:focus-visible:not(.ds-view-active):not(:disabled) {
-  transform: translateY(-1px);
-  border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
+  border-color: var(--ds-text-3);
   color: var(--ds-text);
   outline: none;
 }
-[data-cactai-shell] .ds-view-btn:active:not(:disabled) { transform: translateY(0); }
 [data-cactai-shell] .ds-view-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 [data-cactai-shell] .ds-view-active {
   background: var(--ds-grad-135);
-  backdrop-filter: blur(4px) saturate(140%);
-  -webkit-backdrop-filter: blur(4px) saturate(140%);
   color: white;
   font-weight: 600;
-  border: 1px solid var(--ds-btn-edge);
-  box-shadow: var(--ds-glow);
+  border: 1px solid transparent;   /* the fill is the indicator — no competing outline/glow */
 }
 
 [data-cactai-shell] .ds-topbar-spacer { flex: 1; }
@@ -336,9 +338,12 @@ body.cactai-shell-body-lock {
   outline: none;
 }
 [data-cactai-shell] .ds-preview-as-active {
-  background: var(--ds-surface-2);
-  color: var(--ds-text);
-  border-color: var(--accent-solid, var(--c-border-med));
+  /* Roles selector — same EXCEPTION as the view tabs: full gradient fill
+     on select, no movement, no glow. */
+  background: var(--ds-grad-135);
+  color: white;
+  font-weight: 600;
+  border-color: transparent;
 }
 
 /* Avatar in top bar — v1.1 moved the avatar out of the rail and into the
@@ -497,34 +502,50 @@ body.cactai-shell-body-lock {
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   cursor: pointer;
   color: var(--ds-text-3);
   position: relative;
-  transition: transform var(--d-base) var(--ease),
-              border-color var(--d-base) var(--ease),
-              box-shadow var(--d-base) var(--ease),
-              color var(--d-base) var(--ease),
-              background var(--d-base) var(--ease);
+  /* No border/ring — the behind-icon glow defines the edge. Movement IS
+     kept on these big-click buttons: lift on hover, press down on click. */
+  transition: color var(--d-base) var(--ease),
+              transform var(--d-base) var(--ease);
   flex-shrink: 0;
 }
-[data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active):not(:disabled),
-[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active):not(:disabled) {
-  transform: translateY(-1px);
-  border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
-  color: var(--ds-text);
-  outline: none;
+[data-cactai-shell] .ds-rail-btn:hover:not(:disabled)        { transform: translateY(-1px); }
+[data-cactai-shell] .ds-rail-btn:active:not(:disabled)       { transform: translateY(1px); }
+/* Behind-icon light layer. The button surface stays opaque; this blurred
+   sunset gradient sits UNDER the (relatively-positioned) icon and lights
+   up — dim on hover, bright on active — so the icon reads as translucent
+   material lit from behind and the glow's soft edge defines the button.
+   No border, no ring, no movement. */
+[data-cactai-shell] .ds-rail-btn::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: var(--ds-r-md);
+  background: var(--ds-icon-glow);
+  filter: blur(7px);
+  opacity: 0;
+  transition: opacity var(--d-base) var(--ease);
+  z-index: 0;
+  pointer-events: none;
+}
+/* Icon keeps its OUTLINE (stroke) style — never a solid fill. On hover/
+   active the stroke takes the sunset gradient and the icon's brightness
+   (opacity) tracks the behind-glow's brightness, so the light reads as
+   coming THROUGH the icon: dim+dim on hover, bright+bright when selected. */
+[data-cactai-shell] .ds-rail-btn svg { position: relative; z-index: 1; transition: opacity var(--d-base) var(--ease); }
+[data-cactai-shell] .ds-rail-btn:focus-visible { outline: none; }
+[data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active):not(:disabled)::after,
+[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active):not(:disabled)::after {
+  opacity: 0.5;   /* hover = dimmer light-up */
 }
 [data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active) svg,
-[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active) svg { stroke: url(#ds-sunset); }
-[data-cactai-shell] .ds-rail-btn:active:not(:disabled) { transform: translateY(0); }
-[data-cactai-shell] .ds-rail-active svg { stroke: url(#ds-sunset); }
-[data-cactai-shell] .ds-rail-active {
-  border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
-  background: var(--ds-surface-2);
-}
+[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active) svg { stroke: url(#ds-sunset); opacity: 0.65; }
+[data-cactai-shell] .ds-rail-active::after { opacity: 0.92; }   /* selected = brighter */
+[data-cactai-shell] .ds-rail-active svg { stroke: url(#ds-sunset); opacity: 1; }
+[data-cactai-shell] .ds-rail-active { background: transparent; }
 [data-cactai-shell] .ds-rail-active::before {
   content: '';
   position: absolute;
@@ -1155,46 +1176,46 @@ body.cactai-shell-body-lock {
 /* File tree entries — mono per spec (identifier display). Universal
    interactive pattern on hover/focus; the .ds-tree-active state gets the
    gradient ring treatment that file-tree entries have always used. */
+/* File tree entries — clickable CONTENT, not a "big click" button, so they
+   get the middle-ground treatment (the same restraint as the files-header
+   Pending button): a subtle fill on hover/active, no glow, no lift, no
+   accent border. The pill hugs its content (icon + name) via inline-flex +
+   fit-content so the click target sits on/near the name instead of spanning
+   the full row width — and the hover fill makes that clickable area visible
+   without having to trace it with the cursor. Indentation is applied as
+   margin-left in the JSX so the pill's own padding stays uniform at depth. */
 [data-cactai-shell] .ds-tree-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  border-radius: var(--ds-r-sm);
+  padding: 4px 10px;
+  border-radius: var(--ds-r-pill);
   cursor: pointer;
   user-select: none;
   font-family: var(--f-mono);
   font-size: 12px;
   color: var(--ds-text-2);
-  border: 1px solid transparent;
-  transition: transform var(--d-base) var(--ease),
-              border-color var(--d-base) var(--ease),
-              box-shadow var(--d-base) var(--ease),
-              color var(--d-base) var(--ease),
+  border: none;
+  max-width: 100%;
+  min-width: 0;
+  transition: color var(--d-base) var(--ease),
               background var(--d-base) var(--ease);
 }
 [data-cactai-shell] .ds-tree-item:hover:not(.ds-tree-protected):not(.ds-tree-active),
 [data-cactai-shell] .ds-tree-item:focus-visible:not(.ds-tree-protected):not(.ds-tree-active) {
-  transform: translateY(-1px);
-  border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
+  background: var(--ds-surface-2);
   color: var(--ds-text);
-  background: var(--ds-elevated);
   outline: none;
 }
 [data-cactai-shell] .ds-tree-item.ds-tree-active {
-  background-image: linear-gradient(var(--ds-elevated), var(--ds-elevated)), var(--ds-grad-solid);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
+  background: var(--ds-surface-2);
   color: var(--ds-text);
-  border-color: transparent;
-  padding: 2.5px 6.5px;
 }
 [data-cactai-shell] .ds-tree-item.ds-tree-protected { opacity: 0.45; cursor: default; }
 [data-cactai-shell] .ds-tree-item.ds-tree-protected:hover { background: transparent; }
 [data-cactai-shell] .ds-tree-chev { width: 10px; flex: 0 0 10px; font-size: 9px; color: var(--ds-text-3); }
 [data-cactai-shell] .ds-tree-icon { width: 14px; flex: 0 0 14px; font-size: 12px; opacity: 0.7; }
-[data-cactai-shell] .ds-tree-name { flex: 1; }
+[data-cactai-shell] .ds-tree-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 [data-cactai-shell] .ds-tree-mod-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
