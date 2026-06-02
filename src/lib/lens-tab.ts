@@ -82,7 +82,7 @@ export function openLensTab(lens: LensValue, basePath: string = '/app'): void {
 }
 
 /**
- * Convenience: open the dev surface in a named tab. Used from operator-panel
+ * Convenience: open the dev surface in a named tab. Used from management-panel
  * avatar menu's "Open DevShell" item — landing the developer in a single
  * persistent dev tab no matter how many times they click.
  *

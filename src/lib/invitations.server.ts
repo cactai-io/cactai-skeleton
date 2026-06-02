@@ -15,7 +15,7 @@
 //     link manually. The skeleton's InvitationsCard surfaces the link.
 //
 // Failures emit notifications via @/lib/notifications.server so the
-// developer sees them in the operator panel's bell. The retry handler in
+// developer sees them in the management panel's bell. The retry handler in
 // /api/notifications/[id]/retry/route.ts calls resendInvitation() to
 // replay the send for a specific invitation row.
 
@@ -79,7 +79,7 @@ function substituteTokens(template: string, vars: Record<string, string>): strin
 
 /**
  * Send the invitation email. Selects provider based on stored config.
- * Throws on send failure AFTER emitting an operator-bell notification so
+ * Throws on send failure AFTER emitting an developer notification so
  * the caller can decide whether to surface the error inline.
  */
 export async function sendInvitationEmail(opts: SendOpts): Promise<void> {
@@ -127,9 +127,9 @@ export async function sendInvitationEmail(opts: SendOpts): Promise<void> {
       condition_key:     'invitations.config_missing',
       severity:          'warning',
       title:             'Invitation email is not configured',
-      body:              `Email delivery is set to Resend but the API key or from-address is missing. Configure them in the operator panel's email settings to enable automatic delivery. Until then, invitation links must be shared manually.`,
+      body:              `Email delivery is set to Resend but the API key or from-address is missing. Configure them in the management panel's email settings to enable automatic delivery. Until then, invitation links must be shared manually.`,
       action_kind:       'navigate',
-      action_payload:    { href: '/operate/email-invitations' },
+      action_payload:    { href: '/manage/email-invitations' },
     });
     return;
   }

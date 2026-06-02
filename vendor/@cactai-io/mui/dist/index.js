@@ -60,13 +60,11 @@ export { DevChatPanel } from './components/DevChatPanel.js';
 // File tree
 export { FileTree } from './components/FileTree.js';
 // Commit feature — SyncState, indicator, modal. The DevShell wires these
-// internally; consumers re-export them for white-label IDEs that want to
-// embed the commit affordances outside DevShell's chrome.
+// internally.
 // v1.2 commit-flow rebuild: the CommitToMainModal and its props re-export
 // are gone — developers merge dev to main manually in GitHub. The new
 // CommitHistoryModal, DeployIndicator, DiffViewer, RoleViewBanner,
-// MonacoFileEditor, and FileConflictModal are re-exported here so
-// white-label IDEs can compose them too.
+// MonacoFileEditor, and FileConflictModal are re-exported here.
 export { SyncIndicator } from './commit/SyncIndicator.js';
 export { PendingEditsModal } from './commit/PendingEditsModal.js';
 export { CommitHistoryModal, COMMIT_HISTORY_PAGE_SIZE } from './commit/CommitHistoryModal.js';
@@ -90,7 +88,7 @@ export { useViewerAutoRefresh, ViewerRefreshController, } from './viewer/ViewerR
 // v1.3 Phase 14 — AI Model Selection panel + sprint review per-task
 // override + complexity escalation prompt. The model-selection panel
 // renders one row per Agent SDK task type (Haiku / Sonnet / Opus) in
-// both DevShell settings + the developer's operator shell. The sprint
+// both DevShell settings + the developer's management shell. The sprint
 // override is consumed by Phase 15's sprint review panel.
 export { ModelSelectionPanel, PANEL_DEFAULT_SELECTIONS } from './agent/ModelSelectionPanel.js';
 export { SprintReviewModelOverride } from './agent/SprintReviewModelOverride.js';
@@ -113,8 +111,7 @@ export { MonacoFileEditor } from './editor/MonacoFileEditor.js';
 export { FileConflictModal } from './editor/FileConflictModal.js';
 // Staging module — client-side pending_files manager. The DevShell
 // constructs one instance per project at mount, hands it to the modal +
-// editor + chat SSE handler via React context. White-label IDEs that
-// embed pieces of the commit affordance can also re-use this directly.
+// editor + chat SSE handler via React context.
 export { PendingFilesManager, setActivePendingFilesManager, getActivePendingFilesManager, diffLineCounts, } from './staging/PendingFilesManager.js';
 // Panels
 // v1.1 IA: BuildPanel replaces the old Capabilities + Marketplace pair;

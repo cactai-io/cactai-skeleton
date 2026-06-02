@@ -14,15 +14,22 @@ export function OnboardingModal({ open, onClose, mode = 'docked', personalityNam
     // Centered with backdrop. Welcome content only — the workflow-
     // completion auto-modal has its own component.
     if (mode === 'modal') {
-        return (_jsx("div", { role: "dialog", "aria-modal": "true", "aria-label": "Welcome to DevShell", onClick: onClose, style: {
+        return (
+        // data-cactai-shell on the overlay makes the --ds-* theme variables
+        // resolve — without it this modal renders OUTSIDE the DevShell's
+        // [data-cactai-shell] scope (it's a sibling mount in the host), so
+        // var(--ds-elevated) etc. resolved to nothing and the card was
+        // transparent (text sat on the bare backdrop). Explicit fallbacks
+        // are a second line of defense if the stylesheet hasn't injected yet.
+        _jsx("div", { "data-cactai-shell": true, role: "dialog", "aria-modal": "true", "aria-label": "Welcome to DevShell", onClick: onClose, style: {
                 position: 'fixed', inset: 0, zIndex: 100,
                 background: 'rgba(0,0,0,0.55)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 16,
             }, children: _jsxs("div", { onClick: e => e.stopPropagation(), style: {
-                    background: 'var(--ds-elevated)',
-                    color: 'var(--ds-text)',
-                    border: '1px solid var(--ds-border)',
+                    background: 'var(--ds-elevated, #1a1a24)',
+                    color: 'var(--ds-text, #e8e8f0)',
+                    border: '1px solid var(--ds-border, #2e2e3c)',
                     borderRadius: 12,
                     padding: 24,
                     maxWidth: 560,
@@ -31,6 +38,7 @@ export function OnboardingModal({ open, onClose, mode = 'docked', personalityNam
                     fontSize: 14,
                     maxHeight: '85vh',
                     overflow: 'auto',
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
                 }, children: [_jsx(WelcomeBody, { personalityName: personalityName }), _jsx("div", { style: { marginTop: 20, display: 'flex', justifyContent: 'flex-end' }, children: _jsx("button", { onClick: onClose, style: {
                                 padding: '8px 16px',
                                 fontSize: 13,

@@ -1,7 +1,7 @@
 // src/app/app/byok-settings/TokenUsagePanel.client.tsx
 //
 // v1.3.5 Build 3 — End-user BYOK token-usage display (R6).
-// Mirrors the operate-panel TokenUsageCard but scoped to ONE end user.
+// Mirrors the management-panel TokenUsageCard but scoped to ONE end user.
 
 'use client';
 

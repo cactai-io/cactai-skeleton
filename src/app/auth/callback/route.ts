@@ -389,12 +389,12 @@ async function applySignupMode(
       return 'bootstrap_failed';
     }
     // Production workspace owner also gets platform_role='dev' so getPostLoginRedirect
-    // routes them straight into /operate (the operator panel) instead of the
+    // routes them straight into /manage (the management panel) instead of the
     // generic /app page. The platform_roles table lives on the customer DB and
     // gates which surfaces this skeleton's auth helpers expose — granting 'dev'
-    // here makes the first-and-only owner of the deployed app the operator
+    // here makes the first-and-only owner of the deployed app the developer
     // by default, matching the "first user becomes super_admin and lands in
-    // the operator panel" expectation. Subsequent users only get a
+    // the management panel" expectation. Subsequent users only get a
     // tenant_members row (in the invited / collaborator flows), so platform
     // role stays scoped to the original owner.
     const { error: prError } = await admin
@@ -407,7 +407,7 @@ async function applySignupMode(
         metadata: { step: 'platform_roles_insert', mode, error: prError.message },
       });
       // Non-fatal: the user still has super_admin on the tenant; they just
-      // won't land in /operate by default. Surface to audit but continue.
+      // won't land in /manage by default. Surface to audit but continue.
     }
     for (const role of catalog) {
       await audit({

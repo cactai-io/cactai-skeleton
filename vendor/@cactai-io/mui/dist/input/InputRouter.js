@@ -48,10 +48,10 @@ export class InputRouter {
         // Step 3: Set pending
         this.store.setPending(true);
         // Step 4: Construct TurnRequest. The platform's submitTurnSchema
-        // requires user_id (operator identity, threaded into executeTurn
+        // requires user_id (developer identity, threaded into executeTurn
         // for tenant/role scoping + per-user embedding context). The
         // /api/cactai proxy injects provider + model_api_key from the
-        // wizard's BYOK secret, but it doesn't know the operator's
+        // wizard's BYOK secret, but it doesn't know the developer's
         // identity — that's our responsibility.
         const turnRequest = {
             input: payload.content,

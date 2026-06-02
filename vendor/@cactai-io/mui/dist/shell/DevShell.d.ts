@@ -197,9 +197,8 @@ export interface DevShellProps {
         config: import('@cactai-io/types').CapabilityScopeConfig;
         onPatch: (patch: import('@cactai-io/types').CapabilityConfigPatch) => Promise<void>;
     };
-    /** URL of the Cactai platform dashboard. White-label operators MUST pass
-     *  their own. No default — shipping a default would silently point users
-     *  at the Cactai-hosted dashboard from a non-Cactai deployment. */
+    /** URL of the Cactai platform dashboard. Passed by the host so this
+     *  package carries no hardcoded environment URL. */
     dashboardUrl: string;
     /** Rendered ReactNode for the Build tab's post-workflow slot. Hosts pass
      *  a <PrimitiveTreeRenderer> instance configured with their own tree +

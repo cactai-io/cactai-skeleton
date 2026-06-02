@@ -27,7 +27,7 @@ export interface SprintReviewModelOverrideProps {
     onOverrideChange: (task_id: string, tier: Tier) => void;
     /** Called when the developer clicks "Save as default" for a task
      *  type. The host writes the value to project_state.decisions
-     *  .model_selections_v1 via the same /api/operate/model-selections
+     *  .model_selections_v1 via the same /api/manage/model-selections
      *  route Phase 14's settings panel uses. */
     onSaveAsDefault?: (task_type: AgentTaskTypeSlug, tier: Tier) => void;
 }

@@ -9,7 +9,7 @@
 // replaces (re-encrypted via the v2 envelope).
 //
 // DELETE removes the row outright (no soft-delete — the canonical
-// list IS what the user sees in /operate/mcp; a deleted server is
+// list IS what the user sees in /manage/mcp; a deleted server is
 // gone). The user can re-add later if they want.
 
 import { NextResponse, type NextRequest } from 'next/server';

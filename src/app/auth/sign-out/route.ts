@@ -1,6 +1,6 @@
 // src/app/auth/sign-out/route.ts
 // Clears the Supabase session for the current request and audits the event.
-// Called by the operator-panel avatar menu's Sign out button via POST.
+// Called by the management-panel avatar menu's Sign out button via POST.
 
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase.server';

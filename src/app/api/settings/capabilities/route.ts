@@ -92,7 +92,7 @@ export async function PATCH(req: NextRequest) {
         [patch.set_priority.category]: patch.set_priority.ordered_provider_ids,
       };
     }
-    // v1.3.5 — Per-tool provider override (operator-panel routing UI).
+    // v1.3.5 — Per-tool provider override (management-panel routing UI).
     // Empty provider_id clears the override.
     if (patch.set_tool_override) {
       const next = { ...(scope.tool_overrides ?? {}) };

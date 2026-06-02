@@ -1,5 +1,5 @@
 // src/app/api/notifications/route.ts
-// Operator-panel notifications list. Filters by the caller's session +
+// Management-panel notifications list. Filters by the caller's session +
 // active lens (broadcast notifications gated on tenant role).
 
 import { NextResponse } from 'next/server';

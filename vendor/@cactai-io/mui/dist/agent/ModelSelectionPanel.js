@@ -1,7 +1,7 @@
 // packages/mui/src/agent/ModelSelectionPanel.tsx
 // AI Model Selection settings panel (v1.3 Phase 14, Gap 81). Renders one
 // row per Agent SDK task type with a Haiku / Sonnet / Opus dropdown +
-// the resolved current model ID + per-row admin-only toggle (operator
+// the resolved current model ID + per-row admin-only toggle (management
 // shell version) + reset-to-defaults / apply buttons.
 //
 // Per agent-sdk-integration-revisions.md Revision 5:
@@ -11,7 +11,7 @@
 //
 // Used in two locations:
 //   1. DevShell settings panel — developer-facing customization
-//   2. Operator shell AI Configuration card — for the developer's own
+//   2. Management shell AI Configuration card — for the developer's own
 //      app. Two top-level toggles control end-user visibility +
 //      end-user write access; per-row admin-only toggles hide
 //      individual rows from user-role users.
@@ -54,7 +54,7 @@ const TASK_TYPE_ORDER = [
 ];
 const ZONE_INTRO = `Defaults are set to balance cost and quality. Change any task to a higher tier if you need better output, or lower if you want to reduce cost.`;
 export function ModelSelectionPanel(props) {
-    const { selections, resolvedModelIds, onChange, operatorMode = false, endUserVisible = true, endUserEditable = false, adminOnly = {}, onOperatorChange, onRemoveFromOperate, } = props;
+    const { selections, resolvedModelIds, onChange, manageMode = false, endUserVisible = true, endUserEditable = false, adminOnly = {}, onManageChange, onRemoveFromManage, } = props;
     const [saving, setSaving] = useState(false);
     const setRow = (type, tier) => {
         onChange({ ...selections, [type]: tier });
@@ -69,9 +69,9 @@ export function ModelSelectionPanel(props) {
         // "Apply changes" button is mostly an affordance + confirmation.
     };
     const setAdminOnly = (type, value) => {
-        if (!onOperatorChange)
+        if (!onManageChange)
             return;
-        onOperatorChange({ adminOnly: { ...adminOnly, [type]: value } });
+        onManageChange({ adminOnly: { ...adminOnly, [type]: value } });
     };
     return (_jsxs("div", { style: {
             fontFamily: 'var(--f-ui, system-ui)',
@@ -88,20 +88,20 @@ export function ModelSelectionPanel(props) {
                     fontSize: 13,
                     color: 'var(--ds-text-2, #A0A0B8)',
                     lineHeight: 1.5,
-                }, children: ZONE_INTRO }), operatorMode && (_jsx("div", { style: {
+                }, children: ZONE_INTRO }), manageMode && (_jsx("div", { style: {
                     background: 'var(--ds-surface-2, rgba(255,255,255,0.02))',
                     border: '1px solid var(--ds-border-1, #25253A)',
                     borderRadius: 6,
                     padding: 12,
                     marginBottom: 16,
-                }, children: _jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 8 }, children: [_jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }, children: [_jsx("input", { type: "checkbox", checked: endUserVisible, onChange: e => onOperatorChange?.({ endUserVisible: e.target.checked }) }), _jsx("span", { children: "Show this section to end users" })] }), _jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', opacity: endUserVisible ? 1 : 0.5 }, children: [_jsx("input", { type: "checkbox", checked: endUserEditable, onChange: e => onOperatorChange?.({ endUserEditable: e.target.checked }), disabled: !endUserVisible }), _jsx("span", { children: "Allow end users to change model selections" })] })] }) })), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 8 }, children: TASK_TYPE_ORDER.map(taskType => {
+                }, children: _jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 8 }, children: [_jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }, children: [_jsx("input", { type: "checkbox", checked: endUserVisible, onChange: e => onManageChange?.({ endUserVisible: e.target.checked }) }), _jsx("span", { children: "Show this section to end users" })] }), _jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', opacity: endUserVisible ? 1 : 0.5 }, children: [_jsx("input", { type: "checkbox", checked: endUserEditable, onChange: e => onManageChange?.({ endUserEditable: e.target.checked }), disabled: !endUserVisible }), _jsx("span", { children: "Allow end users to change model selections" })] })] }) })), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 8 }, children: TASK_TYPE_ORDER.map(taskType => {
                     const tier = selections[taskType] ?? PANEL_DEFAULT_SELECTIONS[taskType];
                     const label = AGENT_TASK_TYPE_LABELS[taskType];
                     const desc = AGENT_TASK_TYPE_DESCRIPTIONS[taskType];
                     const isAdminOnly = adminOnly[taskType] === true;
                     return (_jsxs("div", { style: {
                             display: 'grid',
-                            gridTemplateColumns: operatorMode ? '1fr auto auto' : '1fr auto',
+                            gridTemplateColumns: manageMode ? '1fr auto auto' : '1fr auto',
                             gap: 16,
                             alignItems: 'center',
                             padding: '12px 14px',
@@ -121,7 +121,7 @@ export function ModelSelectionPanel(props) {
                                             fontSize: 11,
                                             color: 'var(--ds-text-3, #7A7A8E)',
                                             fontFamily: 'var(--f-mono, monospace)',
-                                        }, children: resolvedModelIds[tier] })] }), operatorMode && (_jsx("button", { type: "button", onClick: () => setAdminOnly(taskType, !isAdminOnly), title: isAdminOnly ? 'Click to allow end users' : 'Click to hide from end users', "aria-pressed": isAdminOnly, style: {
+                                        }, children: resolvedModelIds[tier] })] }), manageMode && (_jsx("button", { type: "button", onClick: () => setAdminOnly(taskType, !isAdminOnly), title: isAdminOnly ? 'Click to allow end users' : 'Click to hide from end users', "aria-pressed": isAdminOnly, style: {
                                     background: 'transparent',
                                     border: 'none',
                                     cursor: 'pointer',
@@ -148,7 +148,7 @@ export function ModelSelectionPanel(props) {
                             fontSize: 13,
                             fontWeight: 500,
                             fontFamily: 'inherit',
-                        }, children: saving ? 'Applied' : 'Apply changes' }), operatorMode && onRemoveFromOperate && (_jsx("button", { onClick: onRemoveFromOperate, style: {
+                        }, children: saving ? 'Applied' : 'Apply changes' }), manageMode && onRemoveFromManage && (_jsx("button", { onClick: onRemoveFromManage, style: {
                             marginLeft: 'auto',
                             background: 'transparent',
                             border: '1px solid var(--ds-border-2, #25253A)',
@@ -158,6 +158,6 @@ export function ModelSelectionPanel(props) {
                             cursor: 'pointer',
                             fontSize: 12,
                             fontFamily: 'inherit',
-                        }, children: "Remove this section from operate shell" }))] })] }));
+                        }, children: "Remove this section from the management shell" }))] })] }));
 }
 //# sourceMappingURL=ModelSelectionPanel.js.map

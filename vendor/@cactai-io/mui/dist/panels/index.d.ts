@@ -124,8 +124,8 @@ import type { CapabilityCatalogueItem, CapabilityConfig, CapabilityConfigPatch, 
 import { type MCPCatalogEntry } from './MCPManager.js';
 export interface ProjectSettingsPanelProps {
     credentials: Partial<CredentialsRecord>;
-    /** URL of the Cactai platform dashboard. White-label operators MUST pass
-     *  their own. No default. */
+    /** URL of the Cactai platform dashboard. Passed by the host so this
+     *  package carries no hardcoded environment URL. */
     dashboardUrl: string;
     onSaveCredential: (key: keyof CredentialsRecord, value: string) => void;
     capabilityCatalogue?: CapabilityCatalogueItem[];

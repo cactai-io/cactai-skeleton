@@ -129,7 +129,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // (a) clamps overflow on html + body, (b) disables overscroll
     // chaining so trackpad gestures don't bubble to the document.
     //
-    // Other routes (/operate, /app, …) need normal page scrolling, so
+    // Other routes (/manage, /app, …) need normal page scrolling, so
     // the class is removed on unmount. A direct body-lock in
     // dev/layout.tsx would survive client-side route transitions
     // away from /dev — this useEffect cleanup pattern doesn't.

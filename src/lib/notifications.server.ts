@@ -1,10 +1,10 @@
 // src/lib/notifications.server.ts
 // Skeleton-side notifications: emission, query, dismissal, resolution.
-// Backs the bell in the operator panel.
+// Backs the bell in the management panel.
 //
 // Mirrors the platform-side notifications/platform.ts pattern but writes
 // to the customer Supabase's app_notifications table. Recipients are app
-// users (developer-as-operator, app super_admins, app admins).
+// users (developer-as-manager, app super_admins, app admins).
 //
 // All writes go through the service-role client to bypass RLS; RLS still
 // protects client-side reads via the policies defined in 0005_notifications.sql.

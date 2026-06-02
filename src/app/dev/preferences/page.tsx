@@ -8,8 +8,8 @@
 //
 // What moved out:
 //   - AppShell auth providers, signup policy, and invitations are all
-//     app-running concerns, not IDE concerns. They live in the operator
-//     panel under /operate now.
+//     app-running concerns, not IDE concerns. They live in the management
+//     panel under /manage now.
 //   - Project-level dev provider keys live in the platform dashboard at
 //     cactai.io.
 
@@ -53,7 +53,7 @@ export default function PreferencesPage() {
           <h2 style={cardTitleStyle}>App-running settings</h2>
           <p style={cardBodyStyle}>
             Sign-in providers, signup policy, and invitations now live in your
-            operator panel — visit your production deployment to manage them.
+            management panel — visit your production deployment to manage them.
           </p>
         </section>
 

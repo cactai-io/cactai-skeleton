@@ -7,13 +7,13 @@
 //
 // Why a route at all if the function is just `cache = null`?
 //   - Real caller for the hook so it doesn't bit-rot as unused export.
-//   - Recovery affordance for operators who suspect cache drift in
+//   - Recovery affordance for developers who suspect cache drift in
 //     production (no need for a redeploy).
 //   - Forensic surface: every invocation writes an audit_log row that
 //     captures actor + tenant + timestamp.
 //
 // Auth: super_admin lens. The route is intentionally NOT exposed via the
-// app shell — it's an operator-panel / DevShell concern, surfaced from
+// app shell — it's an management-panel / DevShell concern, surfaced from
 // places that already gate by super_admin.
 //
 // Response: { ok, invalidated_at, audit_id }. audit_id is null when the

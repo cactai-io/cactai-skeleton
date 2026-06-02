@@ -3,7 +3,7 @@ import { type AgentTaskTypeSlug } from '@cactai-io/types';
 import type { JSX } from 'react';
 type Tier = 'haiku' | 'sonnet' | 'opus';
 export declare const PANEL_DEFAULT_SELECTIONS: Record<AgentTaskTypeSlug, Tier>;
-/** Optional admin-only override per row. Operator shell uses this to
+/** Optional admin-only override per row. Management shell uses this to
  *  hide individual rows from end users while keeping them visible to
  *  admins + super admins. */
 export type AdminOnlyMap = Partial<Record<AgentTaskTypeSlug, boolean>>;
@@ -21,26 +21,26 @@ export interface ModelSelectionPanelProps {
     };
     /** Called when the developer changes any row. Host saves to its
      *  persistence layer (DevShell side: directly to settings; operate
-     *  side: via /api/operate/model-selections PUT). */
+     *  side: via /api/manage/model-selections PUT). */
     onChange: (next: Partial<Record<AgentTaskTypeSlug, Tier>>) => void;
-    /** Operator shell version exposes this — defaults to false (DevShell
+    /** Management shell version exposes this — defaults to false (DevShell
      *  side has no admin-only concept). When true, each row gets an
      *  admin-only icon toggle and the two zone-level visibility toggles
      *  render at the top. */
-    operatorMode?: boolean;
-    /** Operator shell zone-level toggles. Only meaningful when
-     *  operatorMode is true. */
+    manageMode?: boolean;
+    /** Management shell zone-level toggles. Only meaningful when
+     *  manageMode is true. */
     endUserVisible?: boolean;
     endUserEditable?: boolean;
     adminOnly?: AdminOnlyMap;
-    onOperatorChange?: (changes: {
+    onManageChange?: (changes: {
         endUserVisible?: boolean;
         endUserEditable?: boolean;
         adminOnly?: AdminOnlyMap;
     }) => void;
-    /** Operator shell only: "Remove this section from operate shell
+    /** Management shell only: "Remove this section from the management shell
      *  entirely" button hookup. */
-    onRemoveFromOperate?: () => void;
+    onRemoveFromManage?: () => void;
     /** Theme tokens. Optional — defaults to inline CSS variables. */
     theme?: Pick<ThemeTokens, 'color' | 'shape' | 'typography'>;
 }

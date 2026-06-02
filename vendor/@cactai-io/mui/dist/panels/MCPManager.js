@@ -6,7 +6,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 //   - Platform MCP        (dashboard, account-wide)
 //   - DevShell MCP        (ProjectSettingsPanel.Integrations, per-project)
 //   - AppShell MCP shared (skeleton /dev/mcp, app-default)
-//   - AppShell MCP personal (skeleton /operate/mcp, end-user)
+//   - AppShell MCP personal (skeleton /manage/mcp, end-user)
 //
 // Presentational only — the host passes the catalog, the connected
 // list, and add/remove/toggle handlers. The component owns no fetching.
@@ -20,7 +20,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 //
 // Styling uses brand-tokens --c-* vars directly (not the DevShell-scoped
 // --ds-* aliases) so the component renders correctly in the dashboard,
-// the DevShell, and the skeleton operator surface alike — every host
+// the DevShell, and the skeleton management surface alike — every host
 // loads brand-tokens. Hex fallbacks cover first paint before tokens
 // resolve.
 import { useState } from 'react';
