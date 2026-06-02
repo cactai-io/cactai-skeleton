@@ -37,7 +37,7 @@ export function getCactaiClient(): CactaiClient {
 export async function openSessionFor(opts: {
   userId:    string;
   role:      AppRole;
-  shell:     'dev' | 'app' | 'manage';
+  shell:     'dev' | 'app';
   tenantId?: string;
   email?:    string;
 }) {
