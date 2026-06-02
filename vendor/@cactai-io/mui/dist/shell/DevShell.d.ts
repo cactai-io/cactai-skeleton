@@ -178,6 +178,16 @@ export interface DevShellProps {
      *  intentionally not exposed; those re-run through sprint:refine. */
     onRenameSprint?: (id: string, name: string) => Promise<void> | void;
     onDeleteSprint?: (id: string) => Promise<void> | void;
+    /** Plan-view notes — free-form project markdown + per-decision threads.
+     *  Backed by /api/workflow/notes. When the save/add handlers are omitted
+     *  the corresponding affordance is hidden. */
+    projectNotes?: string;
+    onSaveProjectNotes?: (markdown: string) => Promise<void> | void;
+    decisionNotes?: Record<string, Array<{
+        at: string;
+        content: string;
+    }>>;
+    onAddDecisionNote?: (decisionKey: string, content: string) => Promise<void> | void;
     /** Workspace panel props — projectName, githubRepoUrl, vercelDashUrl,
      *  vercelPreviewUrl, syncState, and onViewPendingEdits are injected by
      *  the shell. */
@@ -212,4 +222,4 @@ export interface DevShellProps {
     onSectionChange?: (section: RailSection) => void;
     onViewChange?: (view: DevShellView) => void;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

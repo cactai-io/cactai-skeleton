@@ -15,13 +15,31 @@ export interface WorkflowSurfaceProps {
     onDeleteBacklog?: (id: string) => Promise<void> | void;
     onRenameSprint?: (id: string, name: string) => Promise<void> | void;
     onDeleteSprint?: (id: string) => Promise<void> | void;
+    /** Free-form project-level markdown notes (Plan view). Backed by
+     *  /api/workflow/notes (_notes.project). When the save handler is
+     *  omitted the Notes panel is hidden. */
+    projectNotes?: string;
+    onSaveProjectNotes?: (markdown: string) => Promise<void> | void;
+    /** Per-decision note threads, keyed by decision key. Backed by
+     *  /api/workflow/notes (_notes.decisions[key]). When the add handler
+     *  is omitted, the per-decision note affordance is hidden. */
+    decisionNotes?: Record<string, Array<{
+        at: string;
+        content: string;
+    }>>;
+    onAddDecisionNote?: (decisionKey: string, content: string) => Promise<void> | void;
 }
-export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
+export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
 interface DecisionLogProps {
     decisions: Record<string, WorkflowDecisionRecord>;
     onRevisit: (key: string) => void;
+    decisionNotes?: Record<string, Array<{
+        at: string;
+        content: string;
+    }>>;
+    onAddDecisionNote?: (decisionKey: string, content: string) => Promise<void> | void;
 }
-declare function DecisionLog({ decisions, onRevisit }: DecisionLogProps): import("react/jsx-runtime").JSX.Element;
+declare function DecisionLog({ decisions, onRevisit, decisionNotes, onAddDecisionNote }: DecisionLogProps): import("react/jsx-runtime").JSX.Element;
 interface DecisionInputProps {
     stage: string;
     fields: SurfaceFormField[];

@@ -85,6 +85,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [topRankRoleName, setTopRankRoleName] = useState(null);
     const [autoPromoteOnFirstSignup, setAutoPromoteOnFirstSignup] = useState(false);
     const [sprints, setSprints] = useState([]);
+    // Plan-view notes — free-form project markdown + per-decision threads.
+    // Backed by /api/workflow/notes (stored under project_state.decisions._notes).
+    const [projectNotes, setProjectNotes] = useState('');
+    const [decisionNotes, setDecisionNotes] = useState({});
     // Phase 3a — file tree from the customer's GitHub repo via skeleton-
     // side /api/git/tree (uses GITHUB_TOKEN server-side). Loaded once on
     // mount; refreshed after each commit.
@@ -652,6 +656,29 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         const interval = setInterval(() => { void tick(); }, 5 * 60 * 1000);
         return () => { cancelled = true; clearInterval(interval); };
     }, []);
+    // Load Plan-view notes once on mount. Notes live under
+    // project_state.decisions._notes; /api/workflow/notes returns the blob.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/workflow/notes');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (cancelled)
+                    return;
+                if (typeof data.project === 'string')
+                    setProjectNotes(data.project);
+                if (data.decisions)
+                    setDecisionNotes(data.decisions);
+            }
+            catch {
+                // Non-fatal — notes panel renders empty.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
     const applyUpdate = async () => {
         try {
             const res = await fetch('/api/devshell/update', {
@@ -739,6 +766,39 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const syncState = pendingFiles.length > 0
         ? { branch: 'local', uncommittedFiles: pendingFiles.map(f => f.path) }
         : { branch: 'dev', synced: true };
+    // The DevShell runs at /dev on the developer's preview deployment, so
+    // window.location.origin IS that deployment's base. Both preview
+    // surfaces derive from it:
+    //   - ThemeInspector live preview  → `${origin}/_studio/preview`
+    //   - Test Drive app preview       → the production URL when known,
+    //     else the preview origin itself.
+    // Without these threaded through, both the Theme inspector's preview
+    // column and the Test Drive preview rendered their "unavailable" /
+    // "commit to dev" placeholders despite both surfaces being fully built.
+    const deployOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    // Persist project-level notes, then re-fetch to confirm the stored value.
+    const saveProjectNotes = async (markdown) => {
+        await fetch('/api/workflow/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project: markdown }),
+        });
+        setProjectNotes(markdown);
+    };
+    // Append a note to one decision's thread, then optimistically update.
+    const addDecisionNote = async (decisionKey, content) => {
+        const res = await fetch('/api/workflow/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decision_key: decisionKey, content }),
+        });
+        if (res.ok) {
+            setDecisionNotes(prev => ({
+                ...prev,
+                [decisionKey]: [...(prev[decisionKey] ?? []), { at: new Date().toISOString(), content }],
+            }));
+        }
+    };
     // decisions / backlog / sprints / workflowStep are stateful (set by
     // the polling effect above). Modal state (onboardingOpen,
     // completionOpen, guideDockedOpen) is declared above the early
@@ -746,7 +806,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, projectNotes: projectNotes, onSaveProjectNotes: saveProjectNotes, decisionNotes: decisionNotes, onAddDecisionNote: addDecisionNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
                     // Phase 3b — POST /api/git/commit. The route reads file
                     // content from pending_files server-side (per the user's
                     // RLS-scoped rows), so we don't need to ferry blob bytes

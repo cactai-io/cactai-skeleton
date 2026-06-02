@@ -15,7 +15,7 @@ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-run
 // This surface never calls APIs directly — all state changes go through MUIShell.submitInput.
 // Consumes theme via CSS custom properties from @cactai-io/brand-tokens.
 import { useState, useRef } from 'react';
-export function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, }) {
+export function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, }) {
     const unresolved = backlog.filter(e => !e.acknowledged);
     const activeSprint = sprints.find(s => s.status === 'active');
     const planSprints = sprints.filter(s => s.status !== 'abandoned');
@@ -24,10 +24,50 @@ export function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFor
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                }, children: _jsx(DecisionLog, { decisions: decisions, onRevisit: onRevisit }) }), _jsx("div", { style: { overflow: 'auto', padding: 28, display: 'flex', flexDirection: 'column', gap: 28 }, children: activeForm ? (_jsx(DecisionInput, { stage: activeForm.stage, fields: activeForm.fields, onSubmit: onFormSubmit })) : (_jsxs(_Fragment, { children: [planSprints.length > 0 && (_jsx(SprintOverview, { sprints: planSprints, activeSprint: activeSprint, onRename: onRenameSprint, onDelete: onDeleteSprint })), unresolved.length > 0 && (_jsx(GoalBacklog, { entries: unresolved, onResolve: onResolveBacklog, onCreate: onCreateBacklog, onUpdate: onUpdateBacklog, onDelete: onDeleteBacklog }))] })) })] }));
+                }, children: _jsx(DecisionLog, { decisions: decisions, onRevisit: onRevisit, decisionNotes: decisionNotes, onAddDecisionNote: onAddDecisionNote }) }), _jsx("div", { style: { overflow: 'auto', padding: 28, display: 'flex', flexDirection: 'column', gap: 28 }, children: activeForm ? (_jsx(DecisionInput, { stage: activeForm.stage, fields: activeForm.fields, onSubmit: onFormSubmit })) : (_jsxs(_Fragment, { children: [planSprints.length > 0 && (_jsx(SprintOverview, { sprints: planSprints, activeSprint: activeSprint, onRename: onRenameSprint, onDelete: onDeleteSprint })), unresolved.length > 0 && (_jsx(GoalBacklog, { entries: unresolved, onResolve: onResolveBacklog, onCreate: onCreateBacklog, onUpdate: onUpdateBacklog, onDelete: onDeleteBacklog })), onSaveProjectNotes && (_jsx(NotesPanel, { value: projectNotes ?? '', onSave: onSaveProjectNotes }))] })) })] }));
 }
-function DecisionLog({ decisions, onRevisit }) {
+function NotesPanel({ value, onSave }) {
+    const [draft, setDraft] = useState(value);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    // Re-sync when the persisted value changes (e.g. first load after fetch).
+    const lastValue = useRef(value);
+    if (lastValue.current !== value) {
+        lastValue.current = value;
+        if (draft === '' || draft === lastValue.current)
+            setDraft(value);
+    }
+    const dirty = draft !== value;
+    async function save() {
+        setSaving(true);
+        setSaved(false);
+        try {
+            await onSave(draft);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 1800);
+        }
+        finally {
+            setSaving(false);
+        }
+    }
+    return (_jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 10 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("div", { style: { flex: 1, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ds-text-3)' }, children: "Notes" }), saved && _jsx("span", { style: { fontSize: 11, color: 'var(--c-accent, #5fb6ff)' }, children: "Saved" }), _jsx("button", { className: "ds-btn-ghost", disabled: !dirty || saving, onClick: () => void save(), style: { fontSize: 11.5, padding: '4px 12px', opacity: !dirty || saving ? 0.5 : 1 }, children: saving ? 'Saving…' : 'Save' })] }), _jsx("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: "Free-form notes for this project \u2014 decisions to revisit, ideas, reminders\u2026", rows: 8, style: {
+                    width: '100%',
+                    background: 'var(--ds-elevated)',
+                    border: '1px solid var(--ds-border)',
+                    borderRadius: 'var(--ds-r-sm)',
+                    padding: 12,
+                    color: 'var(--ds-text)',
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    fontFamily: 'var(--f-ui)',
+                    resize: 'vertical',
+                    outline: 'none',
+                } })] }));
+}
+function DecisionLog({ decisions, onRevisit, decisionNotes, onAddDecisionNote }) {
     const [highlighted, setHighlighted] = useState(new Set());
+    // Which decision's note thread is currently expanded (only one at a time).
+    const [openThread, setOpenThread] = useState(null);
     const entries = Object.entries(decisions);
     function showUpstream(key, record) {
         setHighlighted(new Set(record.informed_by));
@@ -47,16 +87,62 @@ function DecisionLog({ decisions, onRevisit }) {
                 }, children: "Decision log" }), _jsxs("div", { style: { overflow: 'auto', flex: 1, padding: '10px 0' }, children: [entries.length === 0 && (_jsx("div", { style: { padding: '16px', fontSize: 12, color: 'var(--ds-text-3)' }, children: "No decisions yet." })), entries.map(([key, record]) => {
                         const isDimmed = highlighted.size > 0 && !highlighted.has(key);
                         const isHighlighted = highlighted.has(key);
+                        const notes = decisionNotes?.[key] ?? [];
+                        const threadOpen = openThread === key;
                         return (_jsxs("div", { style: {
                                 padding: '8px 16px',
                                 opacity: isDimmed ? 0.3 : 1,
                                 transition: 'opacity 0.15s',
-                                cursor: 'pointer',
                                 borderLeft: isHighlighted ? '2px solid var(--ds-pink)' : '2px solid transparent',
-                            }, onClick: () => onRevisit(key), onMouseEnter: () => showUpstream(key, record), onMouseLeave: clearHighlight, title: "Click to revisit this decision", children: [_jsx("div", { style: { fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ds-text-3)', marginBottom: 2 }, children: key }), _jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text)', fontWeight: 500 }, children: typeof record.value === 'boolean'
-                                        ? (record.value ? 'Yes' : 'No')
-                                        : String(record.value) }), _jsx("div", { style: { fontSize: 10, color: 'var(--ds-text-3)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }, children: record.method }), (record.informed_by?.length ?? 0) > 0 && (_jsxs("div", { style: { fontSize: 9.5, color: 'var(--ds-text-3)', marginTop: 3 }, children: ["\u2191 ", record.informed_by.join(', ')] }))] }, key));
+                            }, onMouseEnter: () => showUpstream(key, record), onMouseLeave: clearHighlight, children: [_jsxs("div", { style: { cursor: 'pointer' }, onClick: () => onRevisit(key), title: "Click to revisit this decision", children: [_jsx("div", { style: { fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ds-text-3)', marginBottom: 2 }, children: key }), _jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text)', fontWeight: 500 }, children: typeof record.value === 'boolean'
+                                                ? (record.value ? 'Yes' : 'No')
+                                                : String(record.value) }), _jsx("div", { style: { fontSize: 10, color: 'var(--ds-text-3)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }, children: record.method }), (record.informed_by?.length ?? 0) > 0 && (_jsxs("div", { style: { fontSize: 9.5, color: 'var(--ds-text-3)', marginTop: 3 }, children: ["\u2191 ", record.informed_by.join(', ')] }))] }), onAddDecisionNote && (_jsx("button", { onClick: () => setOpenThread(threadOpen ? null : key), style: {
+                                        marginTop: 5,
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: notes.length > 0 ? 'var(--c-accent, #5fb6ff)' : 'var(--ds-text-3)',
+                                        cursor: 'pointer',
+                                        fontSize: 10,
+                                        padding: 0,
+                                    }, children: notes.length > 0 ? `🗒 ${notes.length} note${notes.length === 1 ? '' : 's'}` : '+ note' })), threadOpen && onAddDecisionNote && (_jsx(DecisionNoteThread, { notes: notes, onAdd: (content) => onAddDecisionNote(key, content) }))] }, key));
                     })] })] }));
+}
+function DecisionNoteThread({ notes, onAdd }) {
+    const [text, setText] = useState('');
+    const [adding, setAdding] = useState(false);
+    async function add() {
+        const trimmed = text.trim();
+        if (!trimmed)
+            return;
+        setAdding(true);
+        try {
+            await onAdd(trimmed);
+            setText('');
+        }
+        finally {
+            setAdding(false);
+        }
+    }
+    return (_jsxs("div", { style: {
+            marginTop: 6,
+            padding: 8,
+            background: 'var(--ds-canvas, var(--ds-surface))',
+            border: '1px solid var(--ds-border-soft)',
+            borderRadius: 'var(--ds-r-sm)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+        }, children: [notes.map((n, i) => (_jsxs("div", { style: { fontSize: 11, lineHeight: 1.5 }, children: [_jsx("div", { style: { color: 'var(--ds-text-3)', fontSize: 9 }, children: new Date(n.at).toLocaleString() }), _jsx("div", { style: { color: 'var(--ds-text-2)', whiteSpace: 'pre-wrap' }, children: n.content })] }, i))), _jsxs("div", { style: { display: 'flex', gap: 6 }, children: [_jsx("input", { value: text, onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === 'Enter')
+                            void add(); }, placeholder: "Add a note\u2026", style: {
+                            flex: 1,
+                            background: 'var(--ds-elevated)',
+                            border: '1px solid var(--ds-border)',
+                            borderRadius: 'var(--ds-r-sm)',
+                            padding: '4px 8px',
+                            color: 'var(--ds-text)',
+                            fontSize: 11,
+                            outline: 'none',
+                        } }), _jsx("button", { className: "ds-btn-ghost", disabled: !text.trim() || adding, onClick: () => void add(), style: { fontSize: 11, padding: '4px 10px', opacity: !text.trim() || adding ? 0.5 : 1 }, children: adding ? '…' : 'Add' })] })] }));
 }
 function DecisionInput({ stage, fields, onSubmit }) {
     const [choices, setChoices] = useState({});
