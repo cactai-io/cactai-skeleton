@@ -6,9 +6,9 @@
 // page. End users who have their own provider keys ("BYOK") manage
 // THEM here — view configured providers, see token consumption against
 // each key, register an authorized fallback ("use this when my primary
-// is unavailable"). Limits/alerts (token-budget caps, monthly spend
-// limits) are end-user-controlled (R6) and will ship in v2; this
-// surface displays the data those limits will gate on.
+// is unavailable"), and set monthly spend caps + alerts per provider
+// (BudgetPanel → /api/byok/budgets). Limits/alerts are end-user-controlled
+// (R6) — the developer doesn't set them, it's the end user's key + money.
 //
 // Auth: any signed-in end user. Storage of the underlying keys lives in
 // user_api_keys on the deployed app's customer DB (encrypted via
@@ -18,6 +18,7 @@
 import { requireAuth } from '@/lib/auth';
 import { TokenUsagePanel } from './TokenUsagePanel.client';
 import { EmbeddingsLine } from './EmbeddingsLine.client';
+import { BudgetPanel } from './BudgetPanel.client';
 
 export default async function ByokSettingsPage() {
   const session = await requireAuth();
@@ -31,8 +32,8 @@ export default async function ByokSettingsPage() {
         Bring your own provider keys to track costs against your own account.
         Keys are encrypted at rest. The app falls back to the developer's
         configured provider when you haven't supplied your own. Token usage
-        against your keys appears below; limits and alerts ship in a later
-        release.
+        against your keys appears below; set monthly spend caps and alerts
+        further down.
       </p>
 
       <div style={{
@@ -46,11 +47,12 @@ export default async function ByokSettingsPage() {
         <br/>
         <strong>How limits work:</strong> the developer of this app meters Cactai
         server usage against their plan. Your provider tokens are billed by your
-        provider directly. v2 will let you set spend alerts on your own keys.
+        provider directly. Set your own monthly spend caps + alerts below.
       </div>
 
       <TokenUsagePanel />
       <EmbeddingsLine />
+      <BudgetPanel />
     </div>
   );
 }
