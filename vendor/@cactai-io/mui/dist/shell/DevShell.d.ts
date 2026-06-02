@@ -10,7 +10,7 @@ import type { SprintRecord, GoalBacklogEntry, SurfaceFormField, WorkflowDecision
 import type { CommitListItem } from '../commit/CommitHistoryModal.js';
 import type { Resolution } from '../commit/CommitConflictModal.js';
 import type { SyncState, PendingFileSummary } from '../commit/types.js';
-export type DevShellView = 'build' | 'plan' | 'role_view' | 'test_drive';
+export type DevShellView = 'build' | 'plan' | 'test_drive';
 export type RoleViewRole = string;
 export type RailSection = 'workspace' | 'build' | 'schema' | 'project-settings';
 /**
@@ -87,7 +87,15 @@ export interface DevShellProps {
     /** Optional URL pointing at the skeleton's _studio/preview route. When
      *  unset, the Theme Inspector renders without a live preview iframe. */
     studioPreviewUrl?: string;
-    onRoleSwitch: (role: RoleViewRole) => void;
+    /** Called when the Test Drive's preview lens changes. Receives the
+     *  selected role (string) for a role-lens preview, or null when the
+     *  developer picks the Signup lens (logged-out / signup-page render). */
+    onRoleSwitch: (role: RoleViewRole | null) => void;
+    /** True when the deployed app exposes a public signup route. When true
+     *  the Preview-as bar shows a "Signup" button alongside the role
+     *  buttons. When false the button is hidden — apps fully gated behind
+     *  auth have no useful Signup preview. Default false. */
+    hasPublicSignup?: boolean;
     /** Commit the given file paths to the dev branch. Resolves once the
      *  commit has succeeded (or rejects on failure — the shell surfaces the
      *  error inline in the modal). The shell handles closing the modal on
@@ -205,4 +213,4 @@ export interface DevShellProps {
     onSectionChange?: (section: RailSection) => void;
     onViewChange?: (view: DevShellView) => void;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

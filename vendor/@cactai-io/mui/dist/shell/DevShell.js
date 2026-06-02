@@ -119,7 +119,7 @@ function RailBtn({ section, active, onClick }) {
     const tooltip = S_TOOLTIP[section] ?? S_LABEL[section];
     return (_jsx("button", { className: `ds-rail-btn${active ? ' ds-rail-active' : ''}`, onClick: onClick, title: tooltip, "aria-label": tooltip, children: _jsx("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", children: _jsx("path", { d: S_ICON[section] }) }) }));
 }
-export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }) {
+export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
     // Body lock while the DevShell IDE is mounted. Pre-fix the browser
     // could scroll the entire page past [data-cactai-shell]'s 100vh
@@ -245,7 +245,12 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         }, 700);
     }, []);
     const [view, setView] = useState('build');
-    const [role, setRole] = useState(availableRoles[0]?.role ?? 'user');
+    // previewRole governs the Test Drive preview lens. null = signup lens
+    // (logged-out / signup-page render), string = render-as-this-role.
+    // Defaults to the lowest-rank role when entering Test Drive — the
+    // Test Drive button's onClick seeds this — falls back to null when
+    // no roles are defined yet.
+    const [previewRole, setPreviewRole] = useState(() => availableRoles[availableRoles.length - 1]?.role ?? null);
     const [section, setSection] = useState('workspace');
     const [avatarOpen, setAvatarOpen] = useState(false);
     // Ref on the avatar menu container so an outside-click handler can
@@ -529,19 +534,6 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // are all panel-bearing (Files isn't one of them anymore).
     const showPanel = isBuild;
     function renderMainContent() {
-        if (view === 'role_view') {
-            // Role view renders the host skeleton app's content. Mark it so the
-            // [data-appshell-preview] selector resets DevShell chrome typography.
-            // No section binding — role views inherit the active panel's accent.
-            //
-            // v1.2 commit-flow rebuild: RoleViewBanner mounts at the top of the
-            // pane. It surfaces a non-intrusive warning when the developer is
-            // previewing a file or page that has pending non-config code edits
-            // — those won't show up until commit + Vercel deploy. The banner
-            // returns null when no eligible pending file exists, so it's safe
-            // to include unconditionally here.
-            return (_jsxs("div", { style: { flex: 1, overflow: 'auto', position: 'relative' }, children: [_jsx(RoleViewBanner, { projectId: projectId, pendingFiles: roleViewPendingFiles, activeRoleViewPath: activeFilePath }), _jsx(StudioOverlay, { skill_id: "shell_root", onInspect: handleInspect, active: false, children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: _jsx("span", { children: "Role view" }) }) }) })] }));
-        }
         if (view === 'plan' || (view === 'build' && workflowStep !== 'complete')) {
             // Plan view → indigo. Build-view-during-workflow → amber (workflow is
             // part of the Build experience even before preview is live).
@@ -549,11 +541,26 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             return (_jsx("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden' }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog, onCreateBacklog: onCreateBacklog, onUpdateBacklog: onUpdateBacklog, onDeleteBacklog: onDeleteBacklog, onRenameSprint: onRenameSprint, onDeleteSprint: onDeleteSprint }) }));
         }
         if (view === 'test_drive') {
-            // Test Drive — live app preview (anonymous lens). When the project
-            // declares roles, the Test Drive button auto-selects the lowest-rank
-            // role and routes through role_view instead, so this branch only
-            // fires when no roles exist (developer hasn't configured the catalog
-            // yet) or the developer explicitly cleared the role.
+            // Test Drive renders one of two preview lenses:
+            //
+            //   previewRole = string  → role lens. Renders the deployed app as
+            //                            that role would see it. RoleViewBanner
+            //                            mounts at the top of the pane and
+            //                            surfaces a non-intrusive warning when
+            //                            the developer is previewing a file or
+            //                            page that has pending non-config code
+            //                            edits — those won't show up until
+            //                            commit + Vercel deploy.
+            //
+            //   previewRole = null    → signup lens. Renders the app's signup
+            //                            screen (or the public landing surface
+            //                            for apps with one) inside the chrome-
+            //                            wrapped preview window — what a brand-
+            //                            new visitor experiences before they
+            //                            have an account.
+            if (previewRole) {
+                return (_jsxs("div", { style: { flex: 1, overflow: 'auto', position: 'relative' }, children: [_jsx(RoleViewBanner, { projectId: projectId, pendingFiles: roleViewPendingFiles, activeRoleViewPath: activeFilePath }), _jsx(StudioOverlay, { skill_id: "shell_root", onInspect: handleInspect, active: false, children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: _jsxs("span", { children: ["Test Drive \u00B7 ", previewRole] }) }) }) })] }));
+            }
             return (_jsx("div", { style: { ...bindSection('build-view', 'amber'), flex: 1, overflow: 'hidden' }, className: "ds-preview-wrap", children: _jsxs("div", { className: "ds-preview-window", children: [_jsxs("div", { className: "ds-preview-chrome", children: [_jsxs("div", { className: "ds-traffic", children: [_jsx("span", {}), _jsx("span", {}), _jsx("span", {})] }), _jsx("div", { className: "ds-preview-url ds-mono", children: vercelPreviewUrl ? vercelPreviewUrl.replace(/^https?:\/\//, '') : `${projectName}.vercel.app` }), vercelPreviewUrl && _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-open", children: "Open \u2197" })] }), _jsx("div", { className: "ds-preview-content", children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: vercelPreviewUrl ? _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-link", children: "Open preview \u2197" }) : 'Commit to dev to see preview.' }) }) })] }) }));
         }
         // Build view post-workflow. Renders the buildSurfaceSlot — typically
@@ -618,20 +625,21 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // (rather than as a separate component) so the menu remains a single
     // place that owns its layout.
     const themeBtn = (mode, label) => (_jsx("button", { className: `ds-avatar-theme-btn${themeMode === mode ? ' ds-avatar-theme-btn-active' : ''}`, onClick: () => chooseTheme(mode), "aria-pressed": themeMode === mode, children: label }, mode));
-    return (_jsxs("div", { "data-cactai-shell": true, "data-theme": resolvedTheme, "data-color-scheme": resolvedTheme, children: [_jsx(SvgDefs, {}), _jsxs("header", { className: "ds-topbar", children: [_jsxs("div", { className: "ds-brand", children: [_jsx(CactusMark, { size: 22, className: "ds-brand-mark" }), "Cactai"] }), _jsx("div", { className: "ds-project-meta", children: _jsx("span", { className: "ds-project-name", children: projectName }) }), _jsx("div", { className: "ds-view-switcher", children: _jsxs("div", { className: "ds-view-switcher-group", children: [_jsx("button", { className: `ds-view-btn${view === 'plan' ? ' ds-view-active' : ''}`, onClick: () => changeView('plan'), children: "Plan" }), _jsx("button", { className: `ds-view-btn${view === 'build' ? ' ds-view-active' : ''}`, onClick: () => changeView('build'), children: "Build" }), _jsx("button", { className: `ds-view-btn${view === 'test_drive' || view === 'role_view' ? ' ds-view-active' : ''}`, onClick: () => {
+    return (_jsxs("div", { "data-cactai-shell": true, "data-theme": resolvedTheme, "data-color-scheme": resolvedTheme, children: [_jsx(SvgDefs, {}), _jsxs("header", { className: "ds-topbar", children: [_jsxs("div", { className: "ds-brand", children: [_jsx(CactusMark, { size: 22, className: "ds-brand-mark" }), "Cactai"] }), _jsx("div", { className: "ds-project-meta", children: _jsx("span", { className: "ds-project-name", children: projectName }) }), _jsx("div", { className: "ds-view-switcher", children: _jsxs("div", { className: "ds-view-switcher-group", children: [_jsx("button", { className: `ds-view-btn${view === 'plan' ? ' ds-view-active' : ''}`, onClick: () => changeView('plan'), children: "Plan" }), _jsx("button", { className: `ds-view-btn${view === 'build' ? ' ds-view-active' : ''}`, onClick: () => changeView('build'), children: "Build" }), _jsx("button", { className: `ds-view-btn${view === 'test_drive' ? ' ds-view-active' : ''}`, onClick: () => {
+                                        changeView('test_drive');
                                         // Default to the lowest-rank role on Test Drive entry.
                                         // availableRoles is ordered rank DESC (highest first); pick
                                         // the last entry as the lowest-privilege end-user view.
                                         const lowest = availableRoles[availableRoles.length - 1];
                                         if (lowest) {
-                                            changeView('role_view');
-                                            setRole(lowest.role);
+                                            setPreviewRole(lowest.role);
                                             onRoleSwitch(lowest.role);
                                         }
                                         else {
-                                            changeView('test_drive');
+                                            setPreviewRole(null);
+                                            onRoleSwitch(null);
                                         }
-                                    }, children: "Test Drive" })] }) }), _jsx("div", { className: "ds-topbar-spacer" }), availableRoles.length > 0 && (_jsxs("div", { className: "ds-preview-as", children: [_jsx("span", { className: "ds-preview-as-label", children: "Preview as" }), _jsxs("div", { className: "ds-preview-as-group", children: [_jsx("button", { className: `ds-preview-as-btn${view === 'build' ? ' ds-preview-as-active' : ''}`, onClick: () => changeView('build'), children: "Developer" }), availableRoles.map(r => (_jsx("button", { className: `ds-preview-as-btn${view === 'role_view' && role === r.role ? ' ds-preview-as-active' : ''}`, onClick: () => { changeView('role_view'); setRole(r.role); onRoleSwitch(r.role); }, children: r.label }, r.role)))] })] })), _jsxs("div", { className: "ds-avatar-wrap", children: [_jsx("button", { className: "ds-avatar", onClick: () => setAvatarOpen(o => !o), title: developerName, "aria-label": "Account menu", children: developerInitials }), avatarOpen && (_jsxs("div", { className: "ds-avatar-menu", role: "menu", ref: avatarMenuRef, children: [_jsx("div", { className: "ds-avatar-menu-section", children: developerName }), _jsx("a", { href: `${dashboardUrl}/settings`, target: "_blank", rel: "noopener noreferrer", className: "ds-avatar-menu-item", onClick: () => setAvatarOpen(false), children: "Account settings \u2197" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "DevShell preferences" }), _jsxs("div", { className: "ds-avatar-theme-row", children: [themeBtn('light', 'Light'), themeBtn('dark', 'Dark'), themeBtn('system', 'System')] }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setPrefsOpen(true); setAvatarOpen(false); }, children: "DevShell Configuration" }), availableRoles.length > 0 && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "Open as role\u2026" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => {
+                                    }, children: "Test Drive" })] }) }), _jsx("div", { className: "ds-topbar-spacer" }), view === 'test_drive' && availableRoles.length > 0 && (_jsxs("div", { className: "ds-preview-as", children: [_jsx("span", { className: "ds-preview-as-label", children: "Preview as" }), _jsxs("div", { className: "ds-preview-as-group", children: [availableRoles.map(r => (_jsx("button", { className: `ds-preview-as-btn${previewRole === r.role ? ' ds-preview-as-active' : ''}`, onClick: () => { setPreviewRole(r.role); onRoleSwitch(r.role); }, children: r.label }, r.role))), hasPublicSignup && (_jsx("button", { className: `ds-preview-as-btn${previewRole === null ? ' ds-preview-as-active' : ''}`, onClick: () => { setPreviewRole(null); onRoleSwitch(null); }, title: "Preview the signup screen as a logged-out visitor", children: "Signup" }))] })] })), _jsxs("div", { className: "ds-avatar-wrap", children: [_jsx("button", { className: "ds-avatar", onClick: () => setAvatarOpen(o => !o), title: developerName, "aria-label": "Account menu", children: developerInitials }), avatarOpen && (_jsxs("div", { className: "ds-avatar-menu", role: "menu", ref: avatarMenuRef, children: [_jsx("div", { className: "ds-avatar-menu-section", children: developerName }), _jsx("a", { href: `${dashboardUrl}/settings`, target: "_blank", rel: "noopener noreferrer", className: "ds-avatar-menu-item", onClick: () => setAvatarOpen(false), children: "Account settings \u2197" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "DevShell preferences" }), _jsxs("div", { className: "ds-avatar-theme-row", children: [themeBtn('light', 'Light'), themeBtn('dark', 'Dark'), themeBtn('system', 'System')] }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setPrefsOpen(true); setAvatarOpen(false); }, children: "DevShell Configuration" }), availableRoles.length > 0 && (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "Open as role\u2026" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => {
                                                     // Focus or open the dev tab.
                                                     window.open('/dev?view=build', 'cactai-dev');
                                                     setAvatarOpen(false);
