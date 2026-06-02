@@ -193,8 +193,16 @@ export interface DevShellProps {
      *  their own. No default — shipping a default would silently point users
      *  at the Cactai-hosted dashboard from a non-Cactai deployment. */
     dashboardUrl: string;
+    /** Rendered ReactNode for the Build tab's post-workflow slot. Hosts pass
+     *  a <PrimitiveTreeRenderer> instance configured with their own tree +
+     *  postEvent handler — keeping mui dependency-free of the primitives
+     *  package while still letting the rich shell render orchestrator-emitted
+     *  surfaces (purpose_capture, purpose_confirm, purpose_clarify,
+     *  stage_step + its 24 specialized renderers, build_approval,
+     *  build_progress). When null/undefined the slot stays empty. */
+    buildSurfaceSlot?: ReactNode;
     children?: ReactNode;
     onSectionChange?: (section: RailSection) => void;
     onViewChange?: (view: DevShellView) => void;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

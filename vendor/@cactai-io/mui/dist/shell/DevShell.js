@@ -119,7 +119,7 @@ function RailBtn({ section, active, onClick }) {
     const tooltip = S_TOOLTIP[section] ?? S_LABEL[section];
     return (_jsx("button", { className: `ds-rail-btn${active ? ' ds-rail-active' : ''}`, onClick: onClick, title: tooltip, "aria-label": tooltip, children: _jsx("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", children: _jsx("path", { d: S_ICON[section] }) }) }));
 }
-export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, children, onSectionChange, onViewChange, }) {
+export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
     // Body lock while the DevShell IDE is mounted. Pre-fix the browser
     // could scroll the entire page past [data-cactai-shell]'s 100vh
@@ -556,12 +556,20 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             // yet) or the developer explicitly cleared the role.
             return (_jsx("div", { style: { ...bindSection('build-view', 'amber'), flex: 1, overflow: 'hidden' }, className: "ds-preview-wrap", children: _jsxs("div", { className: "ds-preview-window", children: [_jsxs("div", { className: "ds-preview-chrome", children: [_jsxs("div", { className: "ds-traffic", children: [_jsx("span", {}), _jsx("span", {}), _jsx("span", {})] }), _jsx("div", { className: "ds-preview-url ds-mono", children: vercelPreviewUrl ? vercelPreviewUrl.replace(/^https?:\/\//, '') : `${projectName}.vercel.app` }), vercelPreviewUrl && _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-open", children: "Open \u2197" })] }), _jsx("div", { className: "ds-preview-content", children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: vercelPreviewUrl ? _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-link", children: "Open preview \u2197" }) : 'Commit to dev to see preview.' }) }) })] }) }));
         }
-        // Build view post-workflow. Intentionally empty for now: forms surfaced
-        // by the agent + generated artifact previews will land here once the
-        // surface_form pipeline ships. The live app preview lives in Test Drive,
-        // never in Build view. The amber accent + build-view section attribute
-        // stay so the gradient + accent vars match the workflow phase variant.
-        return _jsx("div", { style: { ...bindSection('build-view', 'amber'), flex: 1 } });
+        // Build view post-workflow. Renders the buildSurfaceSlot — typically
+        // a <PrimitiveTreeRenderer> the host (SelfDrivenDevShell) composed
+        // with the orchestrator-emitted tree + its postEvent handler. This
+        // covers the six orchestrator-side surfaces (purpose_capture,
+        // purpose_confirm, purpose_clarify, stage_step with its 24
+        // specialized renderers, build_approval, build_progress) without
+        // mui taking a primitives-package dependency.
+        //
+        // When the slot is null/empty (no orchestrator-driven surface
+        // active), the area stays empty — the live app preview lives in
+        // Test Drive, never in Build view. The amber accent + build-view
+        // section attribute stay so the gradient + accent vars match the
+        // workflow phase variant.
+        return (_jsx("div", { style: { ...bindSection('build-view', 'amber'), flex: 1, overflow: 'auto' }, children: buildSurfaceSlot }));
     }
     function renderPanel() {
         // Section accent allocations. v1.1 reduces to four panels and reuses

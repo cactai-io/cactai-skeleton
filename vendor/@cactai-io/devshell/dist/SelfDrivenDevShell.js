@@ -28,14 +28,32 @@
 // instead of platform-side.
 'use client';
 import { jsxs as _jsxs, jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
-import React, { useEffect, useState } from 'react';
-import { CactaiClient } from '@cactai-io/client';
+import React, { useEffect, useState, useCallback } from 'react';
+import { CactaiClient, ProviderCapabilityError } from '@cactai-io/client';
+import { PrimitiveTreeRenderer } from '@cactai-io/primitives';
 import { SAMTheme } from '@cactai-io/themes';
 import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, OnboardingModal, UpdateAvailableModal, WorkflowCompletionModal, } from '@cactai-io/mui';
+import { ProviderKeyModal } from './ProviderKeyModal.js';
 export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, userRole, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
     const [shell, setShell] = useState(null);
     const [sessionId, setSessionId] = useState(null);
     const [error, setError] = useState(null);
+    // The CactaiClient instance + the platform-emitted primitive tree.
+    // initial_tree from openSession seeds this; postEvent responses
+    // replace it as the orchestrator advances build_phase / current_step
+    // / build_approval / etc. PrimitiveTreeRenderer (mounted inside the
+    // Build tab's post-workflow slot — see DevShell.tsx) renders this
+    // through the existing skill component registry, restoring access to
+    // PurposeCapture, PurposeConfirm, PurposeClarify, StageStep (with its
+    // 24 specialized step renderers), BuildApproval, and BuildProgress.
+    const [client, setClient] = useState(null);
+    const [primitiveTree, setPrimitiveTree] = useState(null);
+    // Mid-turn provider-capability prompt. Set when postEvent throws a
+    // ProviderCapabilityError (the platform discovered mid-turn that a
+    // required provider key isn't configured for this project). Renders
+    // ProviderKeyModal over the current tree; the developer pastes a key
+    // and the original event retries without losing state.
+    const [capPrompt, setCapPrompt] = useState(null);
     // Phase 2 — chat wiring. MUIShell's store is the source of truth for
     // agent responses + streaming state. We subscribe in a second effect
     // (after shell is set) and re-derive messages + streamingContent on
@@ -131,11 +149,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         let cancelled = false;
         (async () => {
             try {
-                const client = new CactaiClient({
+                const c = new CactaiClient({
                     base_url: cactaiBase,
                     project_id: projectId,
                 });
-                const session = await client.openSession({
+                const session = await c.openSession({
                     shell: 'dev',
                     user_id: userId,
                     user_email: userEmail,
@@ -174,6 +192,14 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     return;
                 setSessionId(sid);
                 setShell(mui);
+                setClient(c);
+                // Seed the platform-emitted primitive tree with whatever the
+                // DevShell Orchestrator produced for this project's current
+                // build_phase. On first open this is the purpose_capture
+                // welcome surface; on resume it's whatever phase/step the
+                // project's last session left off at.
+                if (session.initial_tree)
+                    setPrimitiveTree(session.initial_tree);
             }
             catch (err) {
                 if (cancelled)
@@ -183,6 +209,37 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, [cactaiBase, projectId, userId, userEmail]);
+    // postEvent — primary handler for events posted by primitive
+    // components (purpose_capture submit, stage_step select, etc.). Posts
+    // through to the DevShell Orchestrator via /v1/shell/event using the
+    // registered target_id from the event-targets registry (populated when
+    // openSession returned the initial tree). The response carries the
+    // next primitive tree which replaces the current one. Mid-turn
+    // capability errors (missing provider key) get caught and surface the
+    // ProviderKeyModal — the developer pastes a key, the modal saves it,
+    // the original event retries without losing the orchestrator state.
+    const postEvent = useCallback(async (target_id, payload) => {
+        if (!client || !sessionId)
+            return;
+        const send = async () => {
+            const next = await client.postEvent({ session_id: sessionId, target_id, payload });
+            if (next.tree)
+                setPrimitiveTree(next.tree);
+        };
+        try {
+            await send();
+        }
+        catch (err) {
+            if (err instanceof ProviderCapabilityError) {
+                setCapPrompt({
+                    detail: err.detail,
+                    retry: async () => { setCapPrompt(null); await send(); },
+                });
+                return;
+            }
+            setError(err instanceof Error ? err.message : 'Event delivery failed');
+        }
+    }, [client, sessionId]);
     // Reconcile the local SkillRegistry against persisted appshell
     // capability_config once both are loaded. Without this step, the
     // BuildPanel's "active" badge starts blank on every page refresh
@@ -617,63 +674,15 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             return { ok: false, error: err.message };
         }
     };
-    // Welcome chat message seeding. The welcome copy is server-authored
-    // (cactai-platform/apps/api/src/devshell/purpose-capture/index.ts) and
-    // fetched at runtime via /api/devshell/welcome so platform copy updates
-    // propagate without requiring a customer-app rebuild. The server
-    // returns should_show=false once the developer's project has
-    // progressed past the 'purpose_capture' build phase, so the welcome
-    // naturally stops appearing after the first purpose statement is
-    // submitted — no client-side state needs to track that.
-    //
-    // The ref ensures we only call appendMessage once per session even
-    // when React re-runs the effect (StrictMode, dep changes, etc.) —
-    // duplicate seeds would render the welcome twice in the chat feed.
-    const welcomeSeededRef = React.useRef(false);
-    useEffect(() => {
-        if (welcomeSeededRef.current)
-            return;
-        if (!shell || !sessionId)
-            return;
-        const personalityName = (() => {
-            const override = typeof window !== 'undefined'
-                ? window.localStorage.getItem('cactai_devshell_personality')
-                : null;
-            const activeId = override ?? personality?.active_id ?? 'ember';
-            const found = personality?.available.find(p => p.id === activeId);
-            return found?.display_name
-                ?? activeId.charAt(0).toUpperCase() + activeId.slice(1);
-        })();
-        let cancelled = false;
-        (async () => {
-            try {
-                const res = await fetch(`/api/devshell/welcome?personality_name=${encodeURIComponent(personalityName)}`);
-                if (!res.ok || cancelled)
-                    return;
-                const data = (await res.json());
-                if (cancelled || !data.should_show || !data.header)
-                    return;
-                const parts = [
-                    data.header,
-                    data.prompt,
-                    data.example ? `Here's an example to give you a feel for the level of detail that helps:\n\n"${data.example}"` : null,
-                ].filter(Boolean);
-                welcomeSeededRef.current = true;
-                shell.getStore().appendMessage({
-                    request_id: `welcome-${sessionId}`,
-                    session_id: sessionId,
-                    status: 'complete',
-                    output: { text: parts.join('\n\n') },
-                    completed_at: new Date().toISOString(),
-                });
-            }
-            catch {
-                // Non-fatal — welcome stays absent if the proxy or platform
-                // endpoint is unreachable.
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [shell, sessionId, personality]);
+    // (Welcome chat-message seeding was here as a stopgap while
+    // PrimitiveTreeRenderer wasn't wired. Now that openSession's
+    // initial_tree flows into <PrimitiveTreeRenderer> inside the Build
+    // tab, the original PurposeCaptureComponent renders the welcome
+    // surface natively — no client-side message injection needed. The
+    // /api/devshell/welcome endpoint stays available for any future
+    // surface that wants the raw content but is no longer the rendering
+    // path. Same outcome from the developer's perspective: see the
+    // welcome on first open, see the rest of the workflow after submit.)
     if (error) {
         return (_jsxs("div", { style: {
                 height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -737,7 +746,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
                     // Phase 3b — POST /api/git/commit. The route reads file
                     // content from pending_files server-side (per the user's
                     // RLS-scoped rows), so we don't need to ferry blob bytes
@@ -1250,7 +1259,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             }
                         },
                     }
-                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, mode: "modal", personalityName: agentDisplayName, workflowComplete: false }), _jsx(OnboardingModal, { open: guideDockedOpen, onClose: () => setGuideDockedOpen(false), mode: "docked", personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate })] }));
+                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, mode: "modal", personalityName: agentDisplayName, workflowComplete: false }), _jsx(OnboardingModal, { open: guideDockedOpen, onClose: () => setGuideDockedOpen(false), mode: "docked", personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate }), capPrompt && (_jsx(ProviderKeyModal, { detail: capPrompt.detail, onSaved: capPrompt.retry, onDismiss: () => setCapPrompt(null), endpoints: { cactaiBase, projectId } }))] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
 // Renders only when at least one fetch source is in error. Lives at
