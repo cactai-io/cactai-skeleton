@@ -20,7 +20,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   AppConfigurationPanel drops theme (Platform owns it via the shared
 //   cactai-theme localStorage key) and adds a single outbound link to the
 //   Platform dashboard for developer-scoped settings.
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, updateStatus, onOpenUpdate, }) {
     // Header button only renders when there are local edits to surface.
     // In the `dev · synced` state nothing needs surfacing here — the file
@@ -276,31 +276,74 @@ function AgentsTab({ onOpenAuthoring, agentConfig, onAgentToggle }) {
                     return (_jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'flex-start', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: a.name }), _jsx("span", { className: `ds-badge ${a.origin === 'provider' ? 'ds-badge-marketplace' : 'ds-badge-sdk'}`, children: a.origin === 'provider' ? a.provider : 'built-in' }), on && _jsx("span", { className: "ds-badge ds-badge-active", children: "active" })] }), _jsx("div", { style: { fontSize: 11, color: 'var(--ds-text-3)', lineHeight: 1.45 }, children: a.description })] }), _jsxs("label", { className: "ds-toggle", title: on ? 'Disable' : 'Enable', children: [_jsx("input", { type: "checkbox", checked: on, onChange: () => toggle(a.id) }), _jsx("span", { className: "ds-toggle-track" }), _jsx("span", { className: "ds-toggle-thumb" })] })] }) }, a.id));
                 }) })] }));
 }
-function AIPolicyBudgets() {
+function AIPolicyBudgets({ policy, onPatch }) {
     const grouped = useMemo(() => groupAIProviders(), []);
-    const [globalPolicy, setGlobalPolicy] = useState('byok');
-    const [override, setOverride] = useState({});
-    const [budget, setBudget] = useState({});
-    const [teamKeys, setTeamKeys] = useState(() => new Set());
+    const seedOverride = () => {
+        const o = {};
+        for (const [id, v] of Object.entries(policy?.providers ?? {}))
+            o[id] = v.policy ?? 'inherit';
+        return o;
+    };
+    const seedBudget = () => {
+        const b = {};
+        for (const [id, v] of Object.entries(policy?.providers ?? {}))
+            if (v.budget != null)
+                b[id] = String(v.budget);
+        return b;
+    };
+    const seedTeam = () => new Set(Object.entries(policy?.providers ?? {}).filter(([, v]) => v.team_keys).map(([id]) => id));
+    const [globalPolicy, setGlobalPolicy] = useState(policy?.global_policy ?? 'byok');
+    const [override, setOverride] = useState(seedOverride);
+    const [budget, setBudget] = useState(seedBudget);
+    const [teamKeys, setTeamKeys] = useState(seedTeam);
+    // Re-seed when the persisted policy changes (async arrival / optimistic
+    // update from the host keeps the prop in step with edits).
+    useEffect(() => {
+        setGlobalPolicy(policy?.global_policy ?? 'byok');
+        setOverride(seedOverride());
+        setBudget(seedBudget());
+        setTeamKeys(seedTeam());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [policy]);
     const effective = (id) => {
         const o = override[id] ?? 'inherit';
         return o === 'inherit' ? globalPolicy : o;
     };
     const hybrid = Object.values(override).some(o => o && o !== 'inherit');
-    const setRow = (id, choice) => setOverride(prev => ({ ...prev, [id]: choice }));
-    const toggleTeam = (id) => setTeamKeys(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-    const policyBtn = (val, label) => (_jsx("button", { className: `ds-view-btn${globalPolicy === val ? ' ds-view-active' : ''}`, onClick: () => setGlobalPolicy(val), style: { fontSize: 11 }, children: label }));
+    const changeGlobal = (val) => {
+        setGlobalPolicy(val);
+        void onPatch?.({ global_policy: val });
+    };
+    const setRow = (id, choice) => {
+        setOverride(prev => ({ ...prev, [id]: choice }));
+        void onPatch?.({ provider: { provider_id: id, policy: choice === 'inherit' ? null : choice } });
+    };
+    const toggleTeam = (id) => {
+        const next = !teamKeys.has(id);
+        setTeamKeys(prev => { const n = new Set(prev); if (next)
+            n.add(id);
+        else
+            n.delete(id); return n; });
+        void onPatch?.({ provider: { provider_id: id, team_keys: next } });
+    };
+    const commitBudget = (id, raw) => {
+        const trimmed = raw.trim();
+        const n = trimmed === '' ? null : Number(trimmed);
+        void onPatch?.({ provider: { provider_id: id, budget: n != null && Number.isFinite(n) ? n : null } });
+    };
+    const policyBtn = (val, label) => (_jsx("button", { className: `ds-view-btn${globalPolicy === val ? ' ds-view-active' : ''}`, onClick: () => changeGlobal(val), style: { fontSize: 11 }, children: label }));
     return (_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { className: "ds-panel-section-title", style: { display: 'flex', alignItems: 'center', gap: 8 }, children: ["Keys policy + budgets", hybrid && _jsx("span", { className: "ds-badge ds-badge-marketplace", children: "Hybrid" })] }), _jsxs("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: ["How AI provider keys are sourced for your app. ", _jsx("strong", { children: "Included" }), " = your keys power every user (you pay). ", _jsx("strong", { children: "BYOK" }), " = each end user brings their own key. A per-provider override flips the overall policy to ", _jsx("strong", { children: "Hybrid" }), ". Default is BYOK with nothing enabled \u2014 no surprise billing."] }), _jsxs("div", { style: { display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }, children: [policyBtn('byok', 'BYOK (default)'), policyBtn('included', 'Included')] }), grouped.map(group => (_jsxs("div", { style: { marginBottom: 12 }, children: [_jsx("div", { style: { fontSize: 11, fontWeight: 600, color: 'var(--ds-text-2)', margin: '4px 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }, children: CATEGORY_LABEL[group.category] ?? group.category }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: group.providers.map(p => {
                             const eff = effective(p.id);
                             const choice = override[p.id] ?? 'inherit';
-                            return (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12, flex: 1, minWidth: 120 }, children: p.name }), _jsx("div", { style: { display: 'flex', gap: 3 }, children: ['inherit', 'included', 'byok'].map(c => (_jsx("button", { className: `ds-view-btn${choice === c ? ' ds-view-active' : ''}`, onClick: () => setRow(p.id, c), style: { fontSize: 10, padding: '2px 7px' }, title: c === 'inherit' ? `Follow overall policy (${globalPolicy})` : c === 'included' ? 'Your key, you pay' : 'End user brings their key', children: c === 'inherit' ? 'Default' : c === 'included' ? 'Incl' : 'BYOK' }, c))) })] }), eff === 'included' ? (_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }, children: [_jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "Budget" }), _jsx("input", { type: "number", min: 0, value: budget[p.id] ?? '', onChange: e => setBudget(prev => ({ ...prev, [p.id]: e.target.value })), placeholder: "0", style: {
+                            return (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12, flex: 1, minWidth: 120 }, children: p.name }), _jsx("div", { style: { display: 'flex', gap: 3 }, children: ['inherit', 'included', 'byok'].map(c => (_jsx("button", { className: `ds-view-btn${choice === c ? ' ds-view-active' : ''}`, onClick: () => setRow(p.id, c), style: { fontSize: 10, padding: '2px 7px' }, title: c === 'inherit' ? `Follow overall policy (${globalPolicy})` : c === 'included' ? 'Your key, you pay' : 'End user brings their key', children: c === 'inherit' ? 'Default' : c === 'included' ? 'Incl' : 'BYOK' }, c))) })] }), eff === 'included' ? (_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }, children: [_jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "Budget" }), _jsx("input", { type: "number", min: 0, value: budget[p.id] ?? '', onChange: e => setBudget(prev => ({ ...prev, [p.id]: e.target.value })), onBlur: e => commitBudget(p.id, e.target.value), onKeyDown: e => { if (e.key === 'Enter')
+                                                    e.target.blur(); }, placeholder: "0", style: {
                                                     width: 110, background: 'var(--ds-canvas)', border: '1px solid var(--ds-border)',
                                                     borderRadius: 'var(--ds-r-sm)', padding: '3px 8px', color: 'var(--ds-text)',
                                                     fontSize: 11.5, fontFamily: 'var(--f-mono)', outline: 'none',
                                                 } }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: BUDGET_UNIT[group.category] ?? 'units / mo' })] })) : (_jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, cursor: 'pointer' }, title: "Lets project members test your BYOK app using your DevShell keys.", children: [_jsx("input", { type: "checkbox", checked: teamKeys.has(p.id), onChange: () => toggleTeam(p.id) }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "Use DevShell keys for team testing" })] }))] }, p.id));
                         }) })] }, group.category))), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: "Budgets use each provider's native unit (no lossy dollar conversion). Included providers get developer-set budgets; BYOK passes a budget surface to each end user. Persistence, alert thresholds, the \u201CAdd more\u201D deep links, and the dispatcher routing check wire up with the functional build." })] }));
 }
-export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, }) {
+export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, }) {
     const [tab, setTab] = useState('workflow');
     const [editingKey, setEditingKey] = useState(null);
     const [editingVal, setEditingVal] = useState('');
@@ -355,7 +398,7 @@ export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredent
                                                                 outline: 'none',
                                                             }, onKeyDown: e => { if (e.key === 'Enter')
                                                                 saveEdit(); if (e.key === 'Escape')
-                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(AIPolicyBudgets, {})] })), tab === 'agents' && _jsx(AgentsTab, { onOpenAuthoring: onOpenAuthoring, agentConfig: agentConfig, onAgentToggle: onAgentToggle }), tab === 'roles' && _jsx(RolesTab, { roleCatalog: roleCatalog, onRolePatch: onRolePatch }), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
+                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(AIPolicyBudgets, { policy: aiPolicy, onPatch: onAIPolicyPatch })] })), tab === 'agents' && _jsx(AgentsTab, { onOpenAuthoring: onOpenAuthoring, agentConfig: agentConfig, onAgentToggle: onAgentToggle }), tab === 'roles' && _jsx(RolesTab, { roleCatalog: roleCatalog, onRolePatch: onRolePatch }), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
                 ? (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))
                 : _jsx(ConfigScoped, { title: "Integrations", body: "Connect Model Context Protocol (MCP) servers your app's agent can use. Available once integrations are wired for this project." })), tab === 'design' && (_jsxs(_Fragment, { children: [personality && onPersonalityPatch && (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Personality" }), editingPersonality && onPersonalityLoad && onPersonalitySave && onPersonalityTest
                                 ? (_jsx(PersonalityEditor, { id: editingPersonality, onLoad: onPersonalityLoad, onSave: onPersonalitySave, onTest: onPersonalityTest, onClose: () => setEditingPersonality(null) }))

@@ -755,6 +755,54 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             recordFetchError('agent_save', { status: res.status, code: body.error, detail: body.detail });
         }
     };
+    // AI keys policy + per-provider budgets (customer DB app_ai_keys_policy +
+    // app_provider_policy) for the App Configuration → AI tab.
+    const [aiPolicy, setAiPolicy] = useState(undefined);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/devshell/ai-policy');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (!cancelled && data && typeof data.global_policy === 'string')
+                    setAiPolicy(data);
+            }
+            catch {
+                // Non-fatal — AI tab defaults to BYOK with no overrides.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+    const onAIPolicyPatch = async (patch) => {
+        // Optimistic local merge so the prop stays in step with the edit.
+        setAiPolicy(prev => {
+            const base = prev ?? { global_policy: 'byok', providers: {} };
+            const next = { global_policy: base.global_policy, providers: { ...base.providers } };
+            if (patch.global_policy)
+                next.global_policy = patch.global_policy;
+            if (patch.provider) {
+                const pv = patch.provider;
+                const cur = next.providers[pv.provider_id] ?? { policy: null, budget: null, team_keys: false };
+                next.providers[pv.provider_id] = {
+                    policy: 'policy' in pv ? (pv.policy ?? null) : cur.policy,
+                    budget: 'budget' in pv ? (pv.budget ?? null) : cur.budget,
+                    team_keys: 'team_keys' in pv ? !!pv.team_keys : cur.team_keys,
+                };
+            }
+            return next;
+        });
+        const res = await fetch('/api/devshell/ai-policy', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            recordFetchError('ai_policy_save', { status: res.status, code: body.error, detail: body.detail });
+        }
+    };
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1268,6 +1316,8 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     onRolePatch,
                     agentConfig,
                     onAgentToggle,
+                    aiPolicy,
+                    onAIPolicyPatch,
                     // MCP — devshell-scope integrations for this project (sprint-1
                     // UI: persisted-but-inert). Catalog + explainer from mui;
                     // handlers hit /v1/projects/:id/mcp/devshell through the proxy.

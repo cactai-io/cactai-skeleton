@@ -175,6 +175,28 @@ export interface AppConfigurationPanelProps {
     agentConfig?: Record<string, boolean>;
     /** Persist one agent's enabled state. */
     onAgentToggle?: (agentId: string, enabled: boolean) => Promise<void>;
+    /** AI keys policy + per-provider budgets (customer DB app_ai_keys_policy
+     *  + app_provider_policy) for the AI tab. */
+    aiPolicy?: AIKeysPolicyState;
+    /** Persist the global policy and/or one provider's override. */
+    onAIPolicyPatch?: (patch: AIPolicyPatch) => Promise<void>;
+}
+export interface AIKeysPolicyState {
+    global_policy: 'included' | 'byok';
+    providers: Record<string, {
+        policy: 'included' | 'byok' | null;
+        budget: number | null;
+        team_keys: boolean;
+    }>;
+}
+export interface AIPolicyPatch {
+    global_policy?: 'included' | 'byok';
+    provider?: {
+        provider_id: string;
+        policy?: 'included' | 'byok' | null;
+        budget?: number | null;
+        team_keys?: boolean;
+    };
 }
 export interface RoleCatalogEntry {
     role: string;
@@ -190,4 +212,4 @@ export interface RolePatch {
     rank?: number;
     capabilities?: string[];
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
