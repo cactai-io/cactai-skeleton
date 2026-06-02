@@ -1419,12 +1419,16 @@ body.cactai-shell-body-lock {
   cursor: pointer;
   color: var(--ds-text-2);
   display: flex;
-  align-items: center;
+  /* Pin the expand arrow to the top, vertically centered within the
+     header band (--ds-header-h), so it sits at the same height as the
+     close arrow in the chat header. Centering it down the full strip
+     was inconsistent with the top-anchored close control. */
+  align-items: flex-start;
   justify-content: center;
+  padding-top: calc((var(--ds-header-h) - 16px) / 2);
   position: relative;
   transition: color var(--d-base) var(--ease),
               background var(--d-base) var(--ease);
-  padding: 0;
 }
 [data-cactai-shell] .ds-chat-collapsed-tab:hover,
 [data-cactai-shell] .ds-chat-collapsed-tab:focus-visible {
@@ -1434,8 +1438,10 @@ body.cactai-shell-body-lock {
 }
 [data-cactai-shell] .ds-chat-collapsed-unread {
   position: absolute;
-  top: 8px;
-  right: 4px;
+  /* Sit beside the (now top-anchored) expand arrow rather than floating
+     near the very top of the strip. */
+  top: calc((var(--ds-header-h) - 16px) / 2 + 1px);
+  right: 3px;
   width: 6px;
   height: 6px;
   border-radius: 50%;

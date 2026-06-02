@@ -335,9 +335,18 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     const startTreeDrag = useCallback((e) => { tDragging.current = true; tDragY.current = e.clientY; tDragH.current = treeH; e.preventDefault(); }, [treeH]);
     const changeView = useCallback((v) => { setView(v); onViewChange?.(v); }, [onViewChange]);
     const changeSection = useCallback((s) => {
+        // The rail-section panels (Workspace / Build / Schema / Project
+        // settings) render in the Build view's content slot. Plan and Test
+        // Drive occupy that same slot with their own content, so a rail click
+        // from those views must also switch to Build for the panel to show —
+        // otherwise the button looks dead. The rail stays lit on the selected
+        // section across all three views (see RailBtn active below) so it
+        // behaves as consistent left-nav regardless of the active top tab.
         setSection(s);
         onSectionChange?.(s);
-    }, [onSectionChange]);
+        setView('build');
+        onViewChange?.('build');
+    }, [onSectionChange, onViewChange]);
     // Commit flow handlers. The pending-edits modal calls onCommitDev with
     // the selected paths; we run onCommitToDev, then close on success or
     // surface the error inline on failure.
@@ -654,7 +663,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                                                     window.open(`/app?lens=${encodeURIComponent(r.role)}`, `cactai-lens-${r.role}`);
                                                     onRoleSwitch(r.role);
                                                     setAvatarOpen(false);
-                                                }, children: r.label }, r.role)))] })), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setInspectorOpen(true); setAvatarOpen(false); }, children: "Theme inspector" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item ds-avatar-menu-signout", onClick: () => setAvatarOpen(false), children: "Sign out" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-version", children: CACTAI_IDE_RELEASE_LABEL })] }))] })] }), _jsxs("div", { className: "ds-body", children: [railAutoHide && !railRevealed && (_jsx("div", { className: "ds-rail-hover-zone", "aria-hidden": "true", onMouseEnter: revealRail })), _jsxs("nav", { className: `ds-rail${railAutoHide ? ' is-autohide' : ''}${railAutoHide && railRevealed ? ' is-revealed' : ''}`, "aria-label": "DevShell navigation", onMouseEnter: railAutoHide ? revealRail : undefined, onMouseLeave: railAutoHide ? hideRailWithDelay : undefined, children: [SECTIONS.map(s => (_jsx(RailBtn, { section: s, active: section === s && isBuild, onClick: () => changeSection(s) }, s))), _jsx("div", { className: "ds-rail-spacer" })] }), _jsxs("div", { className: "ds-main", children: [!chatCol && (_jsx(DevChatPanel, { shell: shell, messages: messages, agentState: agentState, character: character, agentDisplayName: agentDisplayName, activeView: view, onCollapse: () => setChatCol(true), inspectorLabel: inspector ? inspector.element_path.split(' > ').pop() : undefined, onClearInspector: clearInspector, streamingContent: streamingContent, style: { width: chatW } })), !chatCol && _jsx("div", { className: "ds-resize-h", onMouseDown: startChatDrag, role: "separator", "aria-orientation": "vertical" }), chatCol && (
+                                                }, children: r.label }, r.role)))] })), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item", onClick: () => { setInspectorOpen(true); setAvatarOpen(false); }, children: "Theme inspector" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("button", { className: "ds-avatar-menu-item ds-avatar-menu-signout", onClick: () => setAvatarOpen(false), children: "Sign out" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-version", children: CACTAI_IDE_RELEASE_LABEL })] }))] })] }), _jsxs("div", { className: "ds-body", children: [railAutoHide && !railRevealed && (_jsx("div", { className: "ds-rail-hover-zone", "aria-hidden": "true", onMouseEnter: revealRail })), _jsxs("nav", { className: `ds-rail${railAutoHide ? ' is-autohide' : ''}${railAutoHide && railRevealed ? ' is-revealed' : ''}`, "aria-label": "DevShell navigation", onMouseEnter: railAutoHide ? revealRail : undefined, onMouseLeave: railAutoHide ? hideRailWithDelay : undefined, children: [SECTIONS.map(s => (_jsx(RailBtn, { section: s, active: section === s, onClick: () => changeSection(s) }, s))), _jsx("div", { className: "ds-rail-spacer" })] }), _jsxs("div", { className: "ds-main", children: [!chatCol && (_jsx(DevChatPanel, { shell: shell, messages: messages, agentState: agentState, character: character, agentDisplayName: agentDisplayName, activeView: view, onCollapse: () => setChatCol(true), inspectorLabel: inspector ? inspector.element_path.split(' > ').pop() : undefined, onClearInspector: clearInspector, streamingContent: streamingContent, style: { width: chatW } })), !chatCol && _jsx("div", { className: "ds-resize-h", onMouseDown: startChatDrag, role: "separator", "aria-orientation": "vertical" }), chatCol && (
                             // Collapsed-chat re-open affordance. Matches the files
                             // panel's collapsed-tab pattern — the chat stays persistently
                             // visible as a thin vertical strip with an arrow that
