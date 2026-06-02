@@ -472,12 +472,14 @@ body.cactai-shell-body-lock {
    is hidden, so the user perceives the chat as growing when the nav
    retracts. .ds-rail-hover-zone (rendered as a sibling) catches mouse
    enters on the screen's left edge to trigger reveal. */
+/* Auto-hidden: collapse to a thin visible stripe (not 0) so the rail still
+   reads as present — mirrors the collapsed chat/files tabs. Hovering the
+   stripe / left edge reveals the full rail. */
 [data-cactai-shell] .ds-rail.is-autohide:not(.is-revealed) {
-  width: 0;
-  flex-basis: 0;
+  width: 6px;
+  flex-basis: 6px;
   padding-left: 0;
   padding-right: 0;
-  border-right-width: 0;
 }
 [data-cactai-shell] .ds-rail.is-autohide.is-revealed {
   width: var(--ds-rail-w);
@@ -606,6 +608,7 @@ body.cactai-shell-body-lock {
   display: grid;
   grid-template-rows: var(--ds-header-h) 1fr auto;
   overflow: hidden;
+  transition: width 200ms var(--ease, ease);
   min-width: 260px;
   max-width: 560px;
 }
