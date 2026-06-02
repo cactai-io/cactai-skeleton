@@ -689,6 +689,40 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         const interval = setInterval(() => { void tick(); }, 5 * 60 * 1000);
         return () => { cancelled = true; clearInterval(interval); };
     }, []);
+    // App role catalog (customer DB tenant_roles_catalog) for the App
+    // Configuration → Roles tab. Read once; edits PUT back + update locally.
+    const [roleCatalog, setRoleCatalog] = useState(undefined);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/devshell/roles');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (!cancelled && Array.isArray(data.roles))
+                    setRoleCatalog(data.roles);
+            }
+            catch {
+                // Non-fatal — Roles tab falls back to the seed-default preview.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+    const onRolePatch = async (patch) => {
+        const res = await fetch('/api/devshell/roles', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch),
+        });
+        if (res.ok) {
+            setRoleCatalog(prev => prev?.map(r => r.role === patch.role ? { ...r, ...patch } : r));
+        }
+        else {
+            const body = await res.json().catch(() => ({}));
+            recordFetchError('role_save', { status: res.status, code: body.error, detail: body.detail });
+        }
+    };
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1198,6 +1232,8 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     workflow: workflowSettings ?? undefined,
                     byok: byok ?? undefined,
                     capabilityConfig: capabilityConfig ?? undefined,
+                    roleCatalog,
+                    onRolePatch,
                     // MCP — devshell-scope integrations for this project (sprint-1
                     // UI: persisted-but-inert). Catalog + explainer from mui;
                     // handlers hit /v1/projects/:id/mcp/devshell through the proxy.

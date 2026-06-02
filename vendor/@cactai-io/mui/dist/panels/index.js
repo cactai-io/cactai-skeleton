@@ -155,15 +155,61 @@ const DEFAULT_TIER_SETS = [
     { id: 'three', label: '3-tier (default)', tiers: ['Free', 'Pro', 'Enterprise'] },
     { id: 'single', label: 'Single tier', tiers: ['Standard'] },
 ];
-function RolesTab() {
+const GRANT_OWN_ROLE_CAP = 'grant_own_role';
+function RolesTab({ roleCatalog, onRolePatch }) {
+    // Live view when the customer-DB catalog is wired; otherwise the seed-
+    // default preview (pre-provision / host hasn't passed the data).
+    if (roleCatalog && roleCatalog.length > 0) {
+        return _jsx(RolesLive, { catalog: roleCatalog, onRolePatch: onRolePatch });
+    }
+    return _jsx(RolesDefaultsPreview, {});
+}
+function RolesLive({ catalog, onRolePatch }) {
+    // Optimistic local copy so edits reflect immediately while the PUT flies.
+    const [roles, setRoles] = useState(() => [...catalog].sort((a, b) => b.rank - a.rank));
+    const [saving, setSaving] = useState(null);
+    const [addingTo, setAddingTo] = useState(null);
+    const [newCap, setNewCap] = useState('');
+    const topRank = Math.max(...roles.map(r => r.rank));
+    const persist = async (role, patch) => {
+        if (!onRolePatch)
+            return;
+        setSaving(role);
+        try {
+            await onRolePatch({ role, ...patch });
+        }
+        finally {
+            setSaving(null);
+        }
+    };
+    const updateCaps = (role, caps) => {
+        setRoles(prev => prev.map(r => r.role === role ? { ...r, capabilities: caps } : r));
+        void persist(role, { capabilities: caps });
+    };
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Roles" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)' }, children: "Your app's live role catalog. Edits save to your database. Role DESIGN lives here \u2014 managing actual users is in the Portal." }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: roles.map(r => {
+                    const isTop = r.rank === topRank;
+                    const canGrant = r.capabilities.includes(GRANT_OWN_ROLE_CAP);
+                    const visibleCaps = r.capabilities.filter(c => c !== GRANT_OWN_ROLE_CAP);
+                    return (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 10 }, children: [_jsx("span", { style: { fontFamily: 'var(--f-mono)', fontSize: 12, color: 'var(--ds-text)', fontWeight: 600, flex: 1 }, children: r.role }), r.is_default && _jsx("span", { className: "ds-badge ds-badge-sdk", children: "default" }), _jsxs("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: ["rank ", r.rank] }), saving === r.role && _jsx("span", { style: { fontSize: 10.5, color: 'var(--ds-text-3)' }, children: "saving\u2026" })] }), _jsx("div", { style: { fontSize: 11, color: 'var(--ds-text-2)', marginTop: 3 }, children: r.label }), _jsxs("div", { style: { display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }, children: [visibleCaps.map(c => (_jsxs("span", { className: "ds-badge ds-badge-sdk", style: { fontFamily: 'var(--f-mono)', display: 'inline-flex', alignItems: 'center', gap: 4 }, children: [c, _jsx("button", { onClick: () => updateCaps(r.role, r.capabilities.filter(x => x !== c)), title: "Remove capability", style: { background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: 11, lineHeight: 1 }, children: "\u00D7" })] }, c))), addingTo === r.role ? (_jsx("input", { value: newCap, onChange: e => setNewCap(e.target.value), autoFocus: true, placeholder: "capability_token", onKeyDown: e => {
+                                            if (e.key === 'Enter' && newCap.trim()) {
+                                                const tok = newCap.trim();
+                                                if (!r.capabilities.includes(tok))
+                                                    updateCaps(r.role, [...r.capabilities, tok]);
+                                                setNewCap('');
+                                                setAddingTo(null);
+                                            }
+                                            if (e.key === 'Escape') {
+                                                setNewCap('');
+                                                setAddingTo(null);
+                                            }
+                                        }, onBlur: () => { setNewCap(''); setAddingTo(null); }, style: { width: 140, background: 'var(--ds-canvas)', border: '1px solid var(--ds-border)', borderRadius: 'var(--ds-r-sm)', padding: '2px 6px', color: 'var(--ds-text)', fontSize: 11, fontFamily: 'var(--f-mono)', outline: 'none' } })) : (_jsx("button", { className: "ds-btn-ghost", onClick: () => setAddingTo(r.role), style: { fontSize: 10.5, padding: '1px 7px' }, children: "+ add" }))] }), isTop && (_jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, cursor: 'pointer' }, title: "Lets the top role grant its own role to other members. Off by default \u2014 a deliberate privilege-escalation guard.", children: [_jsx("input", { type: "checkbox", checked: canGrant, onChange: () => updateCaps(r.role, canGrant ? r.capabilities.filter(x => x !== GRANT_OWN_ROLE_CAP) : [...r.capabilities, GRANT_OWN_ROLE_CAP]) }), _jsxs("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: ["Can grant own role to others ", _jsx("span", { style: { opacity: 0.7 }, children: "(off by default)" })] })] }))] }, r.role));
+                }) })] }));
+}
+function RolesDefaultsPreview() {
     const [pick, setPick] = useState(DEFAULT_ROLE_SETS[0].id);
-    const [canGrant, setCanGrant] = useState(false);
     const set = DEFAULT_ROLE_SETS.find(s => s.id === pick) ?? DEFAULT_ROLE_SETS[0];
     const topRank = Math.max(...set.roles.map(r => r.rank));
-    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Roles" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)' }, children: "Your app's role catalog. Defaults are seeded during the build workflow; this is where you view and adjust them. Role DESIGN lives here \u2014 managing actual users is in the Portal." }), _jsx("div", { style: { display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }, children: DEFAULT_ROLE_SETS.map(s => (_jsx("button", { className: `ds-view-btn${pick === s.id ? ' ds-view-active' : ''}`, onClick: () => setPick(s.id), style: { fontSize: 11 }, children: s.label }, s.id))) }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: set.roles.map(r => {
-                    const isTop = r.rank === topRank;
-                    return (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 10 }, children: [_jsx("span", { style: { fontFamily: 'var(--f-mono)', fontSize: 12, color: 'var(--ds-text)', fontWeight: 600, flex: 1 }, children: r.name }), _jsxs("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: ["rank ", r.rank] }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-2)', flex: 2 }, children: r.note })] }), _jsx("div", { style: { display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }, children: r.caps.map(c => (_jsx("span", { className: "ds-badge ds-badge-sdk", style: { fontFamily: 'var(--f-mono)' }, children: c }, c))) }), isTop && (_jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, cursor: 'pointer' }, title: "Lets the top role grant its own role to other members. Off by default \u2014 a deliberate privilege-escalation guard.", children: [_jsx("input", { type: "checkbox", checked: canGrant, onChange: () => setCanGrant(v => !v) }), _jsxs("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: ["Can grant own role to others ", _jsx("span", { style: { color: 'var(--ds-text-3)', opacity: 0.7 }, children: "(off by default)" })] })] }))] }, r.name));
-                }) }), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 8 }, children: "Reading your project's seeded catalog + editing (rename / rank / capabilities) persists with the functional build." })] }));
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Roles" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)' }, children: "Default role catalog preview. The build workflow seeds one of these into your app; once provisioned, this tab loads and edits your live catalog. Role DESIGN lives here \u2014 managing actual users is in the Portal." }), _jsx("div", { style: { display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }, children: DEFAULT_ROLE_SETS.map(s => (_jsx("button", { className: `ds-view-btn${pick === s.id ? ' ds-view-active' : ''}`, onClick: () => setPick(s.id), style: { fontSize: 11 }, children: s.label }, s.id))) }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: set.roles.map(r => (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 10 }, children: [_jsx("span", { style: { fontFamily: 'var(--f-mono)', fontSize: 12, color: 'var(--ds-text)', fontWeight: 600, flex: 1 }, children: r.name }), _jsxs("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: ["rank ", r.rank] }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-2)', flex: 2 }, children: r.note })] }), _jsx("div", { style: { display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }, children: r.caps.map(c => (_jsx("span", { className: "ds-badge ds-badge-sdk", style: { fontFamily: 'var(--f-mono)' }, children: c }, c))) }), r.rank === topRank && (_jsx("div", { style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 8 }, children: "Top role \u2014 gains a \u201Ccan grant own role\u201D toggle once your live catalog loads." }))] }, r.name))) })] }));
 }
 function TiersTab() {
     const [pick, setPick] = useState(DEFAULT_TIER_SETS[0].id);
@@ -254,7 +300,7 @@ function AIPolicyBudgets() {
                                                 } }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: BUDGET_UNIT[group.category] ?? 'units / mo' })] })) : (_jsxs("label", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, cursor: 'pointer' }, title: "Lets project members test your BYOK app using your DevShell keys.", children: [_jsx("input", { type: "checkbox", checked: teamKeys.has(p.id), onChange: () => toggleTeam(p.id) }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "Use DevShell keys for team testing" })] }))] }, p.id));
                         }) })] }, group.category))), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: "Budgets use each provider's native unit (no lossy dollar conversion). Included providers get developer-set budgets; BYOK passes a budget surface to each end user. Persistence, alert thresholds, the \u201CAdd more\u201D deep links, and the dispatcher routing check wire up with the functional build." })] }));
 }
-export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, }) {
+export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, }) {
     const [tab, setTab] = useState('workflow');
     const [editingKey, setEditingKey] = useState(null);
     const [editingVal, setEditingVal] = useState('');
@@ -309,7 +355,7 @@ export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredent
                                                                 outline: 'none',
                                                             }, onKeyDown: e => { if (e.key === 'Enter')
                                                                 saveEdit(); if (e.key === 'Escape')
-                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(AIPolicyBudgets, {})] })), tab === 'agents' && _jsx(AgentsTab, { onOpenAuthoring: onOpenAuthoring }), tab === 'roles' && _jsx(RolesTab, {}), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
+                                                                setEditingKey(null); } }), _jsx("button", { className: "ds-btn-primary", onClick: saveEdit, style: { fontSize: 11, padding: '4px 10px' }, children: "Save" }), _jsx("button", { className: "ds-btn-ghost", onClick: () => setEditingKey(null), style: { fontSize: 11, padding: '4px 8px' }, children: "\u2715" })] })) : (_jsx("div", { style: { fontSize: 11.5, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: credentials[key] ? '••••••••••••' : 'Not set' }))] }), editingKey !== key && (_jsx("button", { className: "ds-btn-ghost", onClick: () => startEdit(key), style: { fontSize: 11, padding: '4px 10px', flexShrink: 0 }, children: credentials[key] ? 'Update' : 'Set' }))] }) }, key)))] }), byok && onBYOKPatch && _jsx(BYOKSection, { response: byok, onPatch: onBYOKPatch }), _jsx(AIPolicyBudgets, {})] })), tab === 'agents' && _jsx(AgentsTab, { onOpenAuthoring: onOpenAuthoring }), tab === 'roles' && _jsx(RolesTab, { roleCatalog: roleCatalog, onRolePatch: onRolePatch }), tab === 'tiers' && _jsx(TiersTab, {}), tab === 'integrations' && (mcpAvailable
                 ? (_jsx("div", { className: "ds-panel-section", children: _jsx(MCPManager, { title: "Integrations (MCP)", explainer: mcpExplainer ?? [], catalog: mcpCatalog ?? [], servers: mcpServers ?? [], loading: mcpLoading, onAdd: onMCPAdd, onRemove: onMCPRemove, onToggle: onMCPToggle }) }))
                 : _jsx(ConfigScoped, { title: "Integrations", body: "Connect Model Context Protocol (MCP) servers your app's agent can use. Available once integrations are wired for this project." })), tab === 'design' && (_jsxs(_Fragment, { children: [personality && onPersonalityPatch && (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Personality" }), editingPersonality && onPersonalityLoad && onPersonalitySave && onPersonalityTest
                                 ? (_jsx(PersonalityEditor, { id: editingPersonality, onLoad: onPersonalityLoad, onSave: onPersonalitySave, onTest: onPersonalityTest, onClose: () => setEditingPersonality(null) }))

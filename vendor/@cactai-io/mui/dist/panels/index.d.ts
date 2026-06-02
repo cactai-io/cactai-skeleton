@@ -164,5 +164,25 @@ export interface AppConfigurationPanelProps {
      *  the authoring interface inline — authoring is anchored in Studio, not
      *  here. Supplied by the DevShell shell. */
     onOpenAuthoring?: (type: AuthoringType) => void;
+    /** Live role catalog (customer DB tenant_roles_catalog) for the Roles tab.
+     *  When present the tab views + adjusts the real seeded catalog; when
+     *  absent it shows the seed-default preview. */
+    roleCatalog?: RoleCatalogEntry[];
+    /** Persist a single role's editable fields. */
+    onRolePatch?: (patch: RolePatch) => Promise<void>;
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export interface RoleCatalogEntry {
+    role: string;
+    label: string;
+    rank: number;
+    description: string;
+    is_default: boolean;
+    capabilities: string[];
+}
+export interface RolePatch {
+    role: string;
+    label?: string;
+    rank?: number;
+    capabilities?: string[];
+}
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
