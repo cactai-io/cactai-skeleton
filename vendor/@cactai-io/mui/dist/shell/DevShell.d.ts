@@ -218,8 +218,19 @@ export interface DevShellProps {
      *  stage_step + its 24 specialized renderers, build_approval,
      *  build_progress). When null/undefined the slot stays empty. */
     buildSurfaceSlot?: ReactNode;
+    /** ⓘ-guide overlay for the chat-slot region (workspace guide drops down,
+     *  configuration / database slide in from the right). The host renders a
+     *  <GuidePanel> here; DevShell positions it over the chat column so the
+     *  slide animation is scoped to that container. Empty when no guide is open. */
+    chatGuideSlot?: ReactNode;
+    /** ⓘ-guide overlay for the files-panel region (file directory rises up).
+     *  Same contract as chatGuideSlot, scoped to the bottom Files panel. */
+    filesGuideSlot?: ReactNode;
+    /** Opens the file-directory guide. Wires the ⓘ button in the Files panel
+     *  header. Omit to hide the button. */
+    onOpenFileGuide?: () => void;
     children?: ReactNode;
     onSectionChange?: (section: RailSection) => void;
     onViewChange?: (view: DevShellView) => void;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

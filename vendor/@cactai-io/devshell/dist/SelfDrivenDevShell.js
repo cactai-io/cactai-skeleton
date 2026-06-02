@@ -32,7 +32,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { CactaiClient, ProviderCapabilityError } from '@cactai-io/client';
 import { PrimitiveTreeRenderer } from '@cactai-io/primitives';
 import { SAMTheme } from '@cactai-io/themes';
-import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, OnboardingModal, UpdateAvailableModal, WorkflowCompletionModal, } from '@cactai-io/mui';
+import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, OnboardingModal, GuidePanel, UpdateAvailableModal, WorkflowCompletionModal, } from '@cactai-io/mui';
 import { ProviderKeyModal } from './ProviderKeyModal.js';
 export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, userRole, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
     const [shell, setShell] = useState(null);
@@ -595,13 +595,46 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         window.addEventListener('cactai:onboarding:open', handler);
         return () => window.removeEventListener('cactai:onboarding:open', handler);
     }, []);
-    // Docked-guide state. The ⓘ button in the workspace panel header
-    // opens the OnboardingModal in `mode='docked'` — a non-blocking
-    // panel-sized overlay that slides into the chat-panel slot. The
-    // welcome modal (mode='modal') is auto-only on first mount; the
-    // docked variant is the manual entry point and shows cumulative
-    // content (welcome + workflow-completion when applicable).
-    const [guideDockedOpen, setGuideDockedOpen] = useState(false);
+    // ⓘ-guide controller. One guide is open at a time; its `origin` (carried in
+    // the fetched content) decides which container it animates into — chat slot
+    // for top/right surfaces, files panel for bottom. Content comes from the
+    // platform's per-surface guide endpoint so copy updates ship with a platform
+    // deploy and reach every customer app on the next request — no rebuild, same
+    // model as the welcome seed. The first-run welcome (OnboardingModal
+    // mode='modal') stays separate; this replaces the old docked OnboardingModal.
+    const [guide, setGuide] = useState(null);
+    const openGuide = useCallback((surface) => {
+        setGuide({ surface, content: null, loading: true });
+        void (async () => {
+            // Resolve the personality display name at call time from `personality`
+            // state (declared above the early returns). agentDisplayName itself is
+            // computed below the early returns, so it can't be captured by a hook up
+            // here without a TDZ — this mirrors that same derivation.
+            const overrideId = typeof window !== 'undefined'
+                ? (window.localStorage.getItem('cactai_devshell_personality') ?? undefined)
+                : undefined;
+            const id = overrideId ?? personality?.active_id;
+            const ap = id ? personality?.available.find(p => p.id === id) : undefined;
+            const name = ap?.display_name ?? (id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Ember');
+            try {
+                const base = cactaiBase.replace(/\/$/, '');
+                const wf = workflowStep === 'complete' ? '&workflow_complete=1' : '';
+                const res = await fetch(`${base}/v1/projects/${projectId}/devshell/guide?surface=${encodeURIComponent(surface)}&personality_name=${encodeURIComponent(name)}${wf}`, { cache: 'no-store' });
+                if (!res.ok) {
+                    setGuide(null);
+                    return;
+                }
+                const content = await res.json();
+                // Ignore a stale resolve if the developer reopened a different surface
+                // while this fetch was in flight.
+                setGuide(g => (g && g.surface === surface ? { surface, content, loading: false } : g));
+            }
+            catch {
+                setGuide(null);
+            }
+        })();
+    }, [cactaiBase, projectId, personality, workflowStep]);
+    const closeGuide = useCallback(() => setGuide(null), []);
     // Workflow-completion modal state. Fires once when workflow_step
     // transitions to 'complete'. localStorage gates a re-trigger so a
     // refresh after dismissal doesn't bring it back.
@@ -800,13 +833,19 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         }
     };
     // decisions / backlog / sprints / workflowStep are stateful (set by
-    // the polling effect above). Modal state (onboardingOpen,
-    // completionOpen, guideDockedOpen) is declared above the early
-    // returns to keep React's hook order stable across renders.
+    // the polling effect above). Modal + guide state (onboardingOpen,
+    // completionOpen, guide) is declared above the early returns to keep
+    // React's hook order stable across renders.
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, projectNotes: projectNotes, onSaveProjectNotes: saveProjectNotes, decisionNotes: decisionNotes, onAddDecisionNote: addDecisionNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, projectNotes: projectNotes, onSaveProjectNotes: saveProjectNotes, decisionNotes: decisionNotes, onAddDecisionNote: addDecisionNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), 
+                // ⓘ-guide overlays. The open guide routes to the chat slot (origin
+                // top/right) or the files panel (origin bottom). The origin is known from
+                // the surface before content loads (file_directory ⇒ bottom; everything
+                // else ⇒ top), so the loading shimmer animates into the correct container
+                // and the slide direction is right before content arrives.
+                chatGuideSlot: guide && (guide.content?.origin ?? (guide.surface === 'file_directory' ? 'bottom' : 'top')) !== 'bottom' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: guide.content?.origin ?? 'top', title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, filesGuideSlot: guide && (guide.content?.origin ?? (guide.surface === 'file_directory' ? 'bottom' : 'top')) === 'bottom' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: "bottom", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
                     // Phase 3b — POST /api/git/commit. The route reads file
                     // content from pending_files server-side (per the user's
                     // RLS-scoped rows), so we don't need to ferry blob bytes
@@ -1013,15 +1052,14 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         if (url)
                             window.open(url, '_blank', 'noopener,noreferrer');
                     },
-                    // ⓘ guide button → opens the OnboardingModal in DOCKED mode (a
-                    // non-blocking panel-sized overlay in the chat slot, not the
-                    // centered modal). Auto-modal triggers are reserved for the
-                    // system: once at wizard completion (welcome content), once at
-                    // workflow completion (the WorkflowCompletionModal). Every
-                    // manual ⓘ click is docked, with cumulative content (welcome
-                    // always; workflow-completion section when workflow_step is
-                    // 'complete').
-                    onOpenGuide: () => setGuideDockedOpen(true),
+                    // ⓘ guide button → opens the workspace guide (origin top — drops down
+                    // into the chat slot, non-blocking). Content is fetched per-surface
+                    // from the platform so copy is updatable without a customer rebuild.
+                    // Auto-modal triggers stay reserved for the system: once at wizard
+                    // completion (welcome content), once at workflow completion (the
+                    // WorkflowCompletionModal). The workspace guide already folds in the
+                    // workflow-completion section when workflow_step is 'complete'.
+                    onOpenGuide: () => openGuide('workspace'),
                     // Platform update affordance. The pill in the workspace panel
                     // header only renders when has_update is true.
                     updateStatus: updateStatus,
@@ -1319,7 +1357,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             }
                         },
                     }
-                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, mode: "modal", personalityName: agentDisplayName, workflowComplete: false }), _jsx(OnboardingModal, { open: guideDockedOpen, onClose: () => setGuideDockedOpen(false), mode: "docked", personalityName: agentDisplayName, workflowComplete: workflowStep === 'complete' }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate }), capPrompt && (_jsx(ProviderKeyModal, { detail: capPrompt.detail, onSaved: capPrompt.retry, onDismiss: () => setCapPrompt(null), endpoints: { cactaiBase, projectId } }))] }));
+                    : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate }), capPrompt && (_jsx(ProviderKeyModal, { detail: capPrompt.detail, onSaved: capPrompt.retry, onDismiss: () => setCapPrompt(null), endpoints: { cactaiBase, projectId } }))] }));
 }
 // ── Diagnostics badge ────────────────────────────────────────────────
 // Renders only when at least one fetch source is in error. Lives at

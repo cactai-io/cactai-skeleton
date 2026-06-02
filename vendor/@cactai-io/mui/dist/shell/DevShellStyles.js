@@ -592,6 +592,7 @@ body.cactai-shell-body-lock {
 
 /* ── MAIN AREA ───────────────────────────────────────────────────────── */
 [data-cactai-shell] .ds-main {
+  position: relative; /* anchors the chat-slot guide overlay (ds-chat-guide-host) */
   flex: 1;
   display: flex;
   overflow: hidden;
@@ -1359,6 +1360,7 @@ body.cactai-shell-body-lock {
    when collapsed it shrinks to a thin "Files ⌃" tab. Shares the resize
    handle (.ds-resize-v) with the previous Files-as-rail-section layout. */
 [data-cactai-shell] .ds-files-panel {
+  position: relative; /* anchors the file-directory guide overlay (inset:0) */
   display: flex;
   flex-direction: column;
   background: var(--ds-surface);

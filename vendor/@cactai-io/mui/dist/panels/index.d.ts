@@ -57,8 +57,8 @@ export interface WorkspacePanelProps {
     /** Open the pending-edits modal. Called when the header button is shown. */
     onViewPendingEdits: () => void;
     /** Click handler for the ⓘ guide button next to the project name. When
-     *  provided, renders the button; the host wires it to the OnboardingModal
-     *  re-entry point. */
+     *  provided, renders the button; the host wires it to the workspace
+     *  GuidePanel (origin top — drops into the chat slot). */
     onOpenGuide?: () => void;
     /** Platform update status. When has_update is true the workspace panel
      *  renders a small "Updates available" pill that opens the apply modal

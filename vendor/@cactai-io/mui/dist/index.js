@@ -124,6 +124,7 @@ export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';
 export { PersonalityEditor } from './panels/PersonalityEditor.js';
 export { OnboardingModal } from './panels/OnboardingModal.js';
+export { GuidePanel } from './panels/GuidePanel.js';
 export { WorkflowCompletionModal } from './panels/WorkflowCompletionModal.js';
 export { UpdateAvailableModal } from './panels/UpdateAvailableModal.js';
 export { MCPManager } from './panels/MCPManager.js';
