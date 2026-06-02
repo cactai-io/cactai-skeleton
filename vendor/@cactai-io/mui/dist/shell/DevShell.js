@@ -79,6 +79,23 @@ const wS = (pid, k, v) => { try {
     localStorage.setItem(SK(pid, k), String(v));
 }
 catch { } };
+// Startup view preference (set in DevShell preferences → Layout → Startup view).
+// Global key holds the choice; 'last' resumes the per-project last-active view.
+const LANDING_KEY = 'cactai_devshell_landing';
+const isView = (v) => v === 'plan' || v === 'build' || v === 'test_drive';
+function resolveInitialView(pid) {
+    try {
+        const landing = localStorage.getItem(LANDING_KEY) ?? 'build';
+        if (landing === 'last') {
+            const last = localStorage.getItem(SK(pid, 'last_view'));
+            return isView(last) ? last : 'build';
+        }
+        return isView(landing) ? landing : 'build';
+    }
+    catch {
+        return 'build';
+    }
+}
 const SECTIONS = ['workspace', 'build', 'schema', 'project-settings'];
 const S_LABEL = {
     workspace: 'Workspace',
@@ -244,7 +261,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             railHideTimerRef.current = null;
         }, 700);
     }, []);
-    const [view, setView] = useState('build');
+    const [view, setView] = useState(() => resolveInitialView(projectId));
     // previewRole governs the Test Drive preview lens. null = signup lens
     // (logged-out / signup-page render), string = render-as-this-role.
     // Defaults to the lowest-rank role when entering Test Drive — the
@@ -279,6 +296,9 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     useEffect(() => { wS(projectId, 'tree_h', treeH); }, [projectId, treeH]);
     useEffect(() => { wS(projectId, 'chat_col', chatCol); }, [projectId, chatCol]);
     useEffect(() => { wS(projectId, 'tree_col', treeCol); }, [projectId, treeCol]);
+    // Remember the last-active view so the "Where I left off" startup pref can
+    // resume it on the next DevShell mount.
+    useEffect(() => { wS(projectId, 'last_view', view); }, [projectId, view]);
     useEffect(() => {
         if (chatCol && messages.length > prevLen.current)
             setHasUnread(true);
