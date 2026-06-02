@@ -229,8 +229,14 @@ export interface DevShellProps {
     /** Opens the file-directory guide. Wires the ⓘ button in the Files panel
      *  header. Omit to hide the button. */
     onOpenFileGuide?: () => void;
+    /** Toggles the pending-edits guide (origin modal-split). Wires the ⓘ in the
+     *  PendingEditsModal header. Omit to hide it. */
+    onOpenPendingGuide?: () => void;
+    /** The rendered guide panel overlaid on the pending-edits modal body when
+     *  the pending-edits guide is open. */
+    pendingGuideSlot?: ReactNode;
     children?: ReactNode;
     onSectionChange?: (section: RailSection) => void;
     onViewChange?: (view: DevShellView) => void;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

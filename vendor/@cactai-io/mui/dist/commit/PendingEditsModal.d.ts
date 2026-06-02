@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import type { PendingFileSummary } from './types.js';
 export interface PendingFileRow extends PendingFileSummary {
     original_content?: string | null;
@@ -23,5 +24,12 @@ export interface PendingEditsModalProps {
     onOpenHistory: () => void;
     /** Close the modal. */
     onCancel: () => void;
+    /** Toggle the ⓘ guide (origin modal-split). When provided, renders the ⓘ
+     *  button in the header. The host owns the open/close state and passes the
+     *  rendered panel via guideSlot. */
+    onOpenGuide?: () => void;
+    /** The guide panel to overlay the modal body when open. Rendered by the host
+     *  (a <GuidePanel origin="modal-split">) so content stays server-fetched. */
+    guideSlot?: ReactNode;
 }
-export declare function PendingEditsModal({ files, initialSelection, committing, error, onCommitToDev, onDiscardOne, onDiscardAll, onOpenHistory, onCancel, }: PendingEditsModalProps): import("react/jsx-runtime").JSX.Element;
+export declare function PendingEditsModal({ files, initialSelection, committing, error, onCommitToDev, onDiscardOne, onDiscardAll, onOpenHistory, onCancel, onOpenGuide, guideSlot, }: PendingEditsModalProps): import("react/jsx-runtime").JSX.Element;

@@ -791,6 +791,14 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const activePersonality = activeId ? personality?.available.find(p => p.id === activeId) : undefined;
     const agentDisplayName = activePersonality?.display_name
         ?? (activeId ? activeId.charAt(0).toUpperCase() + activeId.slice(1) : 'Ember');
+    // Effective origin for the open guide — from loaded content, else inferred
+    // from the surface so the panel routes to the right host while loading.
+    const guideEffectiveOrigin = guide
+        ? (guide.content?.origin
+            ?? (guide.surface === 'file_directory' ? 'bottom'
+                : guide.surface === 'pending_edits' ? 'modal-split'
+                    : 'top'))
+        : null;
     const character = activeId ? BUILTIN_CHARACTERS[activeId] : undefined;
     // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
     const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
@@ -840,12 +848,12 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
     return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, projectNotes: projectNotes, onSaveProjectNotes: saveProjectNotes, decisionNotes: decisionNotes, onAddDecisionNote: addDecisionNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), 
-                // ⓘ-guide overlays. The open guide routes to the chat slot (origin
-                // top/right) or the files panel (origin bottom). The origin is known from
-                // the surface before content loads (file_directory ⇒ bottom; everything
-                // else ⇒ top), so the loading shimmer animates into the correct container
-                // and the slide direction is right before content arrives.
-                chatGuideSlot: guide && (guide.content?.origin ?? (guide.surface === 'file_directory' ? 'bottom' : 'top')) !== 'bottom' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: guide.content?.origin ?? 'top', title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, filesGuideSlot: guide && (guide.content?.origin ?? (guide.surface === 'file_directory' ? 'bottom' : 'top')) === 'bottom' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: "bottom", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+                // ⓘ-guide overlays. The open guide routes to its container by origin:
+                // top/right ⇒ chat slot, bottom ⇒ files panel, modal-split ⇒ pending
+                // modal. The origin is known from the surface before content loads
+                // (file_directory ⇒ bottom; pending_edits ⇒ modal-split; else ⇒ top), so
+                // the loading shimmer animates into the right container.
+                chatGuideSlot: guide && (guideEffectiveOrigin === 'top' || guideEffectiveOrigin === 'right') ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: guide.content?.origin ?? 'top', title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, filesGuideSlot: guide && guideEffectiveOrigin === 'bottom' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: "bottom", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onOpenPendingGuide: () => (guide?.surface === 'pending_edits' ? closeGuide() : openGuide('pending_edits')), pendingGuideSlot: guide && guideEffectiveOrigin === 'modal-split' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: "modal-split", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
                     // Phase 3b — POST /api/git/commit. The route reads file
                     // content from pending_files server-side (per the user's
                     // RLS-scoped rows), so we don't need to ferry blob bytes
