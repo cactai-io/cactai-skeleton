@@ -119,12 +119,15 @@ export { PendingFilesManager, setActivePendingFilesManager, getActivePendingFile
 // v1.2 adds CapabilityListPanel (tools/skills), PersonalityPickerPanel +
 // PersonalityEditor (Thread 07), WorkflowSection + BYOKSection
 // (Thread 08), and DevShellPreferencesModal (Thread 06 Surface 2).
-export { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel, } from './panels/index.js';
+export { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel,
+// (AuthoringInterface re-exported below)
+ } from './panels/index.js';
 export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';
 export { PersonalityEditor } from './panels/PersonalityEditor.js';
 export { OnboardingModal } from './panels/OnboardingModal.js';
 export { GuidePanel } from './panels/GuidePanel.js';
+export { AuthoringInterface } from './authoring/AuthoringInterface.js';
 export { WorkflowCompletionModal } from './panels/WorkflowCompletionModal.js';
 export { UpdateAvailableModal } from './panels/UpdateAvailableModal.js';
 export { MCPManager } from './panels/MCPManager.js';

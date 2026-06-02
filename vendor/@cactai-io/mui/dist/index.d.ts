@@ -103,6 +103,8 @@ export { OnboardingModal } from './panels/OnboardingModal.js';
 export type { OnboardingModalProps } from './panels/OnboardingModal.js';
 export { GuidePanel } from './panels/GuidePanel.js';
 export type { GuidePanelProps } from './panels/GuidePanel.js';
+export { AuthoringInterface } from './authoring/AuthoringInterface.js';
+export type { AuthoringInterfaceProps, AuthoringType } from './authoring/AuthoringInterface.js';
 export { WorkflowCompletionModal } from './panels/WorkflowCompletionModal.js';
 export type { WorkflowCompletionModalProps } from './panels/WorkflowCompletionModal.js';
 export { UpdateAvailableModal } from './panels/UpdateAvailableModal.js';

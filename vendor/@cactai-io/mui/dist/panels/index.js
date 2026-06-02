@@ -21,6 +21,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   cactai-theme localStorage key) and adds a single outbound link to the
 //   Platform dashboard for developer-scoped settings.
 import { useState } from 'react';
+import { AuthoringInterface } from '../authoring/AuthoringInterface.js';
 export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, updateStatus, onOpenUpdate, }) {
     // Header button only renders when there are local edits to surface.
     // In the `dev · synced` state nothing needs surfacing here — the file
@@ -54,7 +55,20 @@ export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, verc
 export function BuildPanel({ skills, tools, onActivateSkill, onDeactivateSkill, onBuildOwn, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', }) {
     const marketplaceAvailable = items !== undefined;
     const [tab, setTab] = useState(initialTab);
-    return (_jsxs("div", { className: "ds-panel", children: [marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Installed" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(InstalledTab, { skills: skills, tools: tools, onActivateSkill: onActivateSkill, onDeactivateSkill: onDeactivateSkill, onBuildOwn: onBuildOwn, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
+    // Authoring surface — when set, the panel shows the authoring interface for
+    // that artifact type (UI/UX; the AI-assist buttons + Save are not wired yet).
+    const [authoring, setAuthoring] = useState(null);
+    const AUTHOR_TYPES = [
+        { key: 'tool', label: 'Tool' },
+        { key: 'skill', label: 'Skill' },
+        { key: 'agent', label: 'Agent' },
+        { key: 'personality', label: 'Personality' },
+        { key: 'character', label: 'Character' },
+    ];
+    if (authoring) {
+        return (_jsx("div", { className: "ds-panel", children: _jsx(AuthoringInterface, { type: authoring, onCancel: () => setAuthoring(null) }) }));
+    }
+    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Create new" }), _jsx("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap' }, children: AUTHOR_TYPES.map(t => (_jsxs("button", { className: "ds-btn-ghost", onClick: () => setAuthoring(t.key), style: { fontSize: 11.5, padding: '4px 12px' }, children: ["+ ", t.label] }, t.key))) })] }), marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Installed" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(InstalledTab, { skills: skills, tools: tools, onActivateSkill: onActivateSkill, onDeactivateSkill: onDeactivateSkill, onBuildOwn: onBuildOwn, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
 }
 function InstalledTab({ skills, tools, onActivateSkill, onDeactivateSkill, onBuildOwn, onBrowseMarketplace, }) {
     const sourceBadgeClass = {

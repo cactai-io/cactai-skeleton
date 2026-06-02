@@ -1497,6 +1497,47 @@ body.cactai-shell-body-lock {
   color: var(--ds-text);
   outline: none;
 }
+
+/* ── Authoring interfaces (tools / skills / agents / personalities / characters) ── */
+[data-cactai-shell] .ds-authoring { display: flex; flex-direction: column; gap: 14px; padding: 4px 2px; }
+[data-cactai-shell] .ds-authoring-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+[data-cactai-shell] .ds-authoring-title { font-size: 15px; font-weight: 600; color: var(--ds-text); }
+[data-cactai-shell] .ds-authoring-blurb { font-size: 12px; color: var(--ds-text-2); line-height: 1.5; margin-top: 3px; max-width: 56ch; }
+[data-cactai-shell] .ds-authoring-assist { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+[data-cactai-shell] .ds-authoring-assist-btn {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  background: var(--ds-surface-2); border: 1px solid var(--ds-border-soft);
+  border-radius: var(--ds-r-md, 10px); padding: 10px 12px; cursor: pointer;
+  transition: border-color var(--d-base) var(--ease), background var(--d-base) var(--ease);
+}
+[data-cactai-shell] .ds-authoring-assist-btn:hover { border-color: color-mix(in srgb, var(--c-accent, #5fb6ff) 50%, transparent); background: var(--ds-elevated); }
+[data-cactai-shell] .ds-authoring-assist-spark { font-size: 14px; color: var(--c-accent, #5fb6ff); }
+[data-cactai-shell] .ds-authoring-assist-text { display: flex; flex-direction: column; min-width: 0; }
+[data-cactai-shell] .ds-authoring-assist-label { font-size: 12px; font-weight: 600; color: var(--ds-text); }
+[data-cactai-shell] .ds-authoring-assist-sub { font-size: 11px; color: var(--ds-text-3); }
+[data-cactai-shell] .ds-authoring-or { display: flex; align-items: center; gap: 10px; color: var(--ds-text-3); font-size: 11px; }
+[data-cactai-shell] .ds-authoring-or::before, [data-cactai-shell] .ds-authoring-or::after { content: ''; flex: 1; height: 1px; background: var(--ds-border-soft); }
+[data-cactai-shell] .ds-authoring-upload {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer;
+  border: 1px dashed var(--ds-border); border-radius: var(--ds-r-md, 10px); padding: 18px;
+  transition: border-color var(--d-base) var(--ease);
+}
+[data-cactai-shell] .ds-authoring-upload:hover { border-color: var(--c-accent, #5fb6ff); }
+[data-cactai-shell] .ds-authoring-upload-label { font-size: 12.5px; font-weight: 500; color: var(--ds-text); }
+[data-cactai-shell] .ds-authoring-upload-hint { font-size: 11px; color: var(--ds-text-3); }
+[data-cactai-shell] .ds-authoring-form { display: flex; flex-direction: column; gap: 12px; }
+[data-cactai-shell] .ds-authoring-field { display: flex; flex-direction: column; gap: 4px; }
+[data-cactai-shell] .ds-authoring-field-label { font-size: 11.5px; font-weight: 500; color: var(--ds-text); }
+[data-cactai-shell] .ds-authoring-field-hint { font-size: 10.5px; color: var(--ds-text-3); }
+[data-cactai-shell] .ds-authoring-input {
+  background: var(--ds-canvas, var(--ds-surface)); border: 1px solid var(--ds-border);
+  border-radius: var(--ds-r-sm, 6px); color: var(--ds-text); padding: 7px 10px;
+  font-size: 12.5px; font-family: var(--f-ui); outline: none; width: 100%; box-sizing: border-box;
+  transition: border-color var(--d-base) var(--ease);
+}
+[data-cactai-shell] .ds-authoring-input:focus { border-color: var(--c-accent, #5fb6ff); }
+[data-cactai-shell] textarea.ds-authoring-input { resize: vertical; line-height: 1.5; }
+[data-cactai-shell] .ds-authoring-actions { display: flex; justify-content: flex-end; padding-top: 2px; }
 [data-cactai-shell] .ds-chat-collapsed-unread {
   position: absolute;
   /* Sit beside the (now top-anchored) expand arrow rather than floating
