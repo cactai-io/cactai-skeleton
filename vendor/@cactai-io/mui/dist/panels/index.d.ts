@@ -102,7 +102,7 @@ export interface BuildPanelProps {
      *  when marketplace props are also provided. */
     initialTab?: 'installed' | 'browse';
 }
-export declare function BuildPanel({ skills, tools, onActivateSkill, onDeactivateSkill, onBuildOwn, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
 export interface SchemaPanelProps {
     tables: SchemaTable[];
     migrations: MigrationRecord[];

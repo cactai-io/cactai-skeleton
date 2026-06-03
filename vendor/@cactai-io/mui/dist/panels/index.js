@@ -51,22 +51,51 @@ export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, verc
                                             padding: 0,
                                         }, children: "i" }))] }), _jsxs("div", { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }, children: [githubRepoUrl && (_jsx("a", { href: githubRepoUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "GitHub \u2197" })), vercelDashUrl && (_jsx("a", { href: vercelDashUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "Vercel \u2197" })), vercelPreviewUrl && (_jsx("button", { className: "ds-btn-primary", onClick: onOpenApp, style: { fontSize: 11.5, padding: '4px 12px' }, children: "Open app \u2197" }))] })] })] })] }));
 }
-export function BuildPanel({ skills, tools, onActivateSkill, onDeactivateSkill, onBuildOwn, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', }) {
+export function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', }) {
     const marketplaceAvailable = items !== undefined;
     const [tab, setTab] = useState(initialTab);
-    // Authoring tools are NOT anchored here — they live on the Studio rail
-    // page (locked 2026-06-02). The Library only surfaces installed/authored
-    // capabilities; creating new ones happens in Studio.
-    return (_jsxs("div", { className: "ds-panel", children: [marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Installed" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(InstalledTab, { skills: skills, tools: tools, onActivateSkill: onActivateSkill, onDeactivateSkill: onDeactivateSkill, onBuildOwn: onBuildOwn, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
+    // The Library is the catch-all content directory/index (locked 2026-06-02):
+    // it surfaces everything in the app + where each item is used + its status.
+    // Authoring happens in Studio; activation in Configuration. "Browse" brings
+    // new content in from the marketplace.
+    return (_jsxs("div", { className: "ds-panel", children: [marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Directory" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(LibraryDirectory, { skills: skills, tools: tools, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
 }
-function InstalledTab({ skills, tools, onActivateSkill, onDeactivateSkill, onBuildOwn, onBrowseMarketplace, }) {
-    const sourceBadgeClass = {
-        configured: 'ds-badge-sdk',
-        marketplace: 'ds-badge-marketplace',
-        developer_written: 'ds-badge-dev',
-        generated: 'ds-badge-sdk',
-    };
-    return (_jsxs(_Fragment, { children: [_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Skills" }), skills.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "No skills registered." })), skills.map(skill => (_jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'flex-start', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: skill.name }), _jsx("span", { className: `ds-badge ${sourceBadgeClass[skill.source] ?? 'ds-badge-sdk'}`, children: skill.source === 'developer_written' ? 'custom' : skill.source }), skill.active && _jsx("span", { className: "ds-badge ds-badge-active", children: "active" })] }), _jsx("div", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: skill.artifact_types.join(', ') })] }), _jsxs("label", { className: "ds-toggle", title: skill.active ? 'Deactivate' : 'Activate', children: [_jsx("input", { type: "checkbox", checked: skill.active, onChange: () => skill.active ? onDeactivateSkill(skill.skill_id) : onActivateSkill(skill.skill_id) }), _jsx("span", { className: "ds-toggle-track" }), _jsx("span", { className: "ds-toggle-thumb" })] })] }) }, skill.skill_id))), _jsxs("div", { style: { display: 'flex', gap: 8, marginTop: 4 }, children: [onBrowseMarketplace && (_jsx("button", { className: "ds-btn-ghost", onClick: onBrowseMarketplace, style: { fontSize: 11.5 }, children: "Browse marketplace" })), _jsx("button", { className: "ds-btn-ghost", onClick: () => onBuildOwn('skill'), style: { fontSize: 11.5 }, children: "Build my own skill" })] })] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Tools" }), tools.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "No tools registered." })), tools.map(tool => (_jsx("div", { className: "ds-card", children: _jsx("div", { style: { display: 'flex', alignItems: 'flex-start', gap: 10 }, children: _jsxs("div", { style: { flex: 1 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: tool.name }), _jsx("span", { className: "ds-badge ds-badge-sdk", children: tool.domain })] }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5 }, children: tool.description })] }) }) }, tool.id))), _jsx("div", { style: { display: 'flex', gap: 8, marginTop: 4 }, children: _jsx("button", { className: "ds-btn-ghost", onClick: () => onBuildOwn('tool'), style: { fontSize: 11.5 }, children: "Build my own tool" }) })] })] }));
+function LibraryDirectory({ skills, tools, onBrowseMarketplace }) {
+    const [query, setQuery] = useState('');
+    const [kind, setKind] = useState('all');
+    const items = useMemo(() => {
+        const s = skills.map(sk => ({
+            id: `skill:${sk.skill_id}`,
+            name: sk.name,
+            kind: 'skill',
+            origin: sk.source === 'developer_written' ? 'authored' : sk.source,
+            active: sk.active,
+            description: sk.artifact_types.join(', '),
+            location: 'App Configuration → Skills',
+        }));
+        const t = tools.map(tl => ({
+            id: `tool:${tl.id}`,
+            name: tl.name,
+            kind: 'tool',
+            origin: tl.domain,
+            active: tl.active,
+            description: tl.description,
+            location: 'App Configuration → Tools',
+        }));
+        return [...s, ...t].sort((a, b) => a.name.localeCompare(b.name));
+    }, [skills, tools]);
+    const q = query.trim().toLowerCase();
+    const filtered = items.filter(i => (kind === 'all' || i.kind === kind) &&
+        (q === '' || i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q)));
+    const statusLabel = (i) => i.active ? 'Active' : i.origin === 'authored' ? 'Authored · not active' : 'Available · not active';
+    const kinds = [
+        { key: 'all', label: `All (${items.length})` },
+        { key: 'tool', label: 'Tools' },
+        { key: 'skill', label: 'Skills' },
+    ];
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Library" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "The catch-all directory for everything in your app \u2014 authored tools, skills, personalities, characters, agents, uploads, and generated artifacts. Each entry shows where it lives and its status, so nothing gets lost. Authoring happens in Studio; activation in Configuration \u2014 this is the index." }), _jsx("input", { type: "text", value: query, onChange: e => setQuery(e.target.value), placeholder: "Search the library\u2026", style: { width: '100%', boxSizing: 'border-box', background: 'var(--ds-canvas)', border: '1px solid var(--ds-border)', borderRadius: 'var(--ds-r-sm)', padding: '5px 9px', color: 'var(--ds-text)', fontSize: 12, outline: 'none', marginBottom: 8 } }), _jsxs("div", { style: { display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }, children: [kinds.map(k => (_jsx("button", { className: `ds-view-btn${kind === k.key ? ' ds-view-active' : ''}`, onClick: () => setKind(k.key), style: { fontSize: 11 }, children: k.label }, k.key))), onBrowseMarketplace && (_jsx("button", { className: "ds-btn-ghost", onClick: onBrowseMarketplace, style: { fontSize: 11, marginLeft: 'auto' }, children: "Browse marketplace" }))] }), filtered.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: items.length === 0 ? 'Nothing in the library yet.' : 'Nothing matches.' })), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: filtered.map(i => (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: i.name }), _jsx("span", { className: "ds-badge ds-badge-sdk", children: i.kind }), _jsx("span", { className: "ds-badge ds-badge-dev", children: i.origin }), i.active
+                                    ? _jsx("span", { className: "ds-badge ds-badge-active", children: statusLabel(i) })
+                                    : _jsx("span", { className: "ds-badge", style: { background: 'transparent', border: '1px solid var(--ds-border)', color: 'var(--ds-text-3)' }, children: statusLabel(i) })] }), i.description && _jsx("div", { className: "ds-card-body", style: { fontSize: 11 }, children: i.description }), _jsxs("div", { style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: ["Found in: ", i.location] })] }, i.id))) })] }));
 }
 function BrowseTab({ items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, }) {
     const kinds = [
