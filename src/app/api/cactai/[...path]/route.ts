@@ -57,10 +57,13 @@ async function readWizardAiProviderKey(): Promise<
   | null
 > {
   const supa = createServiceSupabaseClient();
+  // Read THIS app's row explicitly (the seed writes project_state keyed by the
+  // same NEXT_PUBLIC_CACTAI_PROJECT_ID). A filterless .limit(1) could read a
+  // stray/key-less row if more than one ever exists.
   const { data, error } = await supa
     .from('project_state')
     .select('decisions')
-    .limit(1)
+    .eq('project_id', endpoints.projectId)
     .maybeSingle();
   if (error || !data) return null;
 
