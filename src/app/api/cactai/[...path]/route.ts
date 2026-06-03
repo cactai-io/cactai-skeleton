@@ -40,6 +40,13 @@ import { decryptSecret } from '@/lib/secrets.server';
 // and only deliver after turn.complete — collapsing the chat stream.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// SSE turn streams hold this proxy function open for the whole agent turn.
+// Vercel's default function timeout (~10s) killed it mid-turn — the model
+// finished (e.g. 27k in / 1k out) but the EventSource dropped with "Stream
+// connection interrupted" before the response was delivered. Raise the cap so
+// the proxy survives a full turn. Vercel clamps this to the plan's max
+// (Hobby ~60s, Pro up to 300s).
+export const maxDuration = 300;
 
 /**
  * Read + decrypt the wizard-collected AI provider key for DevShell agent
