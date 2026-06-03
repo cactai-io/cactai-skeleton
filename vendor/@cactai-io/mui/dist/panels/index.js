@@ -39,14 +39,14 @@ export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, verc
                                     whiteSpace: 'nowrap',
                                 }, children: "\u21BB Updates available" })), showPendingButton && (_jsx("button", { type: "button", className: "ds-panel-header-commit", onClick: onViewPendingEdits, children: "View pending edits" }))] })] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Project" }), _jsxs("div", { className: "ds-card", children: [_jsx("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: _jsx("div", { className: "ds-card-title", style: { flex: 1 }, children: projectName }) }), _jsxs("div", { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }, children: [githubRepoUrl && (_jsx("a", { href: githubRepoUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "GitHub \u2197" })), vercelDashUrl && (_jsx("a", { href: vercelDashUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "Vercel \u2197" })), vercelPreviewUrl && (_jsx("button", { className: "ds-btn-primary", onClick: onOpenApp, style: { fontSize: 11.5, padding: '4px 12px' }, children: "Open app \u2197" }))] })] })] })] }));
 }
-export function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', assets, onUploadAsset, onDeleteAsset, assetDownloadPath, libraryManifest, }) {
+export function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', assets, onUploadAsset, onDeleteAsset, assetDownloadPath, libraryManifest, personalities, }) {
     const marketplaceAvailable = items !== undefined;
     const [tab, setTab] = useState(initialTab);
     // The Library is the catch-all content directory/index (locked 2026-06-02):
     // it surfaces everything in the app + where each item is used + its status.
     // Authoring happens in Studio; activation in Configuration. "Browse" brings
     // new content in from the marketplace.
-    return (_jsxs("div", { className: "ds-panel ds-library", children: [marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Directory" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(LibraryDirectory, { skills: skills, tools: tools, assets: assets, onUploadAsset: onUploadAsset, onDeleteAsset: onDeleteAsset, assetDownloadPath: assetDownloadPath, libraryManifest: libraryManifest, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
+    return (_jsxs("div", { className: "ds-panel ds-library", children: [marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Directory" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(LibraryDirectory, { skills: skills, tools: tools, assets: assets, onUploadAsset: onUploadAsset, onDeleteAsset: onDeleteAsset, assetDownloadPath: assetDownloadPath, libraryManifest: libraryManifest, personalities: personalities, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
 }
 function fmtBytes(n) {
     if (n == null)
@@ -57,7 +57,7 @@ function fmtBytes(n) {
         return `${(n / 1024).toFixed(1)} KB`;
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
-function LibraryDirectory({ skills, tools, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, libraryManifest, onBrowseMarketplace }) {
+function LibraryDirectory({ skills, tools, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, libraryManifest, personalities, onBrowseMarketplace }) {
     const [query, setQuery] = useState('');
     const [kind, setKind] = useState('all');
     const [uploading, setUploading] = useState(false);
@@ -110,8 +110,17 @@ function LibraryDirectory({ skills, tools, assets, onUploadAsset, onDeleteAsset,
             ...fromManifest(libraryManifest?.agents, 'agent'),
             ...fromManifest(libraryManifest?.characters, 'character'),
         ];
-        return [...s, ...t, ...f, ...lib].sort((a, b) => a.name.localeCompare(b.name));
-    }, [skills, tools, assets, assetDownloadPath, libraryManifest]);
+        const pers = (personalities ?? []).map(p => ({
+            id: `personality:${p.id}`,
+            name: p.name,
+            kind: 'personality',
+            origin: (p.source === 'developer_authored' || p.source === 'developer_written') ? 'authored' : 'built-in',
+            active: !!p.active,
+            description: p.description ?? '',
+            location: 'App Configuration → Design',
+        }));
+        return [...s, ...t, ...f, ...lib, ...pers].sort((a, b) => a.name.localeCompare(b.name));
+    }, [skills, tools, assets, assetDownloadPath, libraryManifest, personalities]);
     const q = query.trim().toLowerCase();
     const filtered = items.filter(i => (kind === 'all' || i.kind === kind) &&
         (q === '' || i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q)));
@@ -131,6 +140,7 @@ function LibraryDirectory({ skills, tools, assets, onUploadAsset, onDeleteAsset,
             { key: 'agent', label: 'Agents' },
             { key: 'character', label: 'Characters' },
         ] : []),
+        ...(personalities ? [{ key: 'personality', label: 'Personalities' }] : []),
         ...(uploadsEnabled ? [{ key: 'file', label: 'Files' }] : []),
     ];
     const handleFile = async (file) => {

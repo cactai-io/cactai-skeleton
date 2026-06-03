@@ -1548,6 +1548,15 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     assetDownloadPath,
                     // project-library authored artifacts (workflows/agents/characters).
                     libraryManifest,
+                    // Personalities from the project's personality store (built-in +
+                    // dev-authored) so they're indexed in the Library, not "missing".
+                    personalities: personality?.available.map(p => ({
+                        id: p.id,
+                        name: p.display_name,
+                        source: p.source,
+                        description: p.description,
+                        active: p.id === personality.active_id,
+                    })),
                     // No marketplace props passed — BuildPanel renders Installed-only
                     // (the v1 surface for dev-authored skills + tools). When MCP
                     // ships, we revisit; when marketplace ships, items / loading /

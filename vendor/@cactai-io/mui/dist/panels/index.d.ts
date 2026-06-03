@@ -118,6 +118,15 @@ export interface BuildPanelProps {
      *  (tools/skills/workflows/agents/characters) with repo path + load status.
      *  When wired, the directory indexes them with their file location. */
     libraryManifest?: ProjectLibraryManifestView;
+    /** Personalities — from the project's personality store (built-in + dev-
+     *  authored). Indexed in the directory so they're not "missing". */
+    personalities?: Array<{
+        id: string;
+        name: string;
+        source: string;
+        description?: string;
+        active?: boolean;
+    }>;
 }
 export interface AppAsset {
     id: string;
@@ -139,7 +148,7 @@ export interface ProjectLibraryManifestView {
     agents: ProjectLibraryEntry[];
     characters: ProjectLibraryEntry[];
 }
-export declare function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, libraryManifest, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, libraryManifest, personalities, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
 export interface SchemaPanelProps {
     tables: SchemaTable[];
     migrations: MigrationRecord[];
