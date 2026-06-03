@@ -671,8 +671,20 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 // Re-check emptiness after the await so a real turn never gets clobbered.
                 if (cancelled || !data.should_show || store.getState().conversation.messages.length > 0)
                     return;
-                const text = [data.header, data.prompt, data.example].filter(Boolean).join('\n\n');
-                if (!text)
+                // Compose the greeting so it reads as structured text, not one dense
+                // block: an intro paragraph (header + prompt), then a labelled example
+                // with each sentence on its own line. Newlines render via the chat
+                // body's white-space: pre-wrap.
+                const intro = [data.header, data.prompt].filter(Boolean).join(' ');
+                const parts = [];
+                if (intro)
+                    parts.push(intro);
+                if (data.example) {
+                    parts.push('Here is an example:');
+                    parts.push(data.example.trim().replace(/\.\s+/g, '.\n'));
+                }
+                const text = parts.join('\n\n');
+                if (!text.trim())
                     return;
                 store.appendMessage({
                     request_id: 'welcome-seed',

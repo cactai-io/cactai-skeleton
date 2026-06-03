@@ -787,6 +787,11 @@ body.cactai-shell-body-lock {
   font-size: 13.5px;
   color: var(--ds-text);
   line-height: 1.65;
+  /* Preserve authored line breaks (blank lines + sentence-per-line) so
+     messages like the welcome greeting read as structured text, not one
+     dense block. overflow-wrap keeps long URLs from blowing out the bubble. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 /* Classification chip — shown beneath agent response when relevant */
