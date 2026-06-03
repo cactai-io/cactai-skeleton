@@ -145,7 +145,7 @@ function RailBtn({ section, active, onClick }) {
     const tooltip = S_TOOLTIP[section] ?? S_LABEL[section];
     return (_jsx("button", { className: `ds-rail-btn${active ? ' ds-rail-active' : ''}`, onClick: onClick, title: tooltip, "aria-label": tooltip, children: _jsx("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", children: _jsx("path", { d: S_ICON[section] }) }) }));
 }
-export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }) {
+export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
     // Body lock while the DevShell IDE is mounted. Pre-fix the browser
     // could scroll the entire page past [data-cactai-shell]'s 100vh
@@ -674,13 +674,25 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         // .ds-right-area + .ds-panel still didn't make Schema / Project
         // settings / etc. scroll: the chain broke at this one un-styled
         // intermediate.
-        const wrap = (node) => _jsx("div", { style: {
-                ...bindSection(`${section}-panel`, grad),
-                flex: 1,
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column',
-            }, children: node });
+        // Per-section ⓘ guide surface. Workspace has its own header ⓘ already;
+        // the other rail panels get a corner ⓘ that opens their right-origin guide.
+        const guideSurface = {
+            build: 'library',
+            authoring: 'studio',
+            schema: 'schema',
+            'project-settings': 'configuration',
+        };
+        const wrap = (node) => {
+            const gs = guideSurface[section];
+            return (_jsxs("div", { style: {
+                    ...bindSection(`${section}-panel`, grad),
+                    flex: 1,
+                    minHeight: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    position: 'relative',
+                }, children: [gs && onOpenGuide && (_jsx("button", { type: "button", className: "ds-btn-ghost ds-panel-guide-btn", "aria-label": `${S_LABEL[section]} guide`, title: `${S_LABEL[section]} guide`, onClick: () => onOpenGuide(gs), style: { position: 'absolute', top: 6, right: 10, zIndex: 5, fontSize: 13, lineHeight: 1, padding: '2px 7px', borderRadius: '50%' }, children: "\u24D8" })), node] }));
+        };
         switch (section) {
             case 'workspace':
                 return wrap(_jsx(WorkspacePanel, { ...workspaceProps, projectName: projectName, githubRepoUrl: githubRepoUrl, vercelDashUrl: vercelDashUrl, vercelPreviewUrl: vercelPreviewUrl, syncState: syncState, onViewPendingEdits: () => openPendingEdits() }));
