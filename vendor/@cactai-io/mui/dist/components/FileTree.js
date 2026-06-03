@@ -189,10 +189,33 @@ function TreeNode({ node, depth, activeFilePath, onSelect, uncommittedPaths, onC
 // minimum viewing requirement for content width relative to font size."
 const SPLIT_VIEW_MIN_WIDTH_PX = 700;
 const TREE_COLUMN_WIDTH_PX = 240;
-export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading = false, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, onCreateFile, onRenameFile, onDeleteFile, }) {
+export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fileLoading = false, onExitFileView, onCollapse, uncommittedPaths, onCommitFile, onRestore, onUndoFile, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, }) {
     const isFileView = !!activeFilePath && fileContent !== undefined;
     const breadcrumbs = activeFilePath ? pathToBreadcrumbs(activeFilePath) : [];
     const ext = activeFilePath ? getExt(activeFilePath) : '';
+    // Inline editor state for the open file. The read-only viewer flips to an
+    // editable textarea on Edit; Save stages the change via onSaveFile, then the
+    // existing Pending → Commit-to-dev flow ships it.
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState('');
+    const [saving, setSaving] = useState(false);
+    // Leaving the file (or switching files) cancels an in-progress edit.
+    useEffect(() => { setEditing(false); setDraft(''); }, [activeFilePath]);
+    const startEdit = () => { setDraft(fileContent ?? ''); setEditing(true); };
+    const cancelEdit = () => { setEditing(false); setDraft(''); };
+    const saveEdit = async () => {
+        if (!onSaveFile || !activeFilePath)
+            return;
+        setSaving(true);
+        try {
+            await onSaveFile(activeFilePath, draft);
+            setEditing(false);
+        }
+        catch { /* keep the editor open so the developer can retry */ }
+        finally {
+            setSaving(false);
+        }
+    };
     // CRUD prompts. Native window.prompt keeps the surface minimal until a
     // proper modal UI lands; the data path is the same.
     const handleNewFile = async () => {
@@ -313,7 +336,7 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
                                         fontSize: 'inherit',
                                         padding: '0 2px',
                                         fontWeight: i === breadcrumbs.length - 1 ? 500 : 400,
-                                    }, children: segment })] }, i))) })) : (_jsx("span", { className: "ds-tree-title", children: "Project tree" })), _jsx("div", { className: "ds-tree-spacer" }), !isFileView && onCreateFile && (_jsx("button", { onClick: handleNewFile, title: "New file", "aria-label": "New file", style: {
+                                    }, children: segment })] }, i))) })) : (_jsx("span", { className: "ds-tree-title", children: "Project tree" })), _jsx("div", { className: "ds-tree-spacer" }), isFileView && onSaveFile && (editing ? (_jsxs(_Fragment, { children: [_jsx("button", { onClick: () => void saveEdit(), disabled: saving, title: "Stage changes \u2014 commit from Pending", style: { background: 'transparent', border: 'none', cursor: saving ? 'wait' : 'pointer', color: 'var(--c-accent, #5fb6ff)', padding: '0 8px', fontSize: 12, fontWeight: 600 }, children: saving ? 'Saving…' : 'Save' }), _jsx("button", { onClick: cancelEdit, disabled: saving, title: "Discard edits", style: { background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ds-text-2)', padding: '0 8px', fontSize: 12 }, children: "Cancel" })] })) : (_jsx("button", { onClick: startEdit, title: "Edit this file", "aria-label": "Edit this file", style: { background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ds-text-2)', padding: '0 8px', fontSize: 12 }, children: "Edit" }))), !isFileView && onCreateFile && (_jsx("button", { onClick: handleNewFile, title: "New file", "aria-label": "New file", style: {
                             background: 'transparent', border: 'none', cursor: 'pointer',
                             color: 'var(--ds-text-2)', padding: '0 6px', fontSize: 16, lineHeight: 1,
                         }, children: "+" }))] }), _jsxs("div", { className: "ds-tree-body", role: isFileView ? 'document' : 'tree', style: {
@@ -342,7 +365,13 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
                             flex: useSplitView ? 1 : undefined,
                             minWidth: 0,
                             width: useSplitView ? undefined : '100%',
-                        }, children: fileLoading ? (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Loading\u2026" })) : fileContent ? (_jsxs("table", { style: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }, children: [_jsxs("colgroup", { children: [_jsx("col", { style: { width: 56 } }), _jsx("col", {})] }), _jsx("tbody", { children: fileContent.split('\n').map((line, i) => (_jsxs("tr", { children: [_jsx("td", { style: {
+                        }, children: fileLoading ? (_jsx("div", { style: { padding: '24px 18px', color: 'var(--ds-text-3)', fontSize: 12 }, children: "Loading\u2026" })) : editing ? (_jsx("textarea", { value: draft, onChange: e => setDraft(e.target.value), spellCheck: false, autoFocus: true, style: {
+                                width: '100%', height: '100%', boxSizing: 'border-box',
+                                background: 'var(--ds-canvas)', border: 'none', outline: 'none',
+                                color: 'var(--ds-text)', fontFamily: 'var(--f-mono)', fontSize: 12,
+                                lineHeight: 1.65, padding: '12px 18px', resize: 'none',
+                                whiteSpace: 'pre', overflow: 'auto', tabSize: 2,
+                            } })) : fileContent ? (_jsxs("table", { style: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }, children: [_jsxs("colgroup", { children: [_jsx("col", { style: { width: 56 } }), _jsx("col", {})] }), _jsx("tbody", { children: fileContent.split('\n').map((line, i) => (_jsxs("tr", { children: [_jsx("td", { style: {
                                                     padding: '0 12px 0 18px',
                                                     color: 'var(--ds-text-3)',
                                                     textAlign: 'right',

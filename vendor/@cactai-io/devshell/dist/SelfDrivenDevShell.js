@@ -1305,6 +1305,27 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     setPendingFiles(prev => prev.find(p => p.path === path)
                         ? prev
                         : [...prev, { path, operation: 'create', linesAdded: 0, linesRemoved: 0, lastEditedAt: new Date().toISOString() }]);
+                }, onSaveFile: async (path, content) => {
+                    // PUT /api/git/file updates an existing file, staging an 'edit' that
+                    // the Pending → Commit-to-dev flow ships to GitHub.
+                    const res = await fetch('/api/git/file', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path, content }),
+                    });
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        recordFetchError('pending', { status: res.status, code: body.error, detail: body.detail });
+                        throw new Error(body.detail ?? body.error ?? `save_failed (${res.status})`);
+                    }
+                    recordFetchError('pending', null);
+                    // Reflect the new content in the read-only view + the staged-edit row
+                    // immediately; the tree-with-pending poll reconciles exact line counts.
+                    if (activeFilePath === path)
+                        setFileContent(content);
+                    setPendingFiles(prev => prev.find(p => p.path === path)
+                        ? prev
+                        : [...prev, { path, operation: 'edit', linesAdded: 0, linesRemoved: 0, lastEditedAt: new Date().toISOString() }]);
                 }, onRenameFile: async (path, newPath) => {
                     const res = await fetch('/api/git/file', {
                         method: 'PATCH',
