@@ -20,7 +20,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   AppConfigurationPanel drops theme (Platform owns it via the shared
 //   cactai-theme localStorage key) and adds a single outbound link to the
 //   Platform dashboard for developer-scoped settings.
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, vercelPreviewUrl, onOpenApp, syncState, onViewPendingEdits, onOpenGuide, updateStatus, onOpenUpdate, }) {
     // Header button only renders when there are local edits to surface.
     // In the `dev · synced` state nothing needs surfacing here — the file
@@ -51,18 +51,30 @@ export function WorkspacePanel({ projectName, githubRepoUrl, vercelDashUrl, verc
                                             padding: 0,
                                         }, children: "i" }))] }), _jsxs("div", { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }, children: [githubRepoUrl && (_jsx("a", { href: githubRepoUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "GitHub \u2197" })), vercelDashUrl && (_jsx("a", { href: vercelDashUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-btn-ghost", style: { fontSize: 11.5, padding: '4px 10px' }, children: "Vercel \u2197" })), vercelPreviewUrl && (_jsx("button", { className: "ds-btn-primary", onClick: onOpenApp, style: { fontSize: 11.5, padding: '4px 12px' }, children: "Open app \u2197" }))] })] })] })] }));
 }
-export function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', }) {
+export function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab = 'installed', assets, onUploadAsset, onDeleteAsset, assetDownloadPath, }) {
     const marketplaceAvailable = items !== undefined;
     const [tab, setTab] = useState(initialTab);
     // The Library is the catch-all content directory/index (locked 2026-06-02):
     // it surfaces everything in the app + where each item is used + its status.
     // Authoring happens in Studio; activation in Configuration. "Browse" brings
     // new content in from the marketplace.
-    return (_jsxs("div", { className: "ds-panel", children: [marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Directory" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(LibraryDirectory, { skills: skills, tools: tools, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
+    return (_jsxs("div", { className: "ds-panel", children: [marketplaceAvailable && (_jsxs("div", { style: { display: 'flex', gap: 4 }, children: [_jsx("button", { className: `ds-view-btn${tab === 'installed' ? ' ds-view-active' : ''}`, onClick: () => setTab('installed'), style: { fontSize: 11.5 }, children: "Directory" }), _jsx("button", { className: `ds-view-btn${tab === 'browse' ? ' ds-view-active' : ''}`, onClick: () => setTab('browse'), style: { fontSize: 11.5 }, children: "Browse" })] })), (tab === 'installed' || !marketplaceAvailable) && (_jsx(LibraryDirectory, { skills: skills, tools: tools, assets: assets, onUploadAsset: onUploadAsset, onDeleteAsset: onDeleteAsset, assetDownloadPath: assetDownloadPath, onBrowseMarketplace: marketplaceAvailable ? () => setTab('browse') : undefined })), marketplaceAvailable && tab === 'browse' && (_jsx(BrowseTab, { items: items, loading: loading ?? false, searchQuery: searchQuery ?? '', onSearch: onSearch ?? (() => undefined), onInstall: onInstall ?? (() => undefined), onUninstall: onUninstall ?? (() => undefined), onPublish: onPublish ?? (() => undefined), filterKind: filterKind ?? 'all', onFilterKind: onFilterKind ?? (() => undefined) }))] }));
 }
-function LibraryDirectory({ skills, tools, onBrowseMarketplace }) {
+function fmtBytes(n) {
+    if (n == null)
+        return '';
+    if (n < 1024)
+        return `${n} B`;
+    if (n < 1024 * 1024)
+        return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+function LibraryDirectory({ skills, tools, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, onBrowseMarketplace }) {
     const [query, setQuery] = useState('');
     const [kind, setKind] = useState('all');
+    const [uploading, setUploading] = useState(false);
+    const fileInput = useRef(null);
+    const uploadsEnabled = !!onUploadAsset;
     const items = useMemo(() => {
         const s = skills.map(sk => ({
             id: `skill:${sk.skill_id}`,
@@ -82,20 +94,55 @@ function LibraryDirectory({ skills, tools, onBrowseMarketplace }) {
             description: tl.description,
             location: 'App Configuration → Tools',
         }));
-        return [...s, ...t].sort((a, b) => a.name.localeCompare(b.name));
-    }, [skills, tools]);
+        const f = (assets ?? []).map(a => ({
+            id: `file:${a.id}`,
+            name: a.filename,
+            kind: 'file',
+            origin: 'uploaded',
+            active: true,
+            description: [a.content_type ?? 'file', fmtBytes(a.size_bytes)].filter(Boolean).join(' · '),
+            location: 'Library (uploaded)',
+            assetId: a.id,
+            downloadHref: assetDownloadPath ? assetDownloadPath(a.id) : undefined,
+        }));
+        return [...s, ...t, ...f].sort((a, b) => a.name.localeCompare(b.name));
+    }, [skills, tools, assets, assetDownloadPath]);
     const q = query.trim().toLowerCase();
     const filtered = items.filter(i => (kind === 'all' || i.kind === kind) &&
         (q === '' || i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q)));
-    const statusLabel = (i) => i.active ? 'Active' : i.origin === 'authored' ? 'Authored · not active' : 'Available · not active';
+    const statusLabel = (i) => i.kind === 'file' ? 'Stored'
+        : i.active ? 'Active'
+            : i.origin === 'authored' ? 'Authored · not active'
+                : 'Available · not active';
     const kinds = [
         { key: 'all', label: `All (${items.length})` },
         { key: 'tool', label: 'Tools' },
         { key: 'skill', label: 'Skills' },
+        ...(uploadsEnabled ? [{ key: 'file', label: 'Files' }] : []),
     ];
-    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Library" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "The catch-all directory for everything in your app \u2014 authored tools, skills, personalities, characters, agents, uploads, and generated artifacts. Each entry shows where it lives and its status, so nothing gets lost. Authoring happens in Studio; activation in Configuration \u2014 this is the index." }), _jsx("input", { type: "text", value: query, onChange: e => setQuery(e.target.value), placeholder: "Search the library\u2026", style: { width: '100%', boxSizing: 'border-box', background: 'var(--ds-canvas)', border: '1px solid var(--ds-border)', borderRadius: 'var(--ds-r-sm)', padding: '5px 9px', color: 'var(--ds-text)', fontSize: 12, outline: 'none', marginBottom: 8 } }), _jsxs("div", { style: { display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }, children: [kinds.map(k => (_jsx("button", { className: `ds-view-btn${kind === k.key ? ' ds-view-active' : ''}`, onClick: () => setKind(k.key), style: { fontSize: 11 }, children: k.label }, k.key))), onBrowseMarketplace && (_jsx("button", { className: "ds-btn-ghost", onClick: onBrowseMarketplace, style: { fontSize: 11, marginLeft: 'auto' }, children: "Browse marketplace" }))] }), filtered.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: items.length === 0 ? 'Nothing in the library yet.' : 'Nothing matches.' })), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: filtered.map(i => (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: i.name }), _jsx("span", { className: "ds-badge ds-badge-sdk", children: i.kind }), _jsx("span", { className: "ds-badge ds-badge-dev", children: i.origin }), i.active
+    const handleFile = async (file) => {
+        if (!onUploadAsset)
+            return;
+        setUploading(true);
+        try {
+            const buf = await file.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(buf);
+            for (let i = 0; i < bytes.length; i++)
+                binary += String.fromCharCode(bytes[i]);
+            const data_base64 = btoa(binary);
+            await onUploadAsset({ filename: file.name, content_type: file.type || 'application/octet-stream', data_base64 });
+        }
+        finally {
+            setUploading(false);
+            if (fileInput.current)
+                fileInput.current.value = '';
+        }
+    };
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Library" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 8, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "The catch-all directory for everything in your app \u2014 authored tools, skills, personalities, characters, agents, uploads, and generated artifacts. Each entry shows where it lives and its status, so nothing gets lost. Authoring happens in Studio; activation in Configuration \u2014 this is the index." }), _jsx("input", { type: "text", value: query, onChange: e => setQuery(e.target.value), placeholder: "Search the library\u2026", style: { width: '100%', boxSizing: 'border-box', background: 'var(--ds-canvas)', border: '1px solid var(--ds-border)', borderRadius: 'var(--ds-r-sm)', padding: '5px 9px', color: 'var(--ds-text)', fontSize: 12, outline: 'none', marginBottom: 8 } }), _jsxs("div", { style: { display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }, children: [kinds.map(k => (_jsx("button", { className: `ds-view-btn${kind === k.key ? ' ds-view-active' : ''}`, onClick: () => setKind(k.key), style: { fontSize: 11 }, children: k.label }, k.key))), _jsxs("div", { style: { marginLeft: 'auto', display: 'flex', gap: 6 }, children: [uploadsEnabled && (_jsxs(_Fragment, { children: [_jsx("input", { ref: fileInput, type: "file", style: { display: 'none' }, onChange: e => { const f = e.target.files?.[0]; if (f)
+                                            void handleFile(f); } }), _jsx("button", { className: "ds-btn-ghost", disabled: uploading, onClick: () => fileInput.current?.click(), style: { fontSize: 11 }, children: uploading ? 'Uploading…' : '↑ Upload' })] })), onBrowseMarketplace && (_jsx("button", { className: "ds-btn-ghost", onClick: onBrowseMarketplace, style: { fontSize: 11 }, children: "Browse marketplace" }))] })] }), filtered.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: items.length === 0 ? 'Nothing in the library yet.' : 'Nothing matches.' })), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: filtered.map(i => (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }, children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5 }, children: i.name }), _jsx("span", { className: "ds-badge ds-badge-sdk", children: i.kind }), _jsx("span", { className: "ds-badge ds-badge-dev", children: i.origin }), i.active
                                     ? _jsx("span", { className: "ds-badge ds-badge-active", children: statusLabel(i) })
-                                    : _jsx("span", { className: "ds-badge", style: { background: 'transparent', border: '1px solid var(--ds-border)', color: 'var(--ds-text-3)' }, children: statusLabel(i) })] }), i.description && _jsx("div", { className: "ds-card-body", style: { fontSize: 11 }, children: i.description }), _jsxs("div", { style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: ["Found in: ", i.location] })] }, i.id))) })] }));
+                                    : _jsx("span", { className: "ds-badge", style: { background: 'transparent', border: '1px solid var(--ds-border)', color: 'var(--ds-text-3)' }, children: statusLabel(i) }), i.kind === 'file' && (_jsxs("span", { style: { marginLeft: 'auto', display: 'flex', gap: 8 }, children: [i.downloadHref && (_jsx("a", { href: i.downloadHref, className: "ds-btn-ghost", style: { fontSize: 10.5, padding: '1px 7px' }, download: true, children: "Download" })), onDeleteAsset && i.assetId && (_jsx("button", { className: "ds-btn-ghost", onClick: () => { void onDeleteAsset(i.assetId); }, style: { fontSize: 10.5, padding: '1px 7px' }, children: "Delete" }))] }))] }), i.description && _jsx("div", { className: "ds-card-body", style: { fontSize: 11 }, children: i.description }), _jsxs("div", { style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: ["Found in: ", i.location] })] }, i.id))) })] }));
 }
 function BrowseTab({ items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, }) {
     const kinds = [

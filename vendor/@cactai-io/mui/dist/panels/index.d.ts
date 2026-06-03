@@ -101,8 +101,28 @@ export interface BuildPanelProps {
     /** Optional initial tab. Defaults to 'installed'. Only meaningful
      *  when marketplace props are also provided. */
     initialTab?: 'installed' | 'browse';
+    /** Library uploads — developer-brought files (customer DB app_assets).
+     *  When wired, the directory includes them + an upload affordance. */
+    assets?: AppAsset[];
+    /** Upload one file. Reads filename/content_type/base64 from the picker. */
+    onUploadAsset?: (file: {
+        filename: string;
+        content_type: string;
+        data_base64: string;
+    }) => Promise<void>;
+    /** Delete one uploaded asset by id. */
+    onDeleteAsset?: (id: string) => Promise<void>;
+    /** Returns the URL that downloads an asset's bytes (skeleton route). */
+    assetDownloadPath?: (id: string) => string;
 }
-export declare function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
+export interface AppAsset {
+    id: string;
+    filename: string;
+    content_type: string | null;
+    size_bytes: number | null;
+    uploaded_at: string;
+}
+export declare function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
 export interface SchemaPanelProps {
     tables: SchemaTable[];
     migrations: MigrationRecord[];

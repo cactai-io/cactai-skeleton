@@ -874,6 +874,51 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             recordFetchError('mcp_toggle', null);
         }
     };
+    // Library uploads (customer DB app_assets) — developer-brought files indexed
+    // in the Library directory.
+    const [assets, setAssets] = useState([]);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/devshell/assets');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (!cancelled && Array.isArray(data.assets))
+                    setAssets(data.assets);
+            }
+            catch {
+                // Non-fatal — the Library just omits the uploads.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+    const onUploadAsset = async (file) => {
+        const res = await fetch('/api/devshell/assets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(file),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.asset)
+                setAssets(prev => [data.asset, ...prev]);
+        }
+        else {
+            const body = await res.json().catch(() => ({}));
+            recordFetchError('asset_upload', { status: res.status, code: body.error, detail: body.detail });
+        }
+    };
+    const onDeleteAsset = async (id) => {
+        setAssets(prev => prev.filter(a => a.id !== id));
+        const res = await fetch(`/api/devshell/assets/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            recordFetchError('asset_delete', { status: res.status, code: body.error, detail: body.detail });
+        }
+    };
+    const assetDownloadPath = (id) => `/api/devshell/assets/${id}/download`;
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1335,6 +1380,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             ? 'Help me build a new skill. Walk me through what it should do and scaffold it into the repo.'
                             : 'Help me build a new tool. Walk me through what it should do and scaffold it into the repo.');
                     },
+                    // Library uploads — developer-brought files indexed in the directory.
+                    assets,
+                    onUploadAsset,
+                    onDeleteAsset,
+                    assetDownloadPath,
                     // No marketplace props passed — BuildPanel renders Installed-only
                     // (the v1 surface for dev-authored skills + tools). When MCP
                     // ships, we revisit; when marketplace ships, items / loading /
