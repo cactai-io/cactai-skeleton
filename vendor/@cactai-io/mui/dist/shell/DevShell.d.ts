@@ -206,6 +206,22 @@ export interface DevShellProps {
         catalogue: import('@cactai-io/types').CapabilityCatalogueItem[];
         config: import('@cactai-io/types').CapabilityScopeConfig;
         onPatch: (patch: import('@cactai-io/types').CapabilityConfigPatch) => Promise<void>;
+        /** Devshell-scope MCP for the Integrations tab. When present the tab
+         *  renders the live MCP manager; absent → a framework-first add form. */
+        mcp?: {
+            servers: import('@cactai-io/types').MCPServerPublic[];
+            catalog: import('../panels/MCPManager.js').MCPCatalogEntry[];
+            explainer: string[];
+            loading?: boolean;
+            onAdd: (input: {
+                label: string;
+                endpoint_url: string;
+                auth_type: import('@cactai-io/types').MCPAuthType;
+                auth_token?: string;
+            }) => Promise<void>;
+            onRemove: (id: string) => Promise<void>;
+            onToggle: (id: string, enabled: boolean) => Promise<void>;
+        };
     };
     /** URL of the Cactai platform dashboard. Passed by the host so this
      *  package carries no hardcoded environment URL. */

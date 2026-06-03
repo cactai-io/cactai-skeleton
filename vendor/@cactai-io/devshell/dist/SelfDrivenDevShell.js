@@ -837,6 +837,43 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             recordFetchError('tier_save', { status: res.status, code: body.error, detail: body.detail });
         }
     };
+    // Devshell-scope MCP handlers — shared by App Configuration's Integrations
+    // tab AND the DevShell Configuration Integrations tab. Both write through
+    // /v1/projects/:id/mcp/devshell.
+    const mcpBase = `${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/mcp/devshell`;
+    const onMCPAdd = async (input) => {
+        const res = await fetch(mcpBase, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+        if (!res.ok) {
+            const b = await res.json().catch(() => ({}));
+            recordFetchError('mcp_add', { status: res.status, code: b.error, detail: b.detail });
+            return;
+        }
+        recordFetchError('mcp_add', null);
+        const b = await res.json();
+        setMcpServers(prev => [...prev, b.server]);
+    };
+    const onMCPRemove = async (id) => {
+        const res = await fetch(`${mcpBase}/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const b = await res.json().catch(() => ({}));
+            recordFetchError('mcp_remove', { status: res.status, code: b.error, detail: b.detail });
+            return;
+        }
+        recordFetchError('mcp_remove', null);
+        setMcpServers(prev => prev.filter(s => s.id !== id));
+    };
+    const onMCPToggle = async (id, enabled) => {
+        setMcpServers(prev => prev.map(s => s.id === id ? { ...s, enabled } : s));
+        const res = await fetch(`${mcpBase}/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) });
+        if (!res.ok) {
+            setMcpServers(prev => prev.map(s => s.id === id ? { ...s, enabled: !enabled } : s));
+            const b = await res.json().catch(() => ({}));
+            recordFetchError('mcp_toggle', { status: res.status, code: b.error, detail: b.detail });
+        }
+        else {
+            recordFetchError('mcp_toggle', null);
+        }
+    };
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1361,50 +1398,9 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     mcpCatalog: MCP_CATALOGS.devshell,
                     mcpExplainer: MCP_EXPLAINERS.devshell,
                     mcpLoading,
-                    onMCPAdd: async (input) => {
-                        const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/mcp/devshell`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(input),
-                        });
-                        if (!res.ok) {
-                            const body = await res.json().catch(() => ({}));
-                            recordFetchError('mcp_add', { status: res.status, code: body.error, detail: body.detail });
-                            return;
-                        }
-                        recordFetchError('mcp_add', null);
-                        const b = await res.json();
-                        setMcpServers(prev => [...prev, b.server]);
-                    },
-                    onMCPRemove: async (id) => {
-                        const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/mcp/devshell/${id}`, {
-                            method: 'DELETE',
-                        });
-                        if (!res.ok) {
-                            const body = await res.json().catch(() => ({}));
-                            recordFetchError('mcp_remove', { status: res.status, code: body.error, detail: body.detail });
-                            return;
-                        }
-                        recordFetchError('mcp_remove', null);
-                        setMcpServers(prev => prev.filter(s => s.id !== id));
-                    },
-                    onMCPToggle: async (id, enabled) => {
-                        // Optimistic flip; roll back on failure.
-                        setMcpServers(prev => prev.map(s => s.id === id ? { ...s, enabled } : s));
-                        const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/mcp/devshell/${id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ enabled }),
-                        });
-                        if (!res.ok) {
-                            setMcpServers(prev => prev.map(s => s.id === id ? { ...s, enabled: !enabled } : s));
-                            const body = await res.json().catch(() => ({}));
-                            recordFetchError('mcp_toggle', { status: res.status, code: body.error, detail: body.detail });
-                        }
-                        else {
-                            recordFetchError('mcp_toggle', null);
-                        }
-                    },
+                    onMCPAdd,
+                    onMCPRemove,
+                    onMCPToggle,
                     // Catalogue needed for the CapabilityListPanel's appshell
                     // section render — without it the panel falls back to a
                     // "configuration data is loading…" placeholder.
@@ -1519,6 +1515,18 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                                 setCapabilityCat(body.catalogue ?? []);
                                 setCapabilityConfig(body.config ?? null);
                             }
+                        },
+                        // Devshell-scope MCP for the Integrations tab — same servers +
+                        // handlers the App Config Integrations tab uses (both write to
+                        // /v1/projects/:id/mcp/devshell).
+                        mcp: {
+                            servers: mcpServers,
+                            catalog: MCP_CATALOGS.devshell,
+                            explainer: MCP_EXPLAINERS.devshell,
+                            loading: mcpLoading,
+                            onAdd: onMCPAdd,
+                            onRemove: onMCPRemove,
+                            onToggle: onMCPToggle,
                         },
                     }
                     : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate }), capPrompt && (_jsx(ProviderKeyModal, { detail: capPrompt.detail, onSaved: capPrompt.retry, onDismiss: () => setCapPrompt(null), endpoints: { cactaiBase, projectId } }))] }));
