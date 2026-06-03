@@ -43,6 +43,8 @@ export class InputRouter {
             // Route-only modalities — queued but not sent in v1
             return;
         }
+        // Clear any prior turn error as the developer retries/sends anew.
+        this.store.setActiveError(null);
         // Step 1-2: Read and increment turn count
         const turnNumber = this.store.incrementTurnCount();
         // Step 3: Set pending

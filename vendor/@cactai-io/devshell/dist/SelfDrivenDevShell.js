@@ -65,6 +65,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [messages, setMessages] = useState([]);
     const [streamingContent, setStreamingContent] = useState('');
     const [agentState, setAgentState] = useState('idle');
+    // Active turn error (e.g. the proxy's no_provider_configured 412). The store
+    // tracks it but nothing rendered it, so failed turns looked like "nothing
+    // happened" — surface it in the chat.
+    const [chatError, setChatError] = useState(null);
     // Phase 2b — workflow state from the platform. Polls every 5s while
     // DevShell is mounted so agent-side changes (purpose recorded, plan
     // approved, sprint started, backlog item added) surface in the rail
@@ -305,6 +309,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             setStreamingContent(s.conversation.streaming
                 ? s.conversation.stream_buffer.map(d => d.delta).join('')
                 : '');
+            setChatError(s.errors.active ? (s.errors.active.message || 'Something went wrong on that turn.') : null);
             // Coarse agent-state derivation for the character animation:
             // streaming -> delivering, pending -> thinking, otherwise idle.
             // Phase 3 will read morph_state from the platform's turn-events
@@ -1238,7 +1243,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         required_tokens: [],
         description: c.description,
     }));
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, notes: notes, onCreateNote: createNote, onUpdateNote: updateNote, onDeleteNote: deleteNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, chatError: chatError, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, notes: notes, onCreateNote: createNote, onUpdateNote: updateNote, onDeleteNote: deleteNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
                 // ⓘ-guide overlays. The open guide routes to its container by origin:
                 // top/right ⇒ chat slot, bottom ⇒ files panel, modal-split ⇒ pending
                 // modal. The origin is known from the surface before content loads

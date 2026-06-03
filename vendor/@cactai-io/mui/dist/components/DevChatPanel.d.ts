@@ -23,8 +23,9 @@ export interface DevChatPanelProps {
     inspectorLabel?: string;
     onClearInspector?: () => void;
     streamingContent?: string;
+    chatError?: string | null;
     disabled?: boolean;
     className?: string;
     style?: React.CSSProperties;
 }
-export declare function DevChatPanel({ shell, messages, agentState, character, agentDisplayName, activeView, onCollapse, inspectorLabel, onClearInspector, streamingContent, disabled, className, style, }: DevChatPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevChatPanel({ shell, messages, agentState, character, agentDisplayName, activeView, onCollapse, inspectorLabel, onClearInspector, streamingContent, chatError, disabled, className, style, }: DevChatPanelProps): import("react/jsx-runtime").JSX.Element;
