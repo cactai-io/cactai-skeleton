@@ -86,10 +86,9 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [topRankRoleName, setTopRankRoleName] = useState(null);
     const [autoPromoteOnFirstSignup, setAutoPromoteOnFirstSignup] = useState(false);
     const [sprints, setSprints] = useState([]);
-    // Plan-view notes — free-form project markdown + per-decision threads.
-    // Backed by /api/workflow/notes (stored under project_state.decisions._notes).
-    const [projectNotes, setProjectNotes] = useState('');
-    const [decisionNotes, setDecisionNotes] = useState({});
+    // Plan-view notes — a collection of independent named notes with full CRUD.
+    // Backed by /api/workflow/notes (project_state.decisions._notes.items).
+    const [notes, setNotes] = useState([]);
     // Phase 3a — file tree from the customer's GitHub repo via skeleton-
     // side /api/git/tree (uses GITHUB_TOKEN server-side). Loaded once on
     // mount; refreshed after each commit.
@@ -604,7 +603,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // model as the welcome seed. The first-run welcome (OnboardingModal
     // mode='modal') stays separate; this replaces the old docked OnboardingModal.
     const [guide, setGuide] = useState(null);
+    // True during the brief slide-OUT window: the panel stays mounted (open=false)
+    // so GuidePanel can animate off-edge before we drop it from the tree.
+    const [guideClosing, setGuideClosing] = useState(false);
     const openGuide = useCallback((surface) => {
+        setGuideClosing(false);
         setGuide({ surface, content: null, loading: true });
         void (async () => {
             // Resolve the personality display name at call time from `personality`
@@ -635,7 +638,54 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             }
         })();
     }, [cactaiBase, projectId, personality, workflowStep]);
-    const closeGuide = useCallback(() => setGuide(null), []);
+    const closeGuide = useCallback(() => {
+        // Trigger the slide-out, then unmount after it finishes (200ms anim).
+        setGuideClosing(true);
+        window.setTimeout(() => { setGuide(null); setGuideClosing(false); }, 210);
+    }, []);
+    // Welcome chat seed — on first open (empty conversation) while the project is
+    // still in purpose_capture, seed the agent's greeting into the chat so the
+    // developer sees the welcome message. The platform decides should_show (false
+    // once they've moved past purpose_capture), so re-seeding stops automatically.
+    // (The Build-tab PrimitiveTreeRenderer surface is separate; this is the chat.)
+    useEffect(() => {
+        if (!shell || !sessionId)
+            return;
+        const store = shell.getStore();
+        if (store.getState().conversation.messages.length > 0)
+            return;
+        let cancelled = false;
+        void (async () => {
+            const overrideId = typeof window !== 'undefined'
+                ? (window.localStorage.getItem('cactai_devshell_personality') ?? undefined)
+                : undefined;
+            const id = overrideId ?? personality?.active_id;
+            const ap = id ? personality?.available.find(p => p.id === id) : undefined;
+            const name = ap?.display_name ?? (id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Ember');
+            try {
+                const base = cactaiBase.replace(/\/$/, '');
+                const res = await fetch(`${base}/v1/projects/${projectId}/devshell/welcome?personality_name=${encodeURIComponent(name)}`, { cache: 'no-store' });
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                // Re-check emptiness after the await so a real turn never gets clobbered.
+                if (cancelled || !data.should_show || store.getState().conversation.messages.length > 0)
+                    return;
+                const text = [data.header, data.prompt, data.example].filter(Boolean).join('\n\n');
+                if (!text)
+                    return;
+                store.appendMessage({
+                    request_id: 'welcome-seed',
+                    session_id: sessionId,
+                    status: 'complete',
+                    output: { text },
+                    completed_at: new Date().toISOString(),
+                });
+            }
+            catch { /* welcome seed is best-effort */ }
+        })();
+        return () => { cancelled = true; };
+    }, [shell, sessionId, cactaiBase, projectId, personality]);
     // Workflow-completion modal state. Fires once when workflow_step
     // transitions to 'complete'. localStorage gates a re-trigger so a
     // refresh after dismissal doesn't bring it back.
@@ -985,7 +1035,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         return { ok: false, error: msg };
     };
     // Load Plan-view notes once on mount. Notes live under
-    // project_state.decisions._notes; /api/workflow/notes returns the blob.
+    // project_state.decisions._notes.items; /api/workflow/notes returns them.
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -996,13 +1046,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 const data = await res.json();
                 if (cancelled)
                     return;
-                if (typeof data.project === 'string')
-                    setProjectNotes(data.project);
-                if (data.decisions)
-                    setDecisionNotes(data.decisions);
+                if (Array.isArray(data.items))
+                    setNotes(data.items);
             }
             catch {
-                // Non-fatal — notes panel renders empty.
+                // Non-fatal — notes tree renders empty.
             }
         })();
         return () => { cancelled = true; };
@@ -1112,43 +1160,79 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // column and the Test Drive preview rendered their "unavailable" /
     // "commit to dev" placeholders despite both surfaces being fully built.
     const deployOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-    // Persist project-level notes, then re-fetch to confirm the stored value.
-    const saveProjectNotes = async (markdown) => {
-        await fetch('/api/workflow/notes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ project: markdown }),
-        });
-        setProjectNotes(markdown);
-    };
-    // Append a note to one decision's thread, then optimistically update.
-    const addDecisionNote = async (decisionKey, content) => {
+    // Notes CRUD — each maps to the /api/workflow/notes endpoint and keeps the
+    // local list in step so the Plan Notes tree updates immediately.
+    const createNote = async (draft) => {
         const res = await fetch('/api/workflow/notes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ decision_key: decisionKey, content }),
+            body: JSON.stringify(draft),
         });
-        if (res.ok) {
-            setDecisionNotes(prev => ({
-                ...prev,
-                [decisionKey]: [...(prev[decisionKey] ?? []), { at: new Date().toISOString(), content }],
-            }));
-        }
+        if (!res.ok)
+            return null;
+        const { item } = await res.json();
+        setNotes(prev => [...prev, item]);
+        return item;
+    };
+    const updateNote = async (id, draft) => {
+        const res = await fetch('/api/workflow/notes', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, ...draft }),
+        });
+        if (!res.ok)
+            return;
+        const { item } = await res.json();
+        setNotes(prev => prev.map(n => (n.id === id ? item : n)));
+    };
+    const deleteNote = async (id) => {
+        const res = await fetch(`/api/workflow/notes?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!res.ok)
+            return;
+        setNotes(prev => prev.filter(n => n.id !== id));
     };
     // decisions / backlog / sprints / workflowStep are stateful (set by
     // the polling effect above). Modal + guide state (onboardingOpen,
     // completionOpen, guide) is declared above the early returns to keep
     // React's hook order stable across renders.
-    // Skills come from MUIShell's own registry — already populated when
-    // MUIShell.init ran (and re-populated as new packages register).
-    const skills = shell.getStore().getSkillsLibrary();
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, projectNotes: projectNotes, onSaveProjectNotes: saveProjectNotes, decisionNotes: decisionNotes, onAddDecisionNote: addDecisionNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
+    // Library tools + skills come from the capability CATALOGUE (built-ins from
+    // the platform registries + the project's dev-authored loadlist) — the
+    // same source the Configuration tabs use. The MUIShell runtime registry
+    // (getSkillsLibrary) is empty on a fresh app because skills_packages is []
+    // at init, which is why the Library showed nothing; the catalogue is always
+    // populated, so the Cactai-supplied built-ins appear immediately.
+    const appshellEnabled = capabilityConfig?.appshell?.enabled ?? {};
+    const libraryTools = capabilityCat
+        .filter(c => c.kind === 'tool')
+        .map(c => ({
+        id: c.id,
+        name: c.name,
+        domain: c.category,
+        description: c.description,
+        active: appshellEnabled[c.id] ?? (c.source === 'built_in_free'),
+    }));
+    const skills = capabilityCat
+        .filter(c => c.kind === 'skill')
+        .map(c => ({
+        skill_id: c.id,
+        name: c.name,
+        platform: 'agnostic',
+        ssr: false,
+        artifact_types: c.category ? [c.category] : [],
+        source: c.source === 'developer_authored' ? 'developer_written' : 'configured',
+        active: appshellEnabled[c.id] ?? (c.source === 'built_in_free'),
+        render_confirmed: false,
+        registered_at: '',
+        required_tokens: [],
+        description: c.description,
+    }));
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, notes: notes, onCreateNote: createNote, onUpdateNote: updateNote, onDeleteNote: deleteNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
                 // ⓘ-guide overlays. The open guide routes to its container by origin:
                 // top/right ⇒ chat slot, bottom ⇒ files panel, modal-split ⇒ pending
                 // modal. The origin is known from the surface before content loads
                 // (file_directory ⇒ bottom; pending_edits ⇒ modal-split; else ⇒ top), so
                 // the loading shimmer animates into the right container.
-                chatGuideSlot: guide && (guideEffectiveOrigin === 'top' || guideEffectiveOrigin === 'right') ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: guide.content?.origin ?? 'top', title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, filesGuideSlot: guide && guideEffectiveOrigin === 'bottom' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: "bottom", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onOpenPendingGuide: () => (guide?.surface === 'pending_edits' ? closeGuide() : openGuide('pending_edits')), pendingGuideSlot: guide && guideEffectiveOrigin === 'modal-split' ? (_jsx(GuidePanel, { open: true, onClose: closeGuide, origin: "modal-split", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+                chatGuideSlot: guide && (guideEffectiveOrigin === 'top' || guideEffectiveOrigin === 'right') ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: guide.content?.origin ?? 'top', title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, filesGuideSlot: guide && guideEffectiveOrigin === 'bottom' ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: "bottom", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onOpenPendingGuide: () => (guide?.surface === 'pending_edits' ? closeGuide() : openGuide('pending_edits')), pendingGuideSlot: guide && guideEffectiveOrigin === 'modal-split' ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: "modal-split", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
                     // Phase 3b — POST /api/git/commit. The route reads file
                     // content from pending_files server-side (per the user's
                     // RLS-scoped rows), so we don't need to ferry blob bytes
@@ -1368,7 +1452,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     updateStatus: updateStatus,
                     onOpenUpdate: () => setUpdateModalOpen(true),
                 }, buildProps: {
-                    tools: [],
+                    tools: libraryTools,
                     // Capability config lives on the customer DB. The skeleton's
                     // /api/settings/capabilities PATCH handles read-modify-write
                     // on project_state.decisions.capability_config_v2 + pushes a

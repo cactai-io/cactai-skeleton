@@ -9,4 +9,4 @@ export interface GuidePanelProps {
      *  row instead of an empty panel so the slide-in never reveals blank space. */
     loading?: boolean;
 }
-export declare function GuidePanel({ open, onClose, origin, title, blocks, loading }: GuidePanelProps): import("react/jsx-runtime").JSX.Element | null;
+export declare function GuidePanel({ open, onClose, origin, title, blocks, loading }: GuidePanelProps): import("react/jsx-runtime").JSX.Element;

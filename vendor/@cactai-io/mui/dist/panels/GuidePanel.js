@@ -19,25 +19,34 @@ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-run
 // Generalized from OnboardingModal's docked mode — the workspace ⓘ now routes
 // here so the same slide/close/typography vocabulary is shared across surfaces.
 import React from 'react';
-// Each origin slides from the edge it is named after. Keyframe names are unique
-// so multiple guide panels (chat + files) can animate independently without the
-// browser deduping a shared @keyframes mid-flight.
+// Each origin slides from the edge it is named after — and slides back out the
+// same edge on close, so dismissing isn't a jarring instant disappear. Keyframe
+// names are unique so multiple guide panels (chat + files) can animate
+// independently without the browser deduping a shared @keyframes mid-flight.
 const ANIM = {
     top: {
         name: 'ds-guide-in-top',
-        keyframes: `@keyframes ds-guide-in-top { from { transform: translateY(-100%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }`,
+        outName: 'ds-guide-out-top',
+        keyframes: `@keyframes ds-guide-in-top { from { transform: translateY(-100%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+                @keyframes ds-guide-out-top { from { transform: translateY(0); opacity: 1 } to { transform: translateY(-100%); opacity: 0 } }`,
     },
     bottom: {
         name: 'ds-guide-in-bottom',
-        keyframes: `@keyframes ds-guide-in-bottom { from { transform: translateY(100%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }`,
+        outName: 'ds-guide-out-bottom',
+        keyframes: `@keyframes ds-guide-in-bottom { from { transform: translateY(100%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+                @keyframes ds-guide-out-bottom { from { transform: translateY(0); opacity: 1 } to { transform: translateY(100%); opacity: 0 } }`,
     },
     right: {
         name: 'ds-guide-in-right',
-        keyframes: `@keyframes ds-guide-in-right { from { transform: translateX(100%); opacity: 0 } to { transform: translateX(0); opacity: 1 } }`,
+        outName: 'ds-guide-out-right',
+        keyframes: `@keyframes ds-guide-in-right { from { transform: translateX(100%); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
+                @keyframes ds-guide-out-right { from { transform: translateX(0); opacity: 1 } to { transform: translateX(100%); opacity: 0 } }`,
     },
     'modal-split': {
         name: 'ds-guide-in-split',
-        keyframes: `@keyframes ds-guide-in-split { from { transform: translateY(-100%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }`,
+        outName: 'ds-guide-out-split',
+        keyframes: `@keyframes ds-guide-in-split { from { transform: translateY(-100%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+                @keyframes ds-guide-out-split { from { transform: translateY(0); opacity: 1 } to { transform: translateY(-100%); opacity: 0 } }`,
     },
 };
 // The close glyph points back the way the panel came in, so dismissing reads as
@@ -82,9 +91,13 @@ function Block({ block }) {
     }
 }
 export function GuidePanel({ open, onClose, origin, title, blocks, loading }) {
-    if (!open)
-        return null;
     const anim = ANIM[origin];
+    // When `open` flips to false the host keeps us mounted for the exit window,
+    // so instead of returning null we play the matching slide-OUT (filling
+    // 'forwards' so the panel stays off-edge until the host unmounts it).
+    const animation = open
+        ? `${anim.name} 240ms cubic-bezier(0.22, 1, 0.36, 1)`
+        : `${anim.outName} 200ms cubic-bezier(0.4, 0, 1, 1) forwards`;
     return (_jsxs(_Fragment, { children: [_jsx("style", { children: anim.keyframes }), _jsxs("div", { role: "dialog", "aria-modal": "false", "aria-label": title, style: {
                     position: 'absolute',
                     inset: 0,
@@ -93,7 +106,7 @@ export function GuidePanel({ open, onClose, origin, title, blocks, loading }) {
                     borderRight: origin === 'right' ? undefined : '1px solid var(--ds-border-soft, rgba(255,255,255,0.06))',
                     borderLeft: origin === 'right' ? '1px solid var(--ds-border-soft, rgba(255,255,255,0.06))' : undefined,
                     color: 'var(--ds-text)',
-                    animation: `${anim.name} 240ms cubic-bezier(0.22, 1, 0.36, 1)`,
+                    animation,
                     overflow: 'auto',
                     display: 'flex',
                     flexDirection: 'column',

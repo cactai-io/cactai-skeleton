@@ -1,4 +1,11 @@
 import type { SurfaceFormField, GoalBacklogEntry, SprintRecord, WorkflowDecisionRecord } from '@cactai-io/types';
+export interface PlanNote {
+    id: string;
+    title: string;
+    body: string;
+    created_at: string;
+    updated_at: string;
+}
 export interface WorkflowSurfaceProps {
     activeForm?: {
         stage: string;
@@ -15,31 +22,26 @@ export interface WorkflowSurfaceProps {
     onDeleteBacklog?: (id: string) => Promise<void> | void;
     onRenameSprint?: (id: string, name: string) => Promise<void> | void;
     onDeleteSprint?: (id: string) => Promise<void> | void;
-    /** Free-form project-level markdown notes (Plan view). Backed by
-     *  /api/workflow/notes (_notes.project). When the save handler is
-     *  omitted the Notes panel is hidden. */
-    projectNotes?: string;
-    onSaveProjectNotes?: (markdown: string) => Promise<void> | void;
-    /** Per-decision note threads, keyed by decision key. Backed by
-     *  /api/workflow/notes (_notes.decisions[key]). When the add handler
-     *  is omitted, the per-decision note affordance is hidden. */
-    decisionNotes?: Record<string, Array<{
-        at: string;
-        content: string;
-    }>>;
-    onAddDecisionNote?: (decisionKey: string, content: string) => Promise<void> | void;
+    /** Project notes (Plan view) — a collection of independent named notes with
+     *  full CRUD, backed by /api/workflow/notes (_notes.items). When the create
+     *  handler is omitted the Notes tree is hidden. */
+    notes?: PlanNote[];
+    onCreateNote?: (draft: {
+        title: string;
+        body: string;
+    }) => Promise<PlanNote | null> | void;
+    onUpdateNote?: (id: string, draft: {
+        title: string;
+        body: string;
+    }) => Promise<void> | void;
+    onDeleteNote?: (id: string) => Promise<void> | void;
 }
-export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
+export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
 interface DecisionLogProps {
     decisions: Record<string, WorkflowDecisionRecord>;
     onRevisit: (key: string) => void;
-    decisionNotes?: Record<string, Array<{
-        at: string;
-        content: string;
-    }>>;
-    onAddDecisionNote?: (decisionKey: string, content: string) => Promise<void> | void;
 }
-declare function DecisionLog({ decisions, onRevisit, decisionNotes, onAddDecisionNote }: DecisionLogProps): import("react/jsx-runtime").JSX.Element;
+declare function DecisionLog({ decisions, onRevisit }: DecisionLogProps): import("react/jsx-runtime").JSX.Element;
 interface DecisionInputProps {
     stage: string;
     fields: SurfaceFormField[];

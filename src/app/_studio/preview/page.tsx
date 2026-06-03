@@ -11,7 +11,11 @@
 // dev's unsaved state.
 //
 // Gating:
-//   - Returns 404 in production unless STUDIO_PREVIEW_ENABLED=true.
+//   - Enabled by default; only an explicit STUDIO_PREVIEW_ENABLED=false opts
+//     out. The Theme tab in the DevShell needs this route, and the page renders
+//     no sensitive data (only token-driven styling), so exposing it on the
+//     dev's own preview deploy is safe. (Previously this required opt-IN, which
+//     left the Theme tab showing a 404 on every provisioned app.)
 //   - Same-origin sandboxing on the iframe is the Inspector's responsibility
 //     (sandbox="allow-scripts allow-same-origin"). This page is otherwise
 //     publicly addressable when the env var is on — there's no auth here
@@ -36,6 +40,7 @@ import { StudioPreviewClient } from './client';
 export const dynamic = 'force-dynamic';
 
 export default function StudioPreviewPage() {
-  if (process.env.STUDIO_PREVIEW_ENABLED !== 'true') return notFound();
+  // Opt-out gating: render the preview unless explicitly disabled.
+  if (process.env.STUDIO_PREVIEW_ENABLED === 'false') return notFound();
   return <StudioPreviewClient />;
 }

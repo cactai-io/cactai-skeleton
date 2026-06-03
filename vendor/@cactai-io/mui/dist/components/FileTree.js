@@ -316,7 +316,7 @@ export function FileTree({ nodes, activeFilePath, onFileSelect, fileContent, fil
                                     }, children: segment })] }, i))) })) : (_jsx("span", { className: "ds-tree-title", children: "Project tree" })), _jsx("div", { className: "ds-tree-spacer" }), !isFileView && onCreateFile && (_jsx("button", { onClick: handleNewFile, title: "New file", "aria-label": "New file", style: {
                             background: 'transparent', border: 'none', cursor: 'pointer',
                             color: 'var(--ds-text-2)', padding: '0 6px', fontSize: 16, lineHeight: 1,
-                        }, children: "+" })), _jsx("button", { className: "ds-tree-collapse-btn", onClick: onCollapse, title: "Collapse", "aria-label": "Collapse project tree", children: "\u2304" })] }), _jsxs("div", { className: "ds-tree-body", role: isFileView ? 'document' : 'tree', style: {
+                        }, children: "+" }))] }), _jsxs("div", { className: "ds-tree-body", role: isFileView ? 'document' : 'tree', style: {
                     padding: isFileView ? 0 : undefined,
                     // Split view: tree column on the left, file content on the right.
                     // Full-window: stacked / single column (default flex behavior).

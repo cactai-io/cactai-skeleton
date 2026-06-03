@@ -491,10 +491,26 @@ body.cactai-shell-body-lock {
    reads as present — mirrors the collapsed chat/files tabs. Hovering the
    stripe / left edge reveals the full rail. */
 [data-cactai-shell] .ds-rail.is-autohide:not(.is-revealed) {
-  width: 6px;
-  flex-basis: 6px;
+  width: 12px;
+  flex-basis: 12px;
   padding-left: 0;
   padding-right: 0;
+}
+/* When auto-hidden to the sliver, the 42px buttons would otherwise show a
+   centered slice of each icon. Hide them so the stripe reads as a clean edge;
+   they fade back in when the rail reveals on hover. */
+[data-cactai-shell] .ds-rail.is-autohide:not(.is-revealed) .ds-rail-btn,
+[data-cactai-shell] .ds-rail.is-autohide:not(.is-revealed) .ds-rail-toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+/* Manual collapse — the rail shrinks to a thin strip; the toggle stays pinned
+   top-right (swaps ‹ → ›) and the section icons are removed from the DOM. */
+[data-cactai-shell] .ds-rail.is-collapsed {
+  width: 18px;
+  flex: 0 0 18px;
+  flex-basis: 18px;
+  padding: 12px 0;
 }
 [data-cactai-shell] .ds-rail.is-autohide.is-revealed {
   width: var(--ds-rail-w);
@@ -527,6 +543,7 @@ body.cactai-shell-body-lock {
               border-color var(--d-base) var(--ease),
               box-shadow var(--d-base) var(--ease),
               color var(--d-base) var(--ease),
+              opacity var(--d-base) var(--ease),
               background var(--d-base) var(--ease);
   flex-shrink: 0;
 }
@@ -1462,39 +1479,23 @@ body.cactai-shell-body-lock {
 }
 
 /* Manually-collapsed nav rail — thin re-open strip (mirrors the chat tab). */
-[data-cactai-shell] .ds-rail-collapsed-tab {
-  width: 18px;
-  background: var(--ds-surface);
-  border-right: 1px solid var(--ds-border-soft);
-  border-top: none; border-bottom: none; border-left: none;
-  cursor: pointer;
-  color: var(--ds-text-2);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: calc((var(--ds-header-h) - 16px) / 2);
-  transition: color var(--d-base) var(--ease), background var(--d-base) var(--ease);
-}
-[data-cactai-shell] .ds-rail-collapsed-tab:hover,
-[data-cactai-shell] .ds-rail-collapsed-tab:focus-visible {
-  color: var(--ds-text);
-  background: var(--ds-elevated);
-  outline: none;
-}
-/* Bottom-of-rail manual collapse control (the previously-empty rail slot). */
-[data-cactai-shell] .ds-rail-collapse {
+/* Unified rail collapse/open toggle — pinned to the top-right of the rail so
+   it keeps the same on-screen position whether the rail is open (60px) or
+   collapsed (18px). Just swaps ‹ / › rather than moving. */
+[data-cactai-shell] .ds-rail-toggle {
+  align-self: flex-end;
   background: transparent;
   border: none;
   color: var(--ds-text-3);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
-  padding: 8px 0;
-  width: 100%;
-  transition: color var(--d-base) var(--ease);
+  padding: 2px 5px;
+  margin: 0 0 6px;
+  transition: color var(--d-base) var(--ease), opacity var(--d-base) var(--ease);
 }
-[data-cactai-shell] .ds-rail-collapse:hover,
-[data-cactai-shell] .ds-rail-collapse:focus-visible {
+[data-cactai-shell] .ds-rail-toggle:hover,
+[data-cactai-shell] .ds-rail-toggle:focus-visible {
   color: var(--ds-text);
   outline: none;
 }

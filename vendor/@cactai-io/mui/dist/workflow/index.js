@@ -1,5 +1,5 @@
 'use client';
-import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 // packages/mui/src/workflow/index.tsx
 // All workflow surface components.
 //
@@ -15,134 +15,82 @@ import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-run
 // This surface never calls APIs directly — all state changes go through MUIShell.submitInput.
 // Consumes theme via CSS custom properties from @cactai-io/brand-tokens.
 import { useState, useRef } from 'react';
-export function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, projectNotes, onSaveProjectNotes, decisionNotes, onAddDecisionNote, }) {
+export function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, }) {
     const unresolved = backlog.filter(e => !e.acknowledged);
     const activeSprint = sprints.find(s => s.status === 'active');
     const planSprints = sprints.filter(s => s.status !== 'abandoned');
-    return (_jsxs("div", { style: { display: 'grid', gridTemplateColumns: '240px 1fr', height: '100%', overflow: 'hidden' }, children: [_jsx("div", { style: {
-                    borderRight: '1px solid var(--ds-border-soft)',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                }, children: _jsx(DecisionLog, { decisions: decisions, onRevisit: onRevisit, decisionNotes: decisionNotes, onAddDecisionNote: onAddDecisionNote }) }), _jsx("div", { style: { overflow: 'auto', padding: 28, display: 'flex', flexDirection: 'column', gap: 28 }, children: activeForm ? (_jsx(DecisionInput, { stage: activeForm.stage, fields: activeForm.fields, onSubmit: onFormSubmit })) : (_jsxs(_Fragment, { children: [planSprints.length > 0 && (_jsx(SprintOverview, { sprints: planSprints, activeSprint: activeSprint, onRename: onRenameSprint, onDelete: onDeleteSprint })), unresolved.length > 0 && (_jsx(GoalBacklog, { entries: unresolved, onResolve: onResolveBacklog, onCreate: onCreateBacklog, onUpdate: onUpdateBacklog, onDelete: onDeleteBacklog })), onSaveProjectNotes && (_jsx(NotesPanel, { value: projectNotes ?? '', onSave: onSaveProjectNotes }))] })) })] }));
+    const notesEnabled = !!onCreateNote;
+    // Right-pane note editor: a note id selects an existing note; '__new__'
+    // opens a blank editor; null shows the normal overview.
+    const [selectedNoteId, setSelectedNoteId] = useState(null);
+    const selectedNote = selectedNoteId && selectedNoteId !== '__new__'
+        ? (notes ?? []).find(n => n.id === selectedNoteId)
+        : undefined;
+    const editorOpen = notesEnabled && selectedNoteId !== null
+        && (selectedNoteId === '__new__' || !!selectedNote);
+    return (_jsxs("div", { style: { display: 'grid', gridTemplateColumns: '240px 1fr', height: '100%', overflow: 'hidden' }, children: [_jsxs("div", { style: { borderRight: '1px solid var(--ds-border-soft)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }, children: [_jsx("div", { style: { padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ds-text-3)', borderBottom: '1px solid var(--ds-border-soft)', flexShrink: 0 }, children: "Plan" }), _jsxs("div", { style: { overflow: 'auto', flex: 1 }, children: [_jsx(TreeSection, { title: "Decision Log", children: _jsx(DecisionLog, { decisions: decisions, onRevisit: onRevisit }) }), notesEnabled && (_jsx(TreeSection, { title: "Notes", action: _jsx("button", { onClick: () => setSelectedNoteId('__new__'), title: "New note", style: { background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ds-text-2)', fontSize: 11, padding: '0 4px' }, children: "+ New note" }), children: _jsx(NotesTree, { notes: notes ?? [], selectedId: selectedNoteId, onSelect: setSelectedNoteId }) }))] })] }), _jsx("div", { style: { overflow: 'auto', padding: 28, display: 'flex', flexDirection: 'column', gap: 28 }, children: activeForm ? (_jsx(DecisionInput, { stage: activeForm.stage, fields: activeForm.fields, onSubmit: onFormSubmit })) : editorOpen ? (_jsx(NoteEditor, { note: selectedNote, onSave: async (draft) => {
+                        if (selectedNote) {
+                            await onUpdateNote?.(selectedNote.id, draft);
+                        }
+                        else {
+                            const created = await onCreateNote?.(draft);
+                            setSelectedNoteId(created && typeof created === 'object' && 'id' in created ? created.id : null);
+                        }
+                    }, onCancel: () => setSelectedNoteId(null), onDelete: selectedNote ? async () => { await onDeleteNote?.(selectedNote.id); setSelectedNoteId(null); } : undefined }, selectedNoteId ?? 'new')) : (_jsxs(_Fragment, { children: [planSprints.length > 0 && (_jsx(SprintOverview, { sprints: planSprints, activeSprint: activeSprint, onRename: onRenameSprint, onDelete: onDeleteSprint })), unresolved.length > 0 && (_jsx(GoalBacklog, { entries: unresolved, onResolve: onResolveBacklog, onCreate: onCreateBacklog, onUpdate: onUpdateBacklog, onDelete: onDeleteBacklog }))] })) })] }));
 }
-function NotesPanel({ value, onSave }) {
-    const [draft, setDraft] = useState(value);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    // Re-sync when the persisted value changes (e.g. first load after fetch).
-    const lastValue = useRef(value);
-    if (lastValue.current !== value) {
-        lastValue.current = value;
-        if (draft === '' || draft === lastValue.current)
-            setDraft(value);
+// ── PLAN SIDEBAR TREES ────────────────────────────────────────────────────────
+function TreeSection({ title, action, children }) {
+    return (_jsxs("div", { style: { padding: '10px 0' }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 16px' }, children: [_jsx("div", { style: { flex: 1, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ds-text-3)' }, children: title }), action] }), children] }));
+}
+function NotesTree({ notes, selectedId, onSelect }) {
+    if (notes.length === 0) {
+        return _jsx("div", { style: { padding: '4px 16px', fontSize: 11.5, color: 'var(--ds-text-3)' }, children: "No notes yet." });
     }
-    const dirty = draft !== value;
+    return (_jsx("div", { children: notes.map(n => (_jsx("button", { onClick: () => onSelect(n.id), style: {
+                display: 'block', width: '100%', textAlign: 'left',
+                background: selectedId === n.id ? 'var(--ds-surface-2)' : 'transparent',
+                border: 'none', cursor: 'pointer',
+                padding: '5px 16px', fontSize: 12.5,
+                color: selectedId === n.id ? 'var(--ds-text)' : 'var(--ds-text-2)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }, children: n.title || 'Untitled note' }, n.id))) }));
+}
+// ── NOTE EDITOR (right main area) ──────────────────────────────────────────────
+// Opens an existing note for edit, or a blank one for a new note. Save persists
+// via the host CRUD handlers; Cancel/Esc discards; Delete removes an existing
+// note. Edits stay local until Save.
+function NoteEditor({ note, onSave, onCancel, onDelete }) {
+    const [title, setTitle] = useState(note?.title ?? '');
+    const [body, setBody] = useState(note?.body ?? '');
+    const [saving, setSaving] = useState(false);
+    const dirty = title !== (note?.title ?? '') || body !== (note?.body ?? '');
     async function save() {
         setSaving(true);
-        setSaved(false);
         try {
-            await onSave(draft);
-            setSaved(true);
-            setTimeout(() => setSaved(false), 1800);
+            await onSave({ title, body });
         }
         finally {
             setSaving(false);
         }
     }
-    return (_jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 10 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("div", { style: { flex: 1, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ds-text-3)' }, children: "Notes" }), saved && _jsx("span", { style: { fontSize: 11, color: 'var(--c-accent, #5fb6ff)' }, children: "Saved" }), _jsx("button", { className: "ds-btn-ghost", disabled: !dirty || saving, onClick: () => void save(), style: { fontSize: 11.5, padding: '4px 12px', opacity: !dirty || saving ? 0.5 : 1 }, children: saving ? 'Saving…' : 'Save' })] }), _jsx("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: "Free-form notes for this project \u2014 decisions to revisit, ideas, reminders\u2026", rows: 8, style: {
-                    width: '100%',
-                    background: 'var(--ds-elevated)',
-                    border: '1px solid var(--ds-border)',
-                    borderRadius: 'var(--ds-r-sm)',
-                    padding: 12,
-                    color: 'var(--ds-text)',
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                    fontFamily: 'var(--f-ui)',
-                    resize: 'vertical',
-                    outline: 'none',
-                } })] }));
+    return (_jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 760 }, onKeyDown: (e) => { if (e.key === 'Escape')
+            onCancel(); }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8 }, children: [_jsx("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "Note title", autoFocus: true, style: { flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--ds-border)', color: 'var(--ds-text)', fontSize: 18, fontWeight: 600, padding: '4px 2px', outline: 'none', fontFamily: 'var(--f-ui)' } }), onDelete && (_jsx("button", { className: "ds-btn-ghost", onClick: () => void onDelete(), style: { fontSize: 11.5, padding: '4px 12px' }, children: "Delete" })), _jsx("button", { className: "ds-btn-ghost", onClick: onCancel, style: { fontSize: 11.5, padding: '4px 12px' }, children: note ? 'Close' : 'Cancel' }), _jsx("button", { className: "ds-btn-primary", disabled: !dirty || saving, onClick: () => void save(), style: { fontSize: 11.5, padding: '4px 14px', opacity: !dirty || saving ? 0.5 : 1 }, children: saving ? 'Saving…' : 'Save' })] }), _jsx("textarea", { value: body, onChange: e => setBody(e.target.value), placeholder: "Write your note\u2026 (Esc to close)", rows: 18, style: { width: '100%', boxSizing: 'border-box', background: 'var(--ds-elevated)', border: '1px solid var(--ds-border)', borderRadius: 'var(--ds-r-sm)', padding: 14, color: 'var(--ds-text)', fontSize: 13.5, lineHeight: 1.65, fontFamily: 'var(--f-ui)', resize: 'vertical', outline: 'none' } })] }));
 }
-function DecisionLog({ decisions, onRevisit, decisionNotes, onAddDecisionNote }) {
+function DecisionLog({ decisions, onRevisit }) {
     const [highlighted, setHighlighted] = useState(new Set());
-    // Which decision's note thread is currently expanded (only one at a time).
-    const [openThread, setOpenThread] = useState(null);
     const entries = Object.entries(decisions);
-    function showUpstream(key, record) {
+    function showUpstream(record) {
         setHighlighted(new Set(record.informed_by));
     }
-    function clearHighlight() {
-        setHighlighted(new Set());
+    function clearHighlight() { setHighlighted(new Set()); }
+    if (entries.length === 0) {
+        return _jsx("div", { style: { padding: '4px 16px', fontSize: 11.5, color: 'var(--ds-text-3)' }, children: "No decisions yet." });
     }
-    return (_jsxs("div", { style: { display: 'flex', flexDirection: 'column', height: '100%' }, children: [_jsx("div", { style: {
-                    padding: '14px 16px',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: 'var(--ds-text-3)',
-                    borderBottom: '1px solid var(--ds-border-soft)',
-                    flexShrink: 0,
-                }, children: "Decision log" }), _jsxs("div", { style: { overflow: 'auto', flex: 1, padding: '10px 0' }, children: [entries.length === 0 && (_jsx("div", { style: { padding: '16px', fontSize: 12, color: 'var(--ds-text-3)' }, children: "No decisions yet." })), entries.map(([key, record]) => {
-                        const isDimmed = highlighted.size > 0 && !highlighted.has(key);
-                        const isHighlighted = highlighted.has(key);
-                        const notes = decisionNotes?.[key] ?? [];
-                        const threadOpen = openThread === key;
-                        return (_jsxs("div", { style: {
-                                padding: '8px 16px',
-                                opacity: isDimmed ? 0.3 : 1,
-                                transition: 'opacity 0.15s',
-                                borderLeft: isHighlighted ? '2px solid var(--ds-pink)' : '2px solid transparent',
-                            }, onMouseEnter: () => showUpstream(key, record), onMouseLeave: clearHighlight, children: [_jsxs("div", { style: { cursor: 'pointer' }, onClick: () => onRevisit(key), title: "Click to revisit this decision", children: [_jsx("div", { style: { fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ds-text-3)', marginBottom: 2 }, children: key }), _jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text)', fontWeight: 500 }, children: typeof record.value === 'boolean'
-                                                ? (record.value ? 'Yes' : 'No')
-                                                : String(record.value) }), _jsx("div", { style: { fontSize: 10, color: 'var(--ds-text-3)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }, children: record.method }), (record.informed_by?.length ?? 0) > 0 && (_jsxs("div", { style: { fontSize: 9.5, color: 'var(--ds-text-3)', marginTop: 3 }, children: ["\u2191 ", record.informed_by.join(', ')] }))] }), onAddDecisionNote && (_jsx("button", { onClick: () => setOpenThread(threadOpen ? null : key), style: {
-                                        marginTop: 5,
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: notes.length > 0 ? 'var(--c-accent, #5fb6ff)' : 'var(--ds-text-3)',
-                                        cursor: 'pointer',
-                                        fontSize: 10,
-                                        padding: 0,
-                                    }, children: notes.length > 0 ? `🗒 ${notes.length} note${notes.length === 1 ? '' : 's'}` : '+ note' })), threadOpen && onAddDecisionNote && (_jsx(DecisionNoteThread, { notes: notes, onAdd: (content) => onAddDecisionNote(key, content) }))] }, key));
-                    })] })] }));
-}
-function DecisionNoteThread({ notes, onAdd }) {
-    const [text, setText] = useState('');
-    const [adding, setAdding] = useState(false);
-    async function add() {
-        const trimmed = text.trim();
-        if (!trimmed)
-            return;
-        setAdding(true);
-        try {
-            await onAdd(trimmed);
-            setText('');
-        }
-        finally {
-            setAdding(false);
-        }
-    }
-    return (_jsxs("div", { style: {
-            marginTop: 6,
-            padding: 8,
-            background: 'var(--ds-canvas, var(--ds-surface))',
-            border: '1px solid var(--ds-border-soft)',
-            borderRadius: 'var(--ds-r-sm)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-        }, children: [notes.map((n, i) => (_jsxs("div", { style: { fontSize: 11, lineHeight: 1.5 }, children: [_jsx("div", { style: { color: 'var(--ds-text-3)', fontSize: 9 }, children: new Date(n.at).toLocaleString() }), _jsx("div", { style: { color: 'var(--ds-text-2)', whiteSpace: 'pre-wrap' }, children: n.content })] }, i))), _jsxs("div", { style: { display: 'flex', gap: 6 }, children: [_jsx("input", { value: text, onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === 'Enter')
-                            void add(); }, placeholder: "Add a note\u2026", style: {
-                            flex: 1,
-                            background: 'var(--ds-elevated)',
-                            border: '1px solid var(--ds-border)',
-                            borderRadius: 'var(--ds-r-sm)',
-                            padding: '4px 8px',
-                            color: 'var(--ds-text)',
-                            fontSize: 11,
-                            outline: 'none',
-                        } }), _jsx("button", { className: "ds-btn-ghost", disabled: !text.trim() || adding, onClick: () => void add(), style: { fontSize: 11, padding: '4px 10px', opacity: !text.trim() || adding ? 0.5 : 1 }, children: adding ? '…' : 'Add' })] })] }));
+    return (_jsx("div", { children: entries.map(([key, record]) => {
+            const isDimmed = highlighted.size > 0 && !highlighted.has(key);
+            const isHighlighted = highlighted.has(key);
+            return (_jsxs("div", { style: { padding: '8px 16px', opacity: isDimmed ? 0.3 : 1, transition: 'opacity 0.15s', borderLeft: isHighlighted ? '2px solid var(--ds-pink)' : '2px solid transparent', cursor: 'pointer' }, onMouseEnter: () => showUpstream(record), onMouseLeave: clearHighlight, onClick: () => onRevisit(key), title: "Click to revisit this decision", children: [_jsx("div", { style: { fontSize: 10, fontFamily: 'var(--f-mono)', color: 'var(--ds-text-3)', marginBottom: 2 }, children: key }), _jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text)', fontWeight: 500 }, children: typeof record.value === 'boolean' ? (record.value ? 'Yes' : 'No') : String(record.value) }), _jsx("div", { style: { fontSize: 10, color: 'var(--ds-text-3)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }, children: record.method }), (record.informed_by?.length ?? 0) > 0 && (_jsxs("div", { style: { fontSize: 9.5, color: 'var(--ds-text-3)', marginTop: 3 }, children: ["\u2191 ", record.informed_by.join(', ')] }))] }, key));
+        }) }));
 }
 function DecisionInput({ stage, fields, onSubmit }) {
     const [choices, setChoices] = useState({});

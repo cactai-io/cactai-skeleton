@@ -120,7 +120,7 @@ export type { BYOKSectionProps } from './panels/BYOKSection.js';
 export { DevShellPreferencesModal } from './panels/DevShellPreferencesModal.js';
 export type { DevShellPreferencesModalProps } from './panels/DevShellPreferencesModal.js';
 export { WorkflowSurface, DecisionLog, DecisionInput, GoalBacklog, SprintOverview, ButtonSelect, DragRank, ColorPicker, PersonalityCards, } from './workflow/index.js';
-export type { WorkflowSurfaceProps } from './workflow/index.js';
+export type { WorkflowSurfaceProps, PlanNote } from './workflow/index.js';
 export { ThemeInspector, ColorControl, FontControl, NumericControl, ShadowControl, TransitionControl, inferControlKind, } from './inspector/index.js';
 export type { ThemeInspectorProps, BaseControlProps, ControlKind, ParsedTheme, ThemeDeltas, } from './inspector/index.js';
 export type { SprintRecord, SprintStatus, SprintGoal, GoalBacklogEntry, BacklogEntrySource, DeferredTangent, WorkflowDecisionRecord, SurfaceFormField, KnowledgePromotionProposal, DevShellTurnContext, PersonalityCharacter, TurnClassification, MorphState, SessionRole, MCPScope, MCPAuthType, MCPCapabilities, MCPServerPublic, MCPServerInput, MCPTestResult, MCPProjectScopes, } from '@cactai-io/types';
