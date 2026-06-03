@@ -32,8 +32,10 @@ ALTER TABLE app_provider_policy ENABLE ROW LEVEL SECURITY;
 
 -- Readable by authenticated users (the app's key-resolver needs the policy);
 -- writes go through the platform's service-role connection from DevShell.
+DROP POLICY IF EXISTS app_ai_keys_policy_read ON app_ai_keys_policy;
 CREATE POLICY app_ai_keys_policy_read ON app_ai_keys_policy
   FOR SELECT TO authenticated USING (TRUE);
+DROP POLICY IF EXISTS app_provider_policy_read ON app_provider_policy;
 CREATE POLICY app_provider_policy_read ON app_provider_policy
   FOR SELECT TO authenticated USING (TRUE);
 

@@ -25,8 +25,10 @@ CREATE TABLE IF NOT EXISTS app_tier_budgets (
 ALTER TABLE app_tiers        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_tier_budgets ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS app_tiers_read ON app_tiers;
 CREATE POLICY app_tiers_read ON app_tiers
   FOR SELECT TO authenticated USING (TRUE);
+DROP POLICY IF EXISTS app_tier_budgets_read ON app_tier_budgets;
 CREATE POLICY app_tier_budgets_read ON app_tier_budgets
   FOR SELECT TO authenticated USING (TRUE);
 

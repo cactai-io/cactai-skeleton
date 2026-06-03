@@ -24,6 +24,7 @@ ALTER TABLE app_assets ENABLE ROW LEVEL SECURITY;
 -- Authenticated users may read asset metadata + content (assets are app
 -- content the app itself serves). Uploads/deletes go through the platform's
 -- service-role connection from DevShell, never directly from end users.
+DROP POLICY IF EXISTS app_assets_read ON app_assets;
 CREATE POLICY app_assets_read ON app_assets
   FOR SELECT TO authenticated USING (TRUE);
 

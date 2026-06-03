@@ -45,7 +45,9 @@ CREATE TABLE IF NOT EXISTS app_users (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE app_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS app_users_self_read ON app_users;
 CREATE POLICY app_users_self_read   ON app_users FOR SELECT USING (id = auth.uid());
+DROP POLICY IF EXISTS app_users_self_update ON app_users;
 CREATE POLICY app_users_self_update ON app_users FOR UPDATE USING (id = auth.uid());
 
 -- platform_roles: dev and collaborator — roles above tenancy.
@@ -66,6 +68,7 @@ ALTER TABLE platform_roles ENABLE ROW LEVEL SECURITY;
 -- correct minimal grant — each user reads only their own roles, no
 -- recursion, no information disclosure.
 DROP POLICY IF EXISTS platform_roles_dev_read ON platform_roles;
+DROP POLICY IF EXISTS platform_roles_own_read ON platform_roles;
 CREATE POLICY platform_roles_own_read ON platform_roles
   FOR SELECT USING (user_id = auth.uid());
 
@@ -106,8 +109,10 @@ CREATE TABLE IF NOT EXISTS tenant_members (
 CREATE INDEX IF NOT EXISTS tenant_members_user_idx   ON tenant_members(user_id);
 CREATE INDEX IF NOT EXISTS tenant_members_tenant_idx ON tenant_members(tenant_id);
 ALTER TABLE tenant_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_members_self ON tenant_members;
 CREATE POLICY tenant_members_self        ON tenant_members FOR SELECT
   USING (user_id = auth.uid());
+DROP POLICY IF EXISTS tenant_members_super_admin ON tenant_members;
 CREATE POLICY tenant_members_super_admin ON tenant_members FOR ALL
   USING (
     EXISTS (
@@ -118,6 +123,7 @@ CREATE POLICY tenant_members_super_admin ON tenant_members FOR ALL
         AND tm.status = 'active'
     )
   );
+DROP POLICY IF EXISTS tenant_members_admin_read ON tenant_members;
 CREATE POLICY tenant_members_admin_read  ON tenant_members FOR SELECT
   USING (
     EXISTS (
@@ -163,6 +169,7 @@ CREATE TABLE IF NOT EXISTS tenant_invitations (
 CREATE INDEX IF NOT EXISTS tenant_invitations_tenant_idx ON tenant_invitations(tenant_id);
 CREATE INDEX IF NOT EXISTS tenant_invitations_email_idx  ON tenant_invitations(LOWER(email));
 ALTER TABLE tenant_invitations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS invitations_admin ON tenant_invitations;
 CREATE POLICY invitations_admin ON tenant_invitations FOR ALL
   USING (
     EXISTS (
@@ -314,6 +321,7 @@ CREATE INDEX IF NOT EXISTS audit_log_user_idx    ON audit_log(user_id, created_a
 CREATE INDEX IF NOT EXISTS audit_log_tenant_idx  ON audit_log(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS audit_log_action_idx  ON audit_log(action, created_at DESC);
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS audit_log_admin ON audit_log;
 CREATE POLICY audit_log_admin ON audit_log FOR SELECT
   USING (
     EXISTS (
@@ -342,6 +350,7 @@ CREATE TABLE IF NOT EXISTS memory (
 );
 CREATE INDEX IF NOT EXISTS memory_project_idx ON memory(project_id, scope);
 ALTER TABLE memory ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS memory_member ON memory;
 CREATE POLICY memory_member ON memory FOR ALL USING (
   EXISTS (
     SELECT 1 FROM tenant_members tm
@@ -366,6 +375,7 @@ CREATE TABLE IF NOT EXISTS knowledge_promotion_proposals (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE knowledge_promotion_proposals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS knowledge_promotion_proposals_member ON knowledge_promotion_proposals;
 CREATE POLICY knowledge_promotion_proposals_member ON knowledge_promotion_proposals FOR ALL
   USING (
     EXISTS (
@@ -393,6 +403,7 @@ CREATE TABLE IF NOT EXISTS user_facts (
 CREATE INDEX IF NOT EXISTS user_facts_user_idx      ON user_facts(user_id);
 CREATE INDEX IF NOT EXISTS user_facts_embedding_idx ON user_facts USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50);
 ALTER TABLE user_facts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_facts_self ON user_facts;
 CREATE POLICY user_facts_self ON user_facts FOR ALL USING (user_id = auth.uid());
 
 CREATE TABLE IF NOT EXISTS user_preferences (
@@ -409,6 +420,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 );
 CREATE INDEX IF NOT EXISTS user_preferences_user_idx ON user_preferences(user_id);
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_preferences_self ON user_preferences;
 CREATE POLICY user_preferences_self ON user_preferences FOR ALL USING (user_id = auth.uid());
 
 CREATE TABLE IF NOT EXISTS user_decisions (
@@ -424,6 +436,7 @@ CREATE TABLE IF NOT EXISTS user_decisions (
 CREATE INDEX IF NOT EXISTS user_decisions_user_idx      ON user_decisions(user_id);
 CREATE INDEX IF NOT EXISTS user_decisions_embedding_idx ON user_decisions USING ivfflat (context_embedding vector_cosine_ops) WITH (lists = 50);
 ALTER TABLE user_decisions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_decisions_self ON user_decisions;
 CREATE POLICY user_decisions_self ON user_decisions FOR ALL USING (user_id = auth.uid());
 
 CREATE TABLE IF NOT EXISTS user_artifacts (
@@ -440,6 +453,7 @@ CREATE TABLE IF NOT EXISTS user_artifacts (
 CREATE INDEX IF NOT EXISTS user_artifacts_user_idx      ON user_artifacts(user_id);
 CREATE INDEX IF NOT EXISTS user_artifacts_embedding_idx ON user_artifacts USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50);
 ALTER TABLE user_artifacts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_artifacts_self ON user_artifacts;
 CREATE POLICY user_artifacts_self ON user_artifacts FOR ALL USING (user_id = auth.uid());
 
 CREATE TABLE IF NOT EXISTS user_api_keys (
@@ -450,6 +464,7 @@ CREATE TABLE IF NOT EXISTS user_api_keys (
   PRIMARY KEY (user_id, provider_id)
 );
 ALTER TABLE user_api_keys ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_api_keys_self ON user_api_keys;
 CREATE POLICY user_api_keys_self ON user_api_keys FOR ALL USING (user_id = auth.uid());
 
 -- ── Project knowledge ────────────────────────────────────────────────────────
@@ -470,6 +485,7 @@ CREATE TABLE IF NOT EXISTS project_knowledge (
 CREATE INDEX IF NOT EXISTS project_knowledge_project_idx   ON project_knowledge(project_id);
 CREATE INDEX IF NOT EXISTS project_knowledge_embedding_idx ON project_knowledge USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ALTER TABLE project_knowledge ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS project_knowledge_member ON project_knowledge;
 CREATE POLICY project_knowledge_member ON project_knowledge FOR ALL USING (
   EXISTS (
     SELECT 1 FROM tenant_members tm
@@ -504,6 +520,7 @@ CREATE INDEX IF NOT EXISTS artifact_registry_node_idx    ON artifact_registry(no
 CREATE INDEX IF NOT EXISTS artifact_registry_parent_idx  ON artifact_registry(parent_id);
 CREATE INDEX IF NOT EXISTS artifact_registry_type_idx    ON artifact_registry(project_id, type);
 ALTER TABLE artifact_registry ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS artifact_registry_member ON artifact_registry;
 CREATE POLICY artifact_registry_member ON artifact_registry FOR ALL USING (
   EXISTS (
     SELECT 1 FROM tenant_members tm
@@ -521,6 +538,7 @@ CREATE TABLE IF NOT EXISTS artifact_versions (
   PRIMARY KEY (artifact_id, version)
 );
 ALTER TABLE artifact_versions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS artifact_versions_member ON artifact_versions;
 CREATE POLICY artifact_versions_member ON artifact_versions FOR ALL USING (
   EXISTS (
     SELECT 1 FROM artifact_registry r
@@ -546,6 +564,7 @@ CREATE TABLE IF NOT EXISTS knowledge (
 CREATE INDEX IF NOT EXISTS knowledge_project_idx   ON knowledge(project_id, user_id);
 CREATE INDEX IF NOT EXISTS knowledge_embedding_idx ON knowledge USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ALTER TABLE knowledge ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS knowledge_self_or_member ON knowledge;
 CREATE POLICY knowledge_self_or_member ON knowledge FOR ALL USING (
   user_id = auth.uid()
   OR EXISTS (
@@ -573,6 +592,7 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 CREATE INDEX IF NOT EXISTS projects_owner_idx ON projects(owner_id);
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS projects_member ON projects;
 CREATE POLICY projects_member ON projects FOR ALL USING (
   EXISTS (
     SELECT 1 FROM tenant_members tm
@@ -596,6 +616,7 @@ CREATE TABLE IF NOT EXISTS goal_nodes (
 );
 CREATE INDEX IF NOT EXISTS goal_nodes_project_idx ON goal_nodes(project_id);
 ALTER TABLE goal_nodes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS goal_nodes_member ON goal_nodes;
 CREATE POLICY goal_nodes_member ON goal_nodes FOR ALL USING (
   EXISTS (
     SELECT 1 FROM tenant_members tm
@@ -625,6 +646,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS sessions_project_idx ON sessions(project_id);
 CREATE INDEX IF NOT EXISTS sessions_status_idx  ON sessions(status);
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sessions_member ON sessions;
 CREATE POLICY sessions_member ON sessions FOR ALL USING (
   EXISTS (
     SELECT 1 FROM tenant_members tm
@@ -654,6 +676,7 @@ CREATE INDEX IF NOT EXISTS threads_session_idx ON threads(session_id);
 CREATE INDEX IF NOT EXISTS threads_parent_idx  ON threads(parent_thread_id);
 CREATE INDEX IF NOT EXISTS threads_status_idx  ON threads(status);
 ALTER TABLE threads ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS threads_member ON threads;
 CREATE POLICY threads_member ON threads FOR ALL USING (
   EXISTS (
     SELECT 1 FROM tenant_members tm

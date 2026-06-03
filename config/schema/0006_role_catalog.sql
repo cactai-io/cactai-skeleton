@@ -33,6 +33,7 @@ ALTER TABLE tenant_roles_catalog ENABLE ROW LEVEL SECURITY;
 
 -- Anyone authenticated can read the catalog (the skeleton needs it for
 -- lens-switcher UI).
+DROP POLICY IF EXISTS tenant_roles_catalog_read ON tenant_roles_catalog;
 CREATE POLICY tenant_roles_catalog_read ON tenant_roles_catalog
   FOR SELECT
   TO authenticated

@@ -34,6 +34,7 @@ CREATE INDEX IF NOT EXISTS user_app_settings_user_idx
 
 ALTER TABLE user_app_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS user_app_settings_self ON user_app_settings;
 CREATE POLICY user_app_settings_self ON user_app_settings
   FOR ALL
   USING (

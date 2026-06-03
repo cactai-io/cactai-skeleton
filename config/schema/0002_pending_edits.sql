@@ -73,12 +73,16 @@ CREATE INDEX IF NOT EXISTS pending_files_user_edited_idx
 
 ALTER TABLE pending_files ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS pending_files_self_read ON pending_files;
 CREATE POLICY pending_files_self_read ON pending_files FOR SELECT
   USING (user_id = auth.uid());
+DROP POLICY IF EXISTS pending_files_self_insert ON pending_files;
 CREATE POLICY pending_files_self_insert ON pending_files FOR INSERT
   WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS pending_files_self_update ON pending_files;
 CREATE POLICY pending_files_self_update ON pending_files FOR UPDATE
   USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS pending_files_self_delete ON pending_files;
 CREATE POLICY pending_files_self_delete ON pending_files FOR DELETE
   USING (user_id = auth.uid());
 
@@ -97,6 +101,7 @@ CREATE INDEX IF NOT EXISTS commit_log_committed_at_idx
 ALTER TABLE commit_log ENABLE ROW LEVEL SECURITY;
 
 -- Any authenticated platform-role user can read the commit history.
+DROP POLICY IF EXISTS commit_log_platform_read ON commit_log;
 CREATE POLICY commit_log_platform_read ON commit_log FOR SELECT
   USING (
     EXISTS (
@@ -108,6 +113,7 @@ CREATE POLICY commit_log_platform_read ON commit_log FOR SELECT
 -- Writes come from /api/github/commit immediately after a successful
 -- GitHub commit. The route runs with the user's session, so RLS allows
 -- inserts when the committer matches the session user.
+DROP POLICY IF EXISTS commit_log_self_insert ON commit_log;
 CREATE POLICY commit_log_self_insert ON commit_log FOR INSERT
   WITH CHECK (committer_id = auth.uid());
 
@@ -133,6 +139,7 @@ CREATE TABLE IF NOT EXISTS commit_log_files (
 
 ALTER TABLE commit_log_files ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS commit_log_files_platform_read ON commit_log_files;
 CREATE POLICY commit_log_files_platform_read ON commit_log_files FOR SELECT
   USING (
     EXISTS (
@@ -144,6 +151,7 @@ CREATE POLICY commit_log_files_platform_read ON commit_log_files FOR SELECT
 -- Writes follow commit_log: the same route inserts both tables after
 -- a successful GitHub commit. RLS allows inserts when the parent commit
 -- exists and was inserted by this session.
+DROP POLICY IF EXISTS commit_log_files_committer_insert ON commit_log_files;
 CREATE POLICY commit_log_files_committer_insert ON commit_log_files FOR INSERT
   WITH CHECK (
     EXISTS (

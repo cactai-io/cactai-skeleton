@@ -60,6 +60,7 @@ ALTER TABLE app_notifications ENABLE ROW LEVEL SECURITY;
 
 -- Policy: a user sees rows where they're the explicit recipient OR where
 -- recipient is NULL and required_role <= their active_lens.
+DROP POLICY IF EXISTS app_notifications_read ON app_notifications;
 CREATE POLICY app_notifications_read ON app_notifications
   FOR SELECT
   USING (
@@ -80,6 +81,7 @@ CREATE POLICY app_notifications_read ON app_notifications
 -- Policy: a user can update dismissed_at on their own rows (for "I saw it").
 -- Insertion + resolution happen via service-role from the skeleton's
 -- server-side API routes, not directly from client RLS.
+DROP POLICY IF EXISTS app_notifications_dismiss ON app_notifications;
 CREATE POLICY app_notifications_dismiss ON app_notifications
   FOR UPDATE
   USING (

@@ -18,6 +18,7 @@ ALTER TABLE app_agent_config ENABLE ROW LEVEL SECURITY;
 -- Authenticated readers may see the config (the app needs to know which
 -- agents are active). Writes go through the platform's service-role
 -- connection from the DevShell, never directly from end users.
+DROP POLICY IF EXISTS app_agent_config_read ON app_agent_config;
 CREATE POLICY app_agent_config_read ON app_agent_config
   FOR SELECT
   TO authenticated
