@@ -46,10 +46,33 @@ export interface LoadedWorkflowEntry {
   error?:      string;
 }
 
+// ── Agent manifest entry ─────────────────────────────────────────────────────
+// One per <id>.agent.md in project-library/agents/. Mirrors a Claude sub-agent
+// / SKILL.md: frontmatter (name, description, tools?, model?) + system-prompt
+// body. Only identity + status live on the manifest.
+export interface LoadedAgentEntry {
+  agent_id:    string;
+  file_path:   string;
+  status:      'ok' | 'error';
+  error?:      string;
+}
+
+// ── Character manifest entry ─────────────────────────────────────────────────
+// One per folder in project-library/characters/. Each holds the SVG +
+// character.json (PersonalityCharacter) + animations.css.
+export interface LoadedCharacterEntry {
+  character_id: string;
+  folder_path:  string;
+  status:       'ok' | 'error';
+  error?:       string;
+}
+
 export interface ProjectLibraryManifest {
-  tools:     LoadedToolEntry[];
-  skills:    LoadedSkillEntry[];
-  workflows: LoadedWorkflowEntry[];
+  tools:      LoadedToolEntry[];
+  skills:     LoadedSkillEntry[];
+  workflows:  LoadedWorkflowEntry[];
+  agents:     LoadedAgentEntry[];
+  characters: LoadedCharacterEntry[];
   // Timestamp when the manifest was built. The loader is called once per
   // process startup; subsequent reads return the same manifest.
   loaded_at: string;

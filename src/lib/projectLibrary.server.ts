@@ -31,6 +31,8 @@ import type {
   LoadedToolEntry,
   LoadedSkillEntry,
   LoadedWorkflowEntry,
+  LoadedAgentEntry,
+  LoadedCharacterEntry,
   ProjectLibraryManifest,
 } from './projectLibrary.types';
 import {
@@ -49,6 +51,8 @@ const LIBRARY_ROOT     = join(PROJECT_ROOT, 'project-library');
 const TOOLS_DIR        = join(LIBRARY_ROOT, 'tools');
 const SKILLS_DIR       = join(LIBRARY_ROOT, 'skills');
 const WORKFLOWS_DIR    = join(LIBRARY_ROOT, 'workflows');
+const AGENTS_DIR       = join(LIBRARY_ROOT, 'agents');
+const CHARACTERS_DIR   = join(LIBRARY_ROOT, 'characters');
 
 // One-shot init cache. The manifest is built once per process and reused;
 // dev mode hot-reload restarts the server which rebuilds it.
@@ -109,22 +113,27 @@ function buildManifest(): ProjectLibraryManifest {
   if (!existsSync(LIBRARY_ROOT)) {
     // Fresh skeleton clones may not have project-library/ yet. Returning
     // an empty manifest is the right behavior — nothing to register.
-    return { tools: [], skills: [], workflows: [], loaded_at: new Date().toISOString() };
+    return { tools: [], skills: [], workflows: [], agents: [], characters: [], loaded_at: new Date().toISOString() };
   }
 
-  const tools     = loadTools();
-  const skills    = loadSkills();
-  const workflows = loadWorkflows();
+  const tools      = loadTools();
+  const skills     = loadSkills();
+  const workflows  = loadWorkflows();
+  const agents     = loadAgents();
+  const characters = loadCharacters();
 
   // Single aggregated startup log. Per-file errors were already logged
   // individually in the load functions; this gives ops a one-line summary.
   const errorCount =
     tools.filter((t) => t.status === 'error').length
     + skills.filter((s) => s.status === 'error').length
-    + workflows.filter((w) => w.status === 'error').length;
+    + workflows.filter((w) => w.status === 'error').length
+    + agents.filter((a) => a.status === 'error').length
+    + characters.filter((c) => c.status === 'error').length;
   // eslint-disable-next-line no-console
   console.log(
-    `[project-library] loaded ${tools.length} tool(s), ${skills.length} skill(s), ${workflows.length} workflow(s)`
+    `[project-library] loaded ${tools.length} tool(s), ${skills.length} skill(s), `
+    + `${workflows.length} workflow(s), ${agents.length} agent(s), ${characters.length} character(s)`
     + (errorCount > 0 ? ` — ${errorCount} validation error(s); check earlier logs` : ''),
   );
 
@@ -132,8 +141,103 @@ function buildManifest(): ProjectLibraryManifest {
     tools,
     skills,
     workflows,
+    agents,
+    characters,
     loaded_at: new Date().toISOString(),
   };
+}
+
+// ── Agent loading ────────────────────────────────────────────────────────────
+//
+// Each <id>.agent.md is parsed for frontmatter (reusing the SKILL.md parser).
+// Validation is lenient by design: an agent is valid when it has a non-empty
+// `name` and `description`. The body is the system prompt. Runtime registration
+// into the agent runtime is a follow-up; the manifest gives the Library the
+// identity + status it needs.
+function loadAgents(): LoadedAgentEntry[] {
+  if (!existsSync(AGENTS_DIR)) return [];
+  const entries: LoadedAgentEntry[] = [];
+  const files = readdirEntries(AGENTS_DIR).filter((f) => f.endsWith('.agent.md'));
+
+  for (const file of files) {
+    const filePath = join(AGENTS_DIR, file);
+    try {
+      const raw = readFileSync(filePath, 'utf-8');
+      const { frontmatter } = parseSkillMd(raw);
+      const fm = (frontmatter ?? {}) as { name?: unknown; description?: unknown };
+      const name = typeof fm.name === 'string' ? fm.name.trim() : '';
+      const desc = typeof fm.description === 'string' ? fm.description.trim() : '';
+      if (!name || !desc) {
+        const msg = `[project-library] agent "${file}" needs frontmatter name + description`;
+        // eslint-disable-next-line no-console
+        console.error(msg);
+        entries.push({ agent_id: name || file.replace(/\.agent\.md$/, ''), file_path: filePath, status: 'error', error: msg });
+        continue;
+      }
+      entries.push({ agent_id: name, file_path: filePath, status: 'ok' });
+    } catch (err) {
+      const msg = `[project-library] agent ${file} failed to load: ${(err as Error).message}`;
+      // eslint-disable-next-line no-console
+      console.error(msg);
+      entries.push({ agent_id: '', file_path: filePath, status: 'error', error: msg });
+    }
+  }
+  return entries;
+}
+
+// ── Character loading ──────────────────────────────────────────────────────────
+//
+// Each folder holds character.json (PersonalityCharacter: svg_id + four
+// state-animation class names) + the referenced <svg_id>.svg + animations.css.
+// Valid when character.json parses with the five required string fields and the
+// referenced SVG exists.
+function loadCharacters(): LoadedCharacterEntry[] {
+  if (!existsSync(CHARACTERS_DIR)) return [];
+  const entries: LoadedCharacterEntry[] = [];
+  const folders = readdirEntries(CHARACTERS_DIR).filter((name) => {
+    const p = join(CHARACTERS_DIR, name);
+    return existsSync(p) && statSync(p).isDirectory();
+  });
+
+  const REQUIRED = ['svg_id', 'idle_animation', 'thinking_animation', 'waiting_animation', 'responding_animation'] as const;
+
+  for (const folder of folders) {
+    const folderPath = join(CHARACTERS_DIR, folder);
+    const jsonPath   = join(folderPath, 'character.json');
+    if (!existsSync(jsonPath)) {
+      const msg = `[project-library] character "${folder}" has no character.json`;
+      // eslint-disable-next-line no-console
+      console.error(msg);
+      entries.push({ character_id: folder, folder_path: folderPath, status: 'error', error: msg });
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(readFileSync(jsonPath, 'utf-8')) as Record<string, unknown>;
+      const missing = REQUIRED.filter((k) => typeof parsed[k] !== 'string' || !(parsed[k] as string).trim());
+      if (missing.length > 0) {
+        const msg = `[project-library] character "${folder}": character.json missing/invalid ${missing.join(', ')}`;
+        // eslint-disable-next-line no-console
+        console.error(msg);
+        entries.push({ character_id: folder, folder_path: folderPath, status: 'error', error: msg });
+        continue;
+      }
+      const svgFile = join(folderPath, `${parsed.svg_id as string}.svg`);
+      if (!existsSync(svgFile)) {
+        const msg = `[project-library] character "${folder}": referenced svg "${parsed.svg_id}.svg" not found`;
+        // eslint-disable-next-line no-console
+        console.error(msg);
+        entries.push({ character_id: folder, folder_path: folderPath, status: 'error', error: msg });
+        continue;
+      }
+      entries.push({ character_id: folder, folder_path: folderPath, status: 'ok' });
+    } catch (err) {
+      const msg = `[project-library] character ${folder} failed to load: ${(err as Error).message}`;
+      // eslint-disable-next-line no-console
+      console.error(msg);
+      entries.push({ character_id: folder, folder_path: folderPath, status: 'error', error: msg });
+    }
+  }
+  return entries;
 }
 
 // ── Tool loading ────────────────────────────────────────────────────────────
