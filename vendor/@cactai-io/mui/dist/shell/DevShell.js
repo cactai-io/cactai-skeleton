@@ -717,7 +717,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // and returns via its own Back affordance or any rail/view navigation.
     function renderPrefsPage() {
         if (devshellPreferences) {
-            return (_jsx(DevShellPreferencesModal, { variant: "page", catalogue: devshellPreferences.catalogue, config: devshellPreferences.config, onPatch: devshellPreferences.onPatch, mcp: devshellPreferences.mcp, onClose: () => setPrefsOpen(false) }));
+            return (_jsx(DevShellPreferencesModal, { variant: "page", catalogue: devshellPreferences.catalogue, config: devshellPreferences.config, onPatch: devshellPreferences.onPatch, mcp: devshellPreferences.mcp, byok: devshellPreferences.byok, onBYOKPatch: devshellPreferences.onBYOKPatch, onClose: () => setPrefsOpen(false) }));
         }
         // Page-styled stub when the host hasn't wired the prefs data yet.
         return (_jsxs("div", { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--ds-elevated)' }, children: [_jsxs("div", { style: {

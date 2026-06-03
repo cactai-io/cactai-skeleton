@@ -1,5 +1,5 @@
 import { type MCPCatalogEntry } from './MCPManager.js';
-import type { CapabilityCatalogueItem, CapabilityScopeConfig, CapabilityConfigPatch, MCPServerPublic, MCPAuthType } from '@cactai-io/types';
+import type { CapabilityCatalogueItem, CapabilityScopeConfig, CapabilityConfigPatch, MCPServerPublic, MCPAuthType, ProjectBYOKResponse, ProjectBYOKPatch } from '@cactai-io/types';
 export interface DevShellMcpConfig {
     servers: MCPServerPublic[];
     catalog: MCPCatalogEntry[];
@@ -26,5 +26,9 @@ export interface DevShellPreferencesModalProps {
     /** Devshell-scope MCP for the Integrations tab. When present the tab
      *  renders the live MCP manager; absent → the framework-first add form. */
     mcp?: DevShellMcpConfig;
+    /** DevShell-scope BYOK keys for the Providers tab. The blob the wizard
+     *  seeded (and the developer edits here); onBYOKPatch persists a key. */
+    byok?: ProjectBYOKResponse | null;
+    onBYOKPatch?: (patch: ProjectBYOKPatch) => Promise<void> | void;
 }
-export declare function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant, mcp }: DevShellPreferencesModalProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant, mcp, byok, onBYOKPatch }: DevShellPreferencesModalProps): import("react/jsx-runtime").JSX.Element;

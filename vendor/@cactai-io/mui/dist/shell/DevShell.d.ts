@@ -226,6 +226,9 @@ export interface DevShellProps {
             onRemove: (id: string) => Promise<void>;
             onToggle: (id: string, enabled: boolean) => Promise<void>;
         };
+        /** DevShell-scope BYOK keys for the Providers tab (real set/not-set). */
+        byok?: import('@cactai-io/types').ProjectBYOKResponse | null;
+        onBYOKPatch?: (patch: import('@cactai-io/types').ProjectBYOKPatch) => Promise<void> | void;
     };
     /** URL of the Cactai platform dashboard. Passed by the host so this
      *  package carries no hardcoded environment URL. */

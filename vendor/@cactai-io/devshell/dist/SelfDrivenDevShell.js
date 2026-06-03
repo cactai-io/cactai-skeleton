@@ -1741,6 +1741,26 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             onRemove: onMCPRemove,
                             onToggle: onMCPToggle,
                         },
+                        // DevShell-scope provider keys (the Providers tab). The wizard
+                        // seeds Anthropic/OpenAI here; this surfaces the real set/not-set
+                        // state (it was previously hardcoded "Not set") + lets the dev edit.
+                        byok,
+                        onBYOKPatch: async (patch) => {
+                            const res = await fetch('/api/settings/byok', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(patch),
+                            });
+                            if (!res.ok) {
+                                const body = await res.json().catch(() => ({}));
+                                recordFetchError('byok_patch', { status: res.status, code: body.error, detail: body.detail });
+                                return;
+                            }
+                            recordFetchError('byok_patch', null);
+                            const refetch = await fetch('/api/settings/byok', { cache: 'no-store' });
+                            if (refetch.ok)
+                                setByok(await refetch.json());
+                        },
                     }
                     : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate }), capPrompt && (_jsx(ProviderKeyModal, { detail: capPrompt.detail, onSaved: capPrompt.retry, onDismiss: () => setCapPrompt(null), endpoints: { cactaiBase, projectId } }))] }));
 }

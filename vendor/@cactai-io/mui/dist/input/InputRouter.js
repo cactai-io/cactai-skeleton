@@ -73,16 +73,21 @@ export class InputRouter {
             });
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}));
-                // Narrow the API's error code string to the closed GASErrorCode union.
-                // Anything we don't recognize folds to 'internal_error' so the UI has
-                // a stable set of cases to handle.
-                const code = isGasErrorCode(errBody.code)
-                    ? errBody.code
-                    : 'internal_error';
+                // The platform reports `code`; the skeleton /api/cactai proxy reports
+                // `error`. Narrow either to the closed GASErrorCode union; anything we
+                // don't recognize folds to 'internal_error'.
+                const rawCode = errBody.code ?? errBody.error;
+                const code = isGasErrorCode(rawCode) ? rawCode : 'internal_error';
+                // 412 no_provider_configured = the proxy found no AI key in the app's
+                // BYOK store, so the turn never reached the model. Surface an
+                // actionable message instead of a generic "Request failed: 412".
+                const message = rawCode === 'no_provider_configured'
+                    ? (errBody.detail ?? 'No AI provider key is configured for this app. The keys collected in the wizard aren’t reaching the app — re-run setup (Retry bootstrap on the project page) or re-check the project’s BYOK seed, then try again.')
+                    : (errBody.message ?? errBody.detail ?? `Request failed: ${response.status}`);
                 this.store.setPending(false);
                 this.store.setActiveError({
                     code,
-                    message: errBody.message ?? `Request failed: ${response.status}`,
+                    message,
                     retryable: response.status >= 500,
                     request_id: errBody.request_id,
                     session_id: sessionId,
