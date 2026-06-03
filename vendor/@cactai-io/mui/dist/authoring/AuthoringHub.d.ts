@@ -6,5 +6,7 @@ export interface AuthoringHubProps {
     onSelectType: (type: AuthoringType) => void;
     /** Return from an open tool back to the picker grid. */
     onBack: () => void;
+    /** Injects an AI-assist prompt into the agent chat (host → submitInput). */
+    onAssist?: (prompt: string) => void;
 }
-export declare function AuthoringHub({ activeType, onSelectType, onBack }: AuthoringHubProps): import("react/jsx-runtime").JSX.Element;
+export declare function AuthoringHub({ activeType, onSelectType, onBack, onAssist }: AuthoringHubProps): import("react/jsx-runtime").JSX.Element;

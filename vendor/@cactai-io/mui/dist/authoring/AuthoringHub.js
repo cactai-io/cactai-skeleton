@@ -24,9 +24,9 @@ const AUTHOR_TYPES = [
     { key: 'personality', label: 'Personality', blurb: 'How the assistant writes back: tone, structure, and level of detail.' },
     { key: 'character', label: 'Character', blurb: 'A named persona the app can present — its identity, style, and traits.' },
 ];
-export function AuthoringHub({ activeType, onSelectType, onBack }) {
+export function AuthoringHub({ activeType, onSelectType, onBack, onAssist }) {
     if (activeType) {
-        return (_jsx("div", { className: "ds-panel", children: _jsx(AuthoringInterface, { type: activeType, onCancel: onBack }) }));
+        return (_jsx("div", { className: "ds-panel", children: _jsx(AuthoringInterface, { type: activeType, onCancel: onBack, onAssist: onAssist }) }));
     }
     return (_jsx("div", { className: "ds-panel", children: _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Studio" }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 10 }, children: "Author the building blocks of your app. Pick what to create \u2014 you can also launch any of these from where their output is used." }), _jsx("div", { style: {
                         display: 'grid',
