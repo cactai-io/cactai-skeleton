@@ -6,5 +6,13 @@ export interface AuthoringInterfaceProps {
     /** Injects a composed prompt into the agent chat (host → shell.submitInput).
      *  When omitted, the AI-assist buttons are disabled. */
     onAssist?: (prompt: string) => void;
+    /** Saves the authored artifact — the host composes the project-library file(s)
+     *  and commits them to dev. Returns ok + the written path, or an error.
+     *  When omitted, the Save button is disabled. */
+    onSave?: (type: AuthoringType, values: Record<string, string>) => Promise<{
+        ok: boolean;
+        error?: string;
+        path?: string;
+    }>;
 }
-export declare function AuthoringInterface({ type, onCancel, onAssist }: AuthoringInterfaceProps): import("react/jsx-runtime").JSX.Element;
+export declare function AuthoringInterface({ type, onCancel, onAssist, onSave }: AuthoringInterfaceProps): import("react/jsx-runtime").JSX.Element;

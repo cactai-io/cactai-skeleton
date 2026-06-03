@@ -8,5 +8,11 @@ export interface AuthoringHubProps {
     onBack: () => void;
     /** Injects an AI-assist prompt into the agent chat (host → submitInput). */
     onAssist?: (prompt: string) => void;
+    /** Saves the authored artifact (host composes + commits the file to dev). */
+    onSave?: (type: AuthoringType, values: Record<string, string>) => Promise<{
+        ok: boolean;
+        error?: string;
+        path?: string;
+    }>;
 }
-export declare function AuthoringHub({ activeType, onSelectType, onBack, onAssist }: AuthoringHubProps): import("react/jsx-runtime").JSX.Element;
+export declare function AuthoringHub({ activeType, onSelectType, onBack, onAssist, onSave }: AuthoringHubProps): import("react/jsx-runtime").JSX.Element;

@@ -34,6 +34,7 @@ import { PrimitiveTreeRenderer } from '@cactai-io/primitives';
 import { SAMTheme } from '@cactai-io/themes';
 import { DevShell, injectDevShellStyles, MUIShell, MCP_CATALOGS, MCP_EXPLAINERS, OnboardingModal, GuidePanel, UpdateAvailableModal, WorkflowCompletionModal, } from '@cactai-io/mui';
 import { ProviderKeyModal } from './ProviderKeyModal.js';
+import { composeArtifactFiles } from './authoringSave.js';
 export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App', userId, userEmail, userRole, dashboardUrl = 'https://dashboard.cactai.io', productionUrl, }) {
     const [shell, setShell] = useState(null);
     const [sessionId, setSessionId] = useState(null);
@@ -939,6 +940,50 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         })();
         return () => { cancelled = true; };
     }, []);
+    // Save a Studio-authored artifact: compose the project-library file(s) from
+    // the form and commit them to dev via the skeleton's commit-to-dev endpoint
+    // (operation 'create'). Personalities live in their own store, not here.
+    const onAuthoringSave = async (type, values) => {
+        if (type === 'personality') {
+            return { ok: false, error: 'Personalities are authored in Configuration → Design.' };
+        }
+        const composed = composeArtifactFiles(type, values);
+        if (!composed)
+            return { ok: false, error: 'Could not compose the file.' };
+        const res = await fetch('/api/github/commit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: composed.message,
+                files: composed.files.map(f => ({
+                    path: f.path,
+                    operation: 'create',
+                    content: f.content,
+                    last_edited_at: new Date().toISOString(),
+                    lines_added: f.content.split('\n').length,
+                    lines_removed: 0,
+                })),
+            }),
+        });
+        if (res.ok) {
+            // Refresh the manifest so the new artifact appears in the Library.
+            try {
+                const r = await fetch('/api/devshell/project-library');
+                if (r.ok) {
+                    const d = await r.json();
+                    if (Array.isArray(d.agents))
+                        setLibraryManifest(d);
+                }
+            }
+            catch { /* non-fatal */ }
+            return { ok: true, path: composed.files[0]?.path };
+        }
+        const body = await res.json().catch(() => ({}));
+        const msg = typeof body.error === 'string' ? body.error
+            : body.conflict ? 'A file with that name already exists on dev.'
+                : 'Commit failed.';
+        return { ok: false, error: msg };
+    };
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1097,7 +1142,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Skills come from MUIShell's own registry — already populated when
     // MUIShell.init ran (and re-populated as new packages register).
     const skills = shell.getStore().getSkillsLibrary();
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, projectNotes: projectNotes, onSaveProjectNotes: saveProjectNotes, decisionNotes: decisionNotes, onAddDecisionNote: addDecisionNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, 
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, projectNotes: projectNotes, onSaveProjectNotes: saveProjectNotes, decisionNotes: decisionNotes, onAddDecisionNote: addDecisionNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
                 // ⓘ-guide overlays. The open guide routes to its container by origin:
                 // top/right ⇒ chat slot, bottom ⇒ files panel, modal-split ⇒ pending
                 // modal. The origin is known from the surface before content loads
