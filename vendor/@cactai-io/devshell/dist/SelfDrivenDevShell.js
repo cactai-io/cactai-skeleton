@@ -919,6 +919,26 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         }
     };
     const assetDownloadPath = (id) => `/api/devshell/assets/${id}/download`;
+    // project-library manifest — developer-authored artifacts on disk (workflows
+    // / agents / characters indexed in the Library with their repo path + status).
+    const [libraryManifest, setLibraryManifest] = useState(undefined);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/devshell/project-library');
+                if (!res.ok || cancelled)
+                    return;
+                const data = await res.json();
+                if (!cancelled && data && Array.isArray(data.agents))
+                    setLibraryManifest(data);
+            }
+            catch {
+                // Non-fatal — the Library just omits the on-disk authored artifacts.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
     // Load Plan-view notes once on mount. Notes live under
     // project_state.decisions._notes; /api/workflow/notes returns the blob.
     useEffect(() => {
@@ -1385,6 +1405,8 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     onUploadAsset,
                     onDeleteAsset,
                     assetDownloadPath,
+                    // project-library authored artifacts (workflows/agents/characters).
+                    libraryManifest,
                     // No marketplace props passed — BuildPanel renders Installed-only
                     // (the v1 surface for dev-authored skills + tools). When MCP
                     // ships, we revisit; when marketplace ships, items / loading /

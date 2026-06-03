@@ -114,6 +114,10 @@ export interface BuildPanelProps {
     onDeleteAsset?: (id: string) => Promise<void>;
     /** Returns the URL that downloads an asset's bytes (skeleton route). */
     assetDownloadPath?: (id: string) => string;
+    /** The project-library manifest — developer-authored artifacts on disk
+     *  (tools/skills/workflows/agents/characters) with repo path + load status.
+     *  When wired, the directory indexes them with their file location. */
+    libraryManifest?: ProjectLibraryManifestView;
 }
 export interface AppAsset {
     id: string;
@@ -122,7 +126,20 @@ export interface AppAsset {
     size_bytes: number | null;
     uploaded_at: string;
 }
-export declare function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
+export interface ProjectLibraryEntry {
+    id: string;
+    path: string;
+    status: 'ok' | 'error';
+    error?: string;
+}
+export interface ProjectLibraryManifestView {
+    tools: ProjectLibraryEntry[];
+    skills: ProjectLibraryEntry[];
+    workflows: ProjectLibraryEntry[];
+    agents: ProjectLibraryEntry[];
+    characters: ProjectLibraryEntry[];
+}
+export declare function BuildPanel({ skills, tools, items, loading, searchQuery, onSearch, onInstall, onUninstall, onPublish, filterKind, onFilterKind, initialTab, assets, onUploadAsset, onDeleteAsset, assetDownloadPath, libraryManifest, }: BuildPanelProps): import("react/jsx-runtime").JSX.Element;
 export interface SchemaPanelProps {
     tables: SchemaTable[];
     migrations: MigrationRecord[];
