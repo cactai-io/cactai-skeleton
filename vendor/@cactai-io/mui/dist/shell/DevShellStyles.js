@@ -289,6 +289,21 @@ body.cactai-shell-body-lock {
   border: 1px solid transparent;   /* the fill is the indicator — no competing outline/glow */
 }
 
+/* Library buttons (scoped): the selected chip uses a surface tone, not the
+   brand gradient, and the ghost buttons (Upload, Browse, Download, Delete)
+   drop the accent glow + colored outline on hover — a quieter, in-surface
+   treatment for the content directory. */
+[data-cactai-shell] .ds-library .ds-view-active {
+  background: var(--ds-surface-2);
+  color: var(--ds-text);
+  border: 1px solid var(--ds-border);
+}
+[data-cactai-shell] .ds-library .ds-btn-ghost:hover:not(:disabled),
+[data-cactai-shell] .ds-library .ds-btn-ghost:focus-visible:not(:disabled) {
+  box-shadow: none;
+  border-color: var(--ds-text-3);
+}
+
 [data-cactai-shell] .ds-topbar-spacer { flex: 1; }
 
 /* Preview as… picker — v1.1. Visually distinct from the Plan | Build
@@ -504,50 +519,34 @@ body.cactai-shell-body-lock {
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;   /* square frame; accent on hover/active, never black/white */
   cursor: pointer;
   color: var(--ds-text-3);
   position: relative;
-  /* No border/ring — the behind-icon glow defines the edge. Movement IS
-     kept on these big-click buttons: lift on hover, press down on click. */
-  transition: color var(--d-base) var(--ease),
-              transform var(--d-base) var(--ease);
+  transition: transform var(--d-base) var(--ease),
+              border-color var(--d-base) var(--ease),
+              box-shadow var(--d-base) var(--ease),
+              color var(--d-base) var(--ease),
+              background var(--d-base) var(--ease);
   flex-shrink: 0;
 }
-[data-cactai-shell] .ds-rail-btn:hover:not(:disabled)        { transform: translateY(-1px); }
-[data-cactai-shell] .ds-rail-btn:active:not(:disabled)       { transform: translateY(1px); }
-/* Behind-icon light layer. The button surface stays opaque; this blurred
-   sunset gradient sits UNDER the (relatively-positioned) icon and lights
-   up — dim on hover, bright on active — so the icon reads as translucent
-   material lit from behind and the glow's soft edge defines the button.
-   No border, no ring, no movement. */
-[data-cactai-shell] .ds-rail-btn::after {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border-radius: var(--ds-r-md);
-  background: var(--ds-icon-glow);
-  filter: blur(7px);
-  opacity: 0;
-  transition: opacity var(--d-base) var(--ease);
-  z-index: 0;
-  pointer-events: none;
-}
-/* Icon keeps its OUTLINE (stroke) style — never a solid fill. On hover/
-   active the stroke takes the sunset gradient and the icon's brightness
-   (opacity) tracks the behind-glow's brightness, so the light reads as
-   coming THROUGH the icon: dim+dim on hover, bright+bright when selected. */
-[data-cactai-shell] .ds-rail-btn svg { position: relative; z-index: 1; transition: opacity var(--d-base) var(--ease); }
-[data-cactai-shell] .ds-rail-btn:focus-visible { outline: none; }
-[data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active):not(:disabled)::after,
-[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active):not(:disabled)::after {
-  opacity: 0.5;   /* hover = dimmer light-up */
+[data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active):not(:disabled),
+[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active):not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--accent-solid, var(--c-accent));
+  box-shadow: var(--glow-accent);
+  color: var(--ds-text);
+  outline: none;
 }
 [data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active) svg,
-[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active) svg { stroke: url(#ds-sunset); opacity: 0.65; }
-[data-cactai-shell] .ds-rail-active::after { opacity: 0.92; }   /* selected = brighter */
-[data-cactai-shell] .ds-rail-active svg { stroke: url(#ds-sunset); opacity: 1; }
-[data-cactai-shell] .ds-rail-active { background: transparent; }
+[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active) svg { stroke: url(#ds-sunset); }
+[data-cactai-shell] .ds-rail-btn:active:not(:disabled) { transform: translateY(0); }
+[data-cactai-shell] .ds-rail-active svg { stroke: url(#ds-sunset); }
+[data-cactai-shell] .ds-rail-active {
+  border-color: var(--accent-solid, var(--c-accent));
+  box-shadow: var(--glow-accent);
+  background: var(--ds-surface-2);
+}
 [data-cactai-shell] .ds-rail-active::before {
   content: '';
   position: absolute;
@@ -1189,18 +1188,17 @@ body.cactai-shell-body-lock {
    without having to trace it with the cursor. Indentation is applied as
    margin-left in the JSX so the pill's own padding stays uniform at depth. */
 [data-cactai-shell] .ds-tree-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--ds-r-pill);
+  padding: 4px 8px;
+  border-radius: var(--ds-r-sm);
   cursor: pointer;
   user-select: none;
   font-family: var(--f-mono);
   font-size: 12px;
   color: var(--ds-text-2);
-  border: none;
-  max-width: 100%;
+  border: 1px solid transparent;
   min-width: 0;
   transition: color var(--d-base) var(--ease),
               background var(--d-base) var(--ease);
@@ -1219,7 +1217,7 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-tree-item.ds-tree-protected:hover { background: transparent; }
 [data-cactai-shell] .ds-tree-chev { width: 10px; flex: 0 0 10px; font-size: 9px; color: var(--ds-text-3); }
 [data-cactai-shell] .ds-tree-icon { width: 14px; flex: 0 0 14px; font-size: 12px; opacity: 0.7; }
-[data-cactai-shell] .ds-tree-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+[data-cactai-shell] .ds-tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 [data-cactai-shell] .ds-tree-mod-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
@@ -2017,6 +2015,9 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-paw-r {
   animation: ds-prairie-dog-paw-clap-r 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
+[data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-tail {
+  animation: ds-prairie-dog-respond-tail 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
 @keyframes ds-prairie-dog-respond-pop {
   0%, 100% { transform: translateY(0)    scale(1); }
   35%       { transform: translateY(-3px) scale(1.06); }
@@ -2036,6 +2037,13 @@ body.cactai-shell-body-lock {
   0%, 100% { transform: translate(0, 0); }
   35%       { transform: translate(-2.5px, -1.5px); }
   55%       { transform: translate(-0.5px, -0.5px); }
+}
+/* Tail follows the body bob (translateY -2px at 35%) so it stays attached,
+   plus a small flick so it reads as alive during the respond loop. */
+@keyframes ds-prairie-dog-respond-tail {
+  0%, 100% { transform: translateY(0)    rotate(0deg); }
+  35%       { transform: translateY(-2px) rotate(12deg); }
+  60%       { transform: translateY(0)    rotate(-6deg); }
 }
 
 /* Reduced-motion fallback for both new characters. The existing
@@ -2062,7 +2070,8 @@ body.cactai-shell-body-lock {
   [data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-head,
   [data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-body,
   [data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-paw-l,
-  [data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-paw-r {
+  [data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-paw-r,
+  [data-cactai-shell] .ds-anim-prairie-dog-respond .prairie-dog-tail {
     animation: none;
   }
 }

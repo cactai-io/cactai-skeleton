@@ -47,9 +47,11 @@ export async function GET() {
       ...devAuthoredList,
     ];
 
-    // Default active = sam if nothing's been chosen yet (matches the
-    // wizard's default at the personality step).
-    const active_id = activeIdRaw ?? 'sam';
+    // Default active = ember (owl) when nothing's been chosen yet — matches
+    // the DevShell welcome ("Hi, I'm Ember"), the design-step default, and the
+    // shell/onboarding fallbacks. (Previously 'sam', which disagreed with all
+    // of those and surfaced the robot as the unexpected default.)
+    const active_id = activeIdRaw ?? 'ember';
 
     const body: ProjectPersonalityResponse = { active_id, available };
     return NextResponse.json(body);

@@ -11,14 +11,19 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 //
 // All saves use loading indicators; on failure the row reverts.
 import { useState } from 'react';
+import { PROVIDER_REGISTRY } from '@cactai-io/types';
+// Provider ids here are PROVIDER_REGISTRY ids (e.g. 'ai.anthropic') — the SAME
+// namespace the provision BYOK seed writes under (apps/api customer-byok-seed).
+// A prior version used bare ids ('anthropic') that never matched the seeded
+// map, so wizard-supplied keys always read "Not set".
 const DEFAULT_PROVIDERS = [
-    { id: 'anthropic', label: 'Anthropic', placeholder: 'sk-ant-…' },
-    { id: 'openai', label: 'OpenAI', placeholder: 'sk-…' },
-    { id: 'github', label: 'GitHub', placeholder: 'ghp_…' },
-    { id: 'vercel', label: 'Vercel', placeholder: 'vercel_…' },
-    { id: 'supabase', label: 'Supabase', placeholder: 'https://xxx.supabase.co' },
-    { id: 'stripe', label: 'Stripe', placeholder: 'sk_live_…' },
+    { id: 'ai.anthropic', label: 'Anthropic (Claude)', placeholder: 'sk-ant-…' },
+    { id: 'ai.openai', label: 'OpenAI (GPT)', placeholder: 'sk-…' },
 ];
+// id → human label, sourced from the registry so seeded aux providers (e.g. a
+// 3D-generation tool collected in the wizard) render with their real name.
+const PROVIDER_LABELS = Object.fromEntries(Object.values(PROVIDER_REGISTRY)
+    .map((p) => [p.id, p.name]));
 export function BYOKSection({ response, onPatch, providers = DEFAULT_PROVIDERS }) {
     const [toggleSaving, setToggleSaving] = useState(false);
     const [editingKey, setEditingKey] = useState(null);
@@ -49,9 +54,16 @@ export function BYOKSection({ response, onPatch, providers = DEFAULT_PROVIDERS }
             setRowSaving((s) => { const next = { ...s }; delete next[id]; return next; });
         }
     }
+    // Render the catalogue plus any provider already written to the BYOK map
+    // (by the wizard seed or runtime) that isn't in the catalogue — so the
+    // developer's 3D / aux keys appear as set rather than vanishing.
+    const seededExtras = Object.keys(response.providers ?? {})
+        .filter((id) => !providers.some((p) => p.id === id))
+        .map((id) => ({ id, label: PROVIDER_LABELS[id] ?? id, placeholder: 'API key…' }));
+    const rendered = [...providers, ...seededExtras];
     return (_jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "BYOK" }), _jsx("div", { className: "ds-card", children: _jsxs("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsx("div", { style: { fontSize: 12.5, fontWeight: 500, color: 'var(--ds-text)' }, children: response.enabled ? 'Using your own provider API keys' : 'Using Cactai-supplied keys' }), _jsx("div", { className: "ds-card-body", style: { fontSize: 11, marginTop: 4 }, children: response.enabled
                                         ? 'Calls bill to your provider accounts. Keys below are stored encrypted on your own Supabase.'
-                                        : 'Calls bill to your Cactai plan. Switch on to provide your own keys per provider.' })] }), _jsxs("label", { className: "ds-toggle", title: response.enabled ? 'Switch to Cactai-supplied' : 'Switch to BYOK', children: [_jsx("input", { type: "checkbox", checked: response.enabled, disabled: toggleSaving, onChange: toggleBYOK }), _jsx("span", { className: "ds-toggle-track" }), _jsx("span", { className: "ds-toggle-thumb" })] })] }) }), response.enabled && providers.map((p) => {
+                                        : 'Calls bill to your Cactai plan. Switch on to provide your own keys per provider.' })] }), _jsxs("label", { className: "ds-toggle", title: response.enabled ? 'Switch to Cactai-supplied' : 'Switch to BYOK', children: [_jsx("input", { type: "checkbox", checked: response.enabled, disabled: toggleSaving, onChange: toggleBYOK }), _jsx("span", { className: "ds-toggle-track" }), _jsx("span", { className: "ds-toggle-thumb" })] })] }) }), response.enabled && rendered.map((p) => {
                 const rec = response.providers[p.id];
                 const saving = !!rowSaving[p.id];
                 const error = rowError[p.id];

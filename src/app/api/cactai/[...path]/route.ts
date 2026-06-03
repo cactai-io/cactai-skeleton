@@ -154,7 +154,9 @@ async function forward(
     }
   }
 
-  const targetUrl = `${endpoints.cactaiBase.replace(/\/$/, '')}/${path.join('/')}`;
+  // Preserve the query string — guide/welcome calls carry ?surface=…&personality_name=…
+  // and dropping it makes the platform fall back to the workspace guide for every request.
+  const targetUrl = `${endpoints.cactaiBase.replace(/\/$/, '')}/${path.join('/')}${req.nextUrl.search}`;
   const init: RequestInit = {
     method: req.method,
     headers: {
