@@ -195,7 +195,11 @@ export async function resendInvitation(invitation_id: string): Promise<void> {
 }
 
 function origin(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL)          return `https://${process.env.VERCEL_URL}`;
+  // Prefer the STABLE production URL the provisioner sets (same var the rest of
+  // the app reads for absolute links) over Vercel's per-deployment VERCEL_URL,
+  // which rotates every deploy and would mint invitation links that drift.
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.NEXT_PUBLIC_APP_URL)  return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.VERCEL_URL)           return `https://${process.env.VERCEL_URL}`;
   return 'http://localhost:3000';
 }

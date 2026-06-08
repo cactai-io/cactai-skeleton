@@ -14,11 +14,12 @@ import { SupportLauncher } from './SupportLauncher.client';
 import type { SessionUser } from '@/lib/auth';
 
 interface AppShellProviderProps {
-  user:     SessionUser;
-  children: React.ReactNode;
+  user:           SessionUser;
+  supportEnabled: boolean;
+  children:       React.ReactNode;
 }
 
-export function AppShellProvider({ user, children }: AppShellProviderProps) {
+export function AppShellProvider({ user, supportEnabled, children }: AppShellProviderProps) {
   const [client,    setClient]    = useState<CactaiClient | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [tree,      setTree]      = useState<PrimitiveNode | null>(null);
@@ -127,8 +128,10 @@ export function AppShellProvider({ user, children }: AppShellProviderProps) {
       {/* Minimum-required support affordance: a self-contained launcher →
           create-ticket + two-way chat modal. The developer can relocate this
           into their own app's avatar menu; it ships on by default so every app
-          has support discoverable on day one. */}
-      <SupportLauncher />
+          has support discoverable on day one. Gated by the `support` feature
+          flag — toggle off in App Configuration, or Remove at build to prune
+          the launcher + its routes + schema entirely. */}
+      {supportEnabled && <SupportLauncher />}
     </div>
   );
 }

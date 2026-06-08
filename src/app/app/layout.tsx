@@ -7,13 +7,15 @@
 // This file is a stub that provides role protection and a minimal wrapper.
 
 import { requireAppRole } from '@/lib/auth';
+import { featureEnabled } from '@/lib/features';
 import { AppShellProvider } from './AppShellProvider';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAppRole();
+  const supportEnabled = await featureEnabled('support');
 
   return (
-    <AppShellProvider user={user}>
+    <AppShellProvider user={user} supportEnabled={supportEnabled}>
       {children}
     </AppShellProvider>
   );

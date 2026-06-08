@@ -16,12 +16,27 @@
 // invoked from chat or via this page's "Add key" flow.
 
 import { requireAuth } from '@/lib/auth';
+import { featureEnabled } from '@/lib/features';
 import { TokenUsagePanel } from './TokenUsagePanel.client';
 import { EmbeddingsLine } from './EmbeddingsLine.client';
 import { BudgetPanel } from './BudgetPanel.client';
 
 export default async function ByokSettingsPage() {
   const session = await requireAuth();
+
+  // Flag-only capability: AI/BYOK is never pruned, but the developer can turn
+  // it off (App Configuration → Providers). Off → the app has no AI features,
+  // so this surface goes dormant; flip the flag back on to restore it.
+  if (!(await featureEnabled('ai_byok'))) {
+    return (
+      <div style={{ padding: 40, maxWidth: 760 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>AI provider keys</h1>
+        <p style={{ color: '#8B8B9F', fontSize: 14 }}>
+          AI features are turned off for this app.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 40, maxWidth: 760 }}>

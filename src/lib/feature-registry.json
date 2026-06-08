@@ -1,0 +1,56 @@
+[
+  {
+    "key": "support",
+    "label": "In-app support",
+    "default": true,
+    "removable": true,
+    "controllerTab": "support",
+    "files": [
+      "src/app/app/SupportLauncher.client.tsx",
+      "src/app/api/support/route.ts",
+      "src/app/api/support/[id]/route.ts",
+      "config/schema/0013_support.sql"
+    ]
+  },
+  {
+    "key": "sharing",
+    "label": "Sharing (share links)",
+    "default": false,
+    "removable": true,
+    "controllerTab": "sharing",
+    "files": [
+      "src/lib/sharing.server.ts",
+      "src/app/api/sharing/route.ts",
+      "src/app/share/[token]/page.tsx",
+      "config/schema/0019_sharing.sql"
+    ]
+  },
+  {
+    "key": "stripe",
+    "label": "Stripe billing",
+    "default": false,
+    "removable": true,
+    "controllerTab": "tiers",
+    "files": [
+      "src/lib/stripe.server.ts",
+      "src/app/api/stripe/checkout/route.ts",
+      "src/app/api/stripe/portal/route.ts",
+      "src/app/api/stripe/webhook/route.ts",
+      "config/schema/0020_stripe.sql"
+    ]
+  },
+  {
+    "key": "ai_byok",
+    "label": "AI features (BYOK)",
+    "default": true,
+    "removable": false,
+    "controllerTab": "providers"
+  },
+  {
+    "key": "mcp",
+    "label": "MCP integrations",
+    "default": true,
+    "removable": false,
+    "controllerTab": "integrations"
+  }
+]
