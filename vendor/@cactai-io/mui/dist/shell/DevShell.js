@@ -16,7 +16,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //   collapse / expand control; the rail no longer has a Files icon.
 //   Build is the merged Capabilities + Marketplace section, rendered via
 //   BuildPanel with Installed | Browse tabs.
-//   Project settings is the AppConfigurationPanel — per-project credentials
+//   App Configuration is the AppConfigurationPanel — per-project credentials
 //   + collaborators + link out to Platform /settings for developer-scoped
 //   settings.
 //
@@ -45,6 +45,7 @@ import { FileTree } from '../components/FileTree.js';
 import { WorkflowSurface } from '../workflow/index.js';
 import { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel, } from '../panels/index.js';
 import { DevShellPreferencesModal } from '../panels/DevShellPreferencesModal.js';
+import { DecisionLogPanel } from '../panels/DecisionLogPanel.js';
 import { injectDevShellStyles } from './DevShellStyles.js';
 import { ThemeInspector } from '../inspector/ThemeInspector.js';
 import { AuthoringHub } from '../authoring/AuthoringHub.js';
@@ -83,7 +84,7 @@ catch { } };
 // Startup view preference (set in DevShell preferences → Layout → Startup view).
 // Global key holds the choice; 'last' resumes the per-project last-active view.
 const LANDING_KEY = 'cactai_devshell_landing';
-const isView = (v) => v === 'plan' || v === 'build' || v === 'test_drive';
+const isView = (v) => v === 'plan' || v === 'build' || v === 'test_drive' || v === 'history';
 function resolveInitialView(pid) {
     try {
         const landing = localStorage.getItem(LANDING_KEY) ?? 'build';
@@ -97,7 +98,7 @@ function resolveInitialView(pid) {
         return 'build';
     }
 }
-const SECTIONS = ['workspace', 'build', 'authoring', 'schema', 'project-settings'];
+const SECTIONS = ['workspace', 'build', 'authoring', 'schema', 'app-configuration'];
 const S_LABEL = {
     workspace: 'Workspace',
     // 'build' is the stable internal section key for backwards-compat with
@@ -111,7 +112,7 @@ const S_LABEL = {
     // rail page, openable directly or deep-linked from where output is used.
     authoring: 'Studio',
     schema: 'Schema',
-    'project-settings': 'Configuration',
+    'app-configuration': 'Configuration',
 };
 // Hover-tooltip / aria-label text for the rail icons. Defaults to S_LABEL
 // for any section not listed here. The Project settings entry uses a long
@@ -121,7 +122,7 @@ const S_LABEL = {
 const S_TOOLTIP = {
     build: "Library — your collection of skills and tools (authored or installed).",
     authoring: "Studio — author the building blocks of your app: tools, skills, agents, personalities, and characters.",
-    'project-settings': "Configuration — this app's workflow, available tools, skills, AI providers, agents, user roles, tiers, integrations, and design.",
+    'app-configuration': "Configuration — this app's workflow, available tools, skills, AI providers, agents, user roles, tiers, integrations, and design.",
 };
 const S_ICON = {
     chat: 'M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z',
@@ -131,7 +132,7 @@ const S_ICON = {
     // Studio: a pen-nib / author mark (Feather "edit-3").
     authoring: 'M12 20h9 M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z',
     schema: 'M12 2C6.48 2 3 3.79 3 6v12c0 2.21 3.48 4 9 4s9-1.79 9-4V6c0-2.21-3.48-4-9-4zM3 11c0 1.66 3.48 3 9 3s9-1.34 9-3',
-    'project-settings': 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
+    'app-configuration': 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
 };
 function SvgDefs() {
     // SVG <stop> reads CSS variables when supplied via the inline `style`
@@ -145,7 +146,7 @@ function RailBtn({ section, active, onClick }) {
     const tooltip = S_TOOLTIP[section] ?? S_LABEL[section];
     return (_jsx("button", { className: `ds-rail-btn${active ? ' ds-rail-active' : ''}`, onClick: onClick, title: tooltip, "aria-label": tooltip, children: _jsx("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", children: _jsx("path", { d: S_ICON[section] }) }) }));
 }
-export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }) {
+export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
     // Body lock while the DevShell IDE is mounted. Pre-fix the browser
     // could scroll the entire page past [data-cactai-shell]'s 100vh
@@ -284,6 +285,49 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         }, 700);
     }, []);
     const [view, setView] = useState(() => resolveInitialView(projectId));
+    // Active decision-log dock — the live record of every wizard answer (with
+    // its free-text chat enrichment), shown on the right while the build
+    // workflow is still running. Re-fetches whenever the workflow advances a
+    // step so the dock stays in lock-step with the surface. Mirrors the
+    // ThemeInspector cookie-auth fetch pattern (credentials: 'include').
+    const [decisionLogStages, setDecisionLogStages] = useState([]);
+    useEffect(() => {
+        // Fetch for the live Active dock (Build during the wizard) and for the
+        // History tab (the full Running decision log + chat).
+        if (view !== 'history' && !(view === 'build' && workflowStep !== 'complete'))
+            return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${apiBaseUrl}/v1/projects/${projectId}/devshell/decision-log`, { credentials: 'include' });
+                if (!res.ok)
+                    return;
+                const json = await res.json();
+                if (!cancelled && Array.isArray(json.stages))
+                    setDecisionLogStages(json.stages);
+            }
+            catch { /* dock is best-effort; the surface is the source of truth */ }
+        })();
+        return () => { cancelled = true; };
+    }, [apiBaseUrl, projectId, view, workflowStep]);
+    // D2 — revise an answered decision from the History log. POSTs the new value,
+    // then refreshes the log + the flagged set (downstream steps to revisit).
+    const [decisionFlagged, setDecisionFlagged] = useState([]);
+    const reviseDecision = useCallback(async (step, value) => {
+        try {
+            const res = await fetch(`${apiBaseUrl}/v1/projects/${projectId}/devshell/decision-log/revise`, { method: 'POST', credentials: 'include',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ step, value }) });
+            if (!res.ok)
+                return;
+            const json = await res.json();
+            if (Array.isArray(json.stages))
+                setDecisionLogStages(json.stages);
+            if (Array.isArray(json.flagged))
+                setDecisionFlagged(json.flagged);
+        }
+        catch { /* best-effort */ }
+    }, [apiBaseUrl, projectId]);
     // previewRole governs the Test Drive preview lens. null = signup lens
     // (logged-out / signup-page render), string = render-as-this-role.
     // Defaults to the lowest-rank role when entering Test Drive — the
@@ -612,7 +656,20 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             // Plan view → indigo. Build-view-during-workflow → amber (workflow is
             // part of the Build experience even before preview is live).
             const grad = view === 'plan' ? 'indigo' : 'amber';
-            return (_jsx("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden' }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog, onCreateBacklog: onCreateBacklog, onUpdateBacklog: onUpdateBacklog, onDeleteBacklog: onDeleteBacklog, onRenameSprint: onRenameSprint, onDeleteSprint: onDeleteSprint, notes: notes, onCreateNote: onCreateNote, onUpdateNote: onUpdateNote, onDeleteNote: onDeleteNote }) }));
+            // The Active dock rides alongside the surface only while the wizard is
+            // running (Build view, not complete). Plan view already carries the
+            // full Running log inside WorkflowSurface, so it gets no dock.
+            const showActiveDock = view === 'build' && workflowStep !== 'complete';
+            return (_jsxs("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden', display: 'flex', minWidth: 0 }, children: [_jsx("div", { style: { flex: 1, overflow: 'hidden', minWidth: 0 }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog, onCreateBacklog: onCreateBacklog, onUpdateBacklog: onUpdateBacklog, onDeleteBacklog: onDeleteBacklog, onRenameSprint: onRenameSprint, onDeleteSprint: onDeleteSprint, notes: notes, onCreateNote: onCreateNote, onUpdateNote: onUpdateNote, onDeleteNote: onDeleteNote }) }), showActiveDock && decisionLogStages.length > 0 && (_jsx("aside", { style: {
+                            width: 300, flexShrink: 0, overflow: 'auto',
+                            borderLeft: '1px solid var(--ds-border, rgba(255,255,255,0.08))',
+                        }, children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active" }) }))] }));
+        }
+        if (view === 'history') {
+            // History = the full Running decision log (every wizard answer + its
+            // free-text chat), distinct from Plan (backlog/notes). Fed by the
+            // authed /decision-log endpoint.
+            return (_jsx("div", { style: { ...bindSection('history-view', 'indigo'), flex: 1, overflow: 'auto' }, children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "running", onRevise: reviseDecision, flagged: decisionFlagged }) }));
         }
         if (view === 'test_drive') {
             // Test Drive renders one of two preview lenses:
@@ -665,7 +722,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             // into the Library.
             authoring: 'rose',
             schema: 'cyan-teal',
-            'project-settings': 'violet',
+            'app-configuration': 'violet',
         };
         const grad = panelGradient[section];
         // The wrapper div sits between .ds-content and the panel. It must be
@@ -684,7 +741,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             build: 'library',
             authoring: 'studio',
             schema: 'schema',
-            'project-settings': 'configuration',
+            'app-configuration': 'configuration',
         };
         const wrap = (node) => {
             const gs = guideSurface[section];
@@ -706,8 +763,8 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                 return wrap(_jsx(AuthoringHub, { activeType: authoringType, onSelectType: setAuthoringType, onBack: () => setAuthoringType(null), onAssist: onAuthoringAssist, onSave: onAuthoringSave }));
             case 'schema':
                 return wrap(_jsx(SchemaPanel, { ...schemaProps }));
-            case 'project-settings':
-                return wrap(_jsx(AppConfigurationPanel, { ...settingsProps, dashboardUrl: dashboardUrl, onOpenAuthoring: openAuthoring, themeInspectorSlot: _jsx(ThemeInspector, { projectId: projectId, apiBaseUrl: apiBaseUrl, previewUrl: studioPreviewUrl, onClose: () => { } }) }));
+            case 'app-configuration':
+                return wrap(_jsx(AppConfigurationPanel, { ...appConfigProps, dashboardUrl: dashboardUrl, onOpenAuthoring: openAuthoring, themeInspectorSlot: _jsx(ThemeInspector, { projectId: projectId, apiBaseUrl: apiBaseUrl, previewUrl: studioPreviewUrl, onClose: () => { } }) }));
             default:
                 return null;
         }
@@ -729,7 +786,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // (rather than as a separate component) so the menu remains a single
     // place that owns its layout.
     const themeBtn = (mode, label) => (_jsx("button", { className: `ds-avatar-theme-btn${themeMode === mode ? ' ds-avatar-theme-btn-active' : ''}`, onClick: () => chooseTheme(mode), "aria-pressed": themeMode === mode, children: label }, mode));
-    return (_jsxs("div", { "data-cactai-shell": true, "data-theme": resolvedTheme, "data-color-scheme": resolvedTheme, children: [_jsx(SvgDefs, {}), _jsxs("header", { className: "ds-topbar", children: [_jsxs("div", { className: "ds-brand", children: [_jsx(CactusMark, { size: 22, className: "ds-brand-mark" }), "Cactai"] }), _jsxs("div", { className: "ds-project-meta", children: [_jsx("span", { className: "ds-project-name", children: projectName }), onOpenGuide && (_jsx("button", { type: "button", className: "ds-btn-ghost ds-topbar-guide-btn", "aria-label": "DevShell guide", title: "DevShell guide", onClick: () => onOpenGuide('workspace'), style: { fontSize: 13, lineHeight: 1, padding: '2px 7px', borderRadius: '50%', marginLeft: 6 }, children: "\u24D8" }))] }), _jsx("div", { className: "ds-view-switcher", children: _jsxs("div", { className: "ds-view-switcher-group", children: [_jsx("button", { className: `ds-view-btn${view === 'plan' ? ' ds-view-active' : ''}`, onClick: () => changeView('plan'), children: "Plan" }), _jsx("button", { className: `ds-view-btn${view === 'build' ? ' ds-view-active' : ''}`, onClick: () => changeView('build'), children: "Build" }), _jsx("button", { className: `ds-view-btn${view === 'test_drive' ? ' ds-view-active' : ''}`, onClick: () => {
+    return (_jsxs("div", { "data-cactai-shell": true, "data-theme": resolvedTheme, "data-color-scheme": resolvedTheme, children: [_jsx(SvgDefs, {}), _jsxs("header", { className: "ds-topbar", children: [_jsxs("div", { className: "ds-brand", children: [_jsx(CactusMark, { size: 22, className: "ds-brand-mark" }), "Cactai"] }), _jsxs("div", { className: "ds-project-meta", children: [_jsx("span", { className: "ds-project-name", children: projectName }), onOpenGuide && (_jsx("button", { type: "button", className: "ds-btn-ghost ds-topbar-guide-btn", "aria-label": "DevShell guide", title: "DevShell guide", onClick: () => onOpenGuide('workspace'), style: { fontSize: 13, lineHeight: 1, padding: '2px 7px', borderRadius: '50%', marginLeft: 6 }, children: "\u24D8" }))] }), _jsx("div", { className: "ds-view-switcher", children: _jsxs("div", { className: "ds-view-switcher-group", children: [_jsx("button", { className: `ds-view-btn${view === 'plan' ? ' ds-view-active' : ''}`, onClick: () => changeView('plan'), children: "Plan" }), _jsx("button", { className: `ds-view-btn${view === 'build' ? ' ds-view-active' : ''}`, onClick: () => changeView('build'), children: "Build" }), _jsx("button", { className: `ds-view-btn${view === 'history' ? ' ds-view-active' : ''}`, onClick: () => changeView('history'), children: "History" }), _jsx("button", { className: `ds-view-btn${view === 'test_drive' ? ' ds-view-active' : ''}`, onClick: () => {
                                         changeView('test_drive');
                                         // Default to the lowest-rank role on Test Drive entry.
                                         // availableRoles is ordered rank DESC (highest first); pick

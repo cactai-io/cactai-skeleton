@@ -30,6 +30,7 @@ export { ArtifactCard } from './components/ArtifactCard.js';
 export { HandoffBanner } from './components/HandoffBanner.js';
 export { ErrorDisplay } from './components/ErrorDisplay.js';
 export { ChatInput } from './components/ChatInput.js';
+export { KeyInput } from './components/KeyInput.js';
 export { SandboxedRenderer } from './components/SandboxedRenderer.js';
 // Code safety analyzer — exposed for consumers who want to run their own
 // pre-flight check on generated code (e.g. before persisting it).
@@ -115,7 +116,7 @@ export { FileConflictModal } from './editor/FileConflictModal.js';
 export { PendingFilesManager, setActivePendingFilesManager, getActivePendingFilesManager, diffLineCounts, } from './staging/PendingFilesManager.js';
 // Panels
 // v1.1 IA: BuildPanel replaces the old Capabilities + Marketplace pair;
-// AppConfigurationPanel is the canonical name for the project-settings panel.
+// AppConfigurationPanel is the canonical name for the app configuration panel.
 // v1.2 adds CapabilityListPanel (tools/skills), PersonalityPickerPanel +
 // PersonalityEditor (Thread 07), WorkflowSection + BYOKSection
 // (Thread 08), and DevShellPreferencesModal (Thread 06 Surface 2).
@@ -126,9 +127,11 @@ export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';
 export { PersonalityEditor } from './panels/PersonalityEditor.js';
 export { OnboardingModal } from './panels/OnboardingModal.js';
+export { DecisionLogPanel } from './panels/DecisionLogPanel.js';
 export { GuidePanel } from './panels/GuidePanel.js';
 export { AuthoringInterface } from './authoring/AuthoringInterface.js';
 export { WorkflowCompletionModal } from './panels/WorkflowCompletionModal.js';
+export { PostBuildWalkthrough, deriveWalkthroughTabs } from './panels/PostBuildWalkthrough.js';
 export { UpdateAvailableModal } from './panels/UpdateAvailableModal.js';
 export { MCPManager } from './panels/MCPManager.js';
 export { MCP_CATALOGS, MCP_EXPLAINERS } from './panels/mcpCatalogs.js';

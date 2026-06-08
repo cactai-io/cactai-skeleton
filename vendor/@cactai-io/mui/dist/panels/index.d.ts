@@ -231,6 +231,16 @@ export interface AppConfigurationPanelProps {
     tiers?: TierEntry[];
     /** Persist one (tier, provider) budget. */
     onTierBudgetPatch?: (patch: TierBudgetPatch) => Promise<void>;
+    tabVisibility?: ConfigTabVisibility;
+    sharingConfig?: SharingConfig;
+    onSharingPatch?: (patch: SharingConfig) => Promise<void> | void;
+    collaborationConfig?: CollaborationConfig;
+    onCollaborationPatch?: (patch: CollaborationConfig) => Promise<void> | void;
+    aiActions?: AIActionDef[];
+    onAIActionsPatch?: (actions: AIActionDef[]) => Promise<void> | void;
+    /** Dev-built custom tabs (composed from Library entries). */
+    customTabs?: CustomTabDef[];
+    onAddCustomTab?: (label: string) => Promise<void> | void;
 }
 export interface TierEntry {
     tier_id: string;
@@ -274,4 +284,29 @@ export interface RolePatch {
     rank?: number;
     capabilities?: string[];
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, tiers, onTierBudgetPatch, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export interface ConfigTabVisibility {
+    sharing?: boolean;
+    collaboration?: boolean;
+    ai?: boolean;
+    paid?: boolean;
+}
+export interface SharingConfig {
+    methods: string[];
+    modes: string[];
+    what: string;
+}
+export interface CollaborationConfig {
+    modes: string[];
+    cross_tenant: boolean;
+}
+export interface AIActionDef {
+    id: string;
+    name: string;
+    instructions: string;
+    model: string;
+}
+export interface CustomTabDef {
+    id: string;
+    label: string;
+}
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, tiers, onTierBudgetPatch, tabVisibility, sharingConfig, onSharingPatch, collaborationConfig, onCollaborationPatch, aiActions, onAIActionsPatch, customTabs, onAddCustomTab, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;

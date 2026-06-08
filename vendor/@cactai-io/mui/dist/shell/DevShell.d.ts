@@ -11,9 +11,9 @@ import type { SprintRecord, GoalBacklogEntry, SurfaceFormField, WorkflowDecision
 import type { CommitListItem } from '../commit/CommitHistoryModal.js';
 import type { Resolution } from '../commit/CommitConflictModal.js';
 import type { SyncState, PendingFileSummary } from '../commit/types.js';
-export type DevShellView = 'build' | 'plan' | 'test_drive';
+export type DevShellView = 'build' | 'plan' | 'test_drive' | 'history';
 export type RoleViewRole = string;
-export type RailSection = 'workspace' | 'build' | 'authoring' | 'schema' | 'project-settings';
+export type RailSection = 'workspace' | 'build' | 'authoring' | 'schema' | 'app-configuration';
 /**
  * Optional second argument to onCommitToDev. Allows the shell to pass
  * conflict resolutions (Thread 11) and revert metadata (Thread 12)
@@ -203,8 +203,8 @@ export interface DevShellProps {
     buildProps: Omit<BuildPanelProps, 'skills'>;
     skills: SkillDescriptor[];
     schemaProps: SchemaPanelProps;
-    /** Project settings panel props — dashboardUrl is injected by the shell. */
-    settingsProps: Omit<AppConfigurationPanelProps, 'dashboardUrl'>;
+    /** App Configuration panel props — dashboardUrl is injected by the shell. */
+    appConfigProps: Omit<AppConfigurationPanelProps, 'dashboardUrl'>;
     /** v1.2 Thread 06: catalogue + devshell-scope config + patch callback
      *  used by the "DevShell preferences" entry in the avatar menu. When
      *  omitted, the avatar menu falls back to a stub message ("DevShell
@@ -279,4 +279,4 @@ export interface DevShellProps {
     onSectionChange?: (section: RailSection) => void;
     onViewChange?: (view: DevShellView) => void;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, settingsProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

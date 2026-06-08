@@ -4,7 +4,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 // Reusable MCP (Model Context Protocol) management surface. Mounted in
 // all four MCP surfaces:
 //   - Platform MCP        (dashboard, account-wide)
-//   - DevShell MCP        (ProjectSettingsPanel.Integrations, per-project)
+//   - DevShell MCP        (AppConfigurationPanel.Integrations, per-project)
 //   - AppShell MCP shared (skeleton /dev/mcp, app-default)
 //   - AppShell MCP personal (skeleton /manage/mcp, end-user)
 //

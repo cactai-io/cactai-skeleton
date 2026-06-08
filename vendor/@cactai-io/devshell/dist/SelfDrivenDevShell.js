@@ -1598,7 +1598,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     // renders the "Open in Supabase" link as the only outbound
                     // action, keeping the affordance set honest.
                     supabaseProjectUrl,
-                }, settingsProps: {
+                }, appConfigProps: {
                     // Credentials — mask map derived from the platform's
                     // visibility flags. Full plaintext never round-trips through
                     // the browser; the panel shows "••••" badges + an Update
@@ -1727,7 +1727,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     },
                 }, dashboardUrl: dashboardUrl, 
                 // DevShell preferences modal (avatar menu → Tools and skills…).
-                // Distinct from ProjectSettingsPanel.Configuration which controls
+                // Distinct from AppConfigurationPanel.Configuration which controls
                 // the deployed app (appshell scope); this controls what's
                 // available inside the IDE (devshell scope). Pre-wiring this prop
                 // was undefined which made the modal render the "configuration is

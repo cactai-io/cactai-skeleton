@@ -12,7 +12,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 //
 // The component takes the catalogue + per-scope config + an onPatch
 // callback. It does not call fetch directly — the host (the tabbed
-// ProjectSettingsPanel or the DevShell preferences modal) owns the API
+// AppConfigurationPanel or the DevShell preferences modal) owns the API
 // surface.
 import { useMemo, useState } from 'react';
 // Default "enabled" semantics:

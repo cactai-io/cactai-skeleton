@@ -56,6 +56,7 @@ const VIEW_PLACEHOLDERS = {
     build: 'Describe what to build or change…',
     plan: 'Add a goal, plan a sprint, or take notes…',
     test_drive: 'Ask about this view or describe a change from the selected lens…',
+    history: 'Ask about a past decision…',
 };
 const AGENT_STATE_LABELS = {
     idle: 'idle',

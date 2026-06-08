@@ -4,7 +4,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 // v1.2 Thread 06 — Surface 2 of tool/skill availability config.
 //
 // Opens from the avatar menu's "DevShell preferences" entry. Wraps the
-// same CapabilityListPanel that ProjectSettingsPanel uses, but in the
+// same CapabilityListPanel that AppConfigurationPanel uses, but in the
 // devshell scope and with allowHide=false. The Thread 06 prompt is
 // explicit: DevShell never has a "show hidden" affordance — developers
 // always see what's available in the IDE.

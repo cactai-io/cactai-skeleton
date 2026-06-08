@@ -1,5 +1,9 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-const WelcomeBody = ({ personalityName }) => (_jsxs(_Fragment, { children: [_jsx("h2", { style: { fontSize: 17, fontWeight: 600, marginTop: 0, marginBottom: 12 }, children: "Welcome to DevShell" }), _jsxs("ol", { style: { paddingLeft: 22, marginTop: 8 }, children: [_jsx("li", { style: { marginBottom: 12 }, children: "The first step is to describe your app idea in a few sentences. Use the example to help you structure your description; don't worry if you don't have all the details figured out yet. Start simple: \u201CI want to build a workout assistant\u201D or \u201CI want to build a marketplace.\u201D" }), _jsxs("li", { style: { marginBottom: 12 }, children: [_jsx("strong", { children: personalityName }), " will work with you to collect the information and make decisions. Once enough information is gathered, ", _jsx("strong", { children: personalityName }), " will build your app's core structure. Then you can use the ", _jsx("strong", { children: "Configuration" }), ' ', "page (the rail gear icon), the ", _jsx("strong", { children: "directory tree" }), " for manual code edits, and continue chatting with", ' ', _jsx("strong", { children: personalityName }), " to refine and expand. Use the", ' ', _jsx("strong", { children: "Plan" }), " button in the header for notes and the deferred backlog."] }), _jsxs("li", { style: { marginBottom: 12 }, children: ["After ", _jsx("strong", { children: personalityName }), " builds your app's core structure, you can test-drive your app using the", ' ', _jsx("strong", { children: "Test Drive" }), " button in the header."] })] })] }));
+// Locked welcome copy (v1.4). Single page — the old page-2 model-config
+// picker is removed (everything runs Opus pre-build; the build model is
+// chosen at the "Build It" gate), so there is nothing left for it to
+// configure. "Ember" is substituted with the active personality name.
+const WelcomeBody = ({ personalityName }) => (_jsxs(_Fragment, { children: [_jsx("h2", { style: { fontSize: 17, fontWeight: 600, marginTop: 0, marginBottom: 14 }, children: "Welcome to DevShell" }), _jsx("p", { style: { marginTop: 0, marginBottom: 12 }, children: "Congratulations! Your app is ready to build." }), _jsx("p", { style: { marginTop: 0, marginBottom: 12 }, children: "Next step, answer a few questions, make a few decisions, take a Test Drive." }), _jsxs("p", { style: { marginTop: 0, marginBottom: 12 }, children: ["Stuck? Ask ", _jsx("strong", { children: personalityName }), ". Change your mind? Go back and change your decision."] }), _jsx("p", { style: { marginTop: 0, marginBottom: 0 }, children: "Now lets get started\u2026" })] }));
 export function OnboardingModal({ open, onClose, personalityName = 'Ember', }) {
     if (!open)
         return null;
@@ -36,6 +40,6 @@ export function OnboardingModal({ open, onClose, personalityName = 'Ember', }) {
                             border: 'none',
                             borderRadius: 6,
                             cursor: 'pointer',
-                        }, children: "Got it" }) })] }) }));
+                        }, children: "Next \u2192" }) })] }) }));
 }
 //# sourceMappingURL=OnboardingModal.js.map
