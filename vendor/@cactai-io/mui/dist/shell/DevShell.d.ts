@@ -232,6 +232,9 @@ export interface DevShellProps {
         /** DevShell-scope BYOK keys for the Providers tab (real set/not-set). */
         byok?: import('@cactai-io/types').ProjectBYOKResponse | null;
         onBYOKPatch?: (patch: import('@cactai-io/types').ProjectBYOKPatch) => Promise<void> | void;
+        /** Shared personality list — the DevShell-assistant picker on the
+         *  Preferences tab uses it (its own independent local selection). */
+        personality?: import('@cactai-io/types').ProjectPersonalityResponse | null;
     };
     /** URL of the Cactai platform dashboard. Passed by the host so this
      *  package carries no hardcoded environment URL. */

@@ -1,5 +1,5 @@
 import { type MCPCatalogEntry } from './MCPManager.js';
-import type { CapabilityCatalogueItem, CapabilityScopeConfig, CapabilityConfigPatch, MCPServerPublic, MCPAuthType, ProjectBYOKResponse, ProjectBYOKPatch } from '@cactai-io/types';
+import type { CapabilityCatalogueItem, CapabilityScopeConfig, CapabilityConfigPatch, MCPServerPublic, MCPAuthType, ProjectBYOKResponse, ProjectBYOKPatch, ProjectPersonalityResponse } from '@cactai-io/types';
 export interface DevShellMcpConfig {
     servers: MCPServerPublic[];
     catalog: MCPCatalogEntry[];
@@ -30,5 +30,10 @@ export interface DevShellPreferencesModalProps {
      *  seeded (and the developer edits here); onBYOKPatch persists a key. */
     byok?: ProjectBYOKResponse | null;
     onBYOKPatch?: (patch: ProjectBYOKPatch) => Promise<void> | void;
+    /** Shared personality list (same as App Config). The DevShell chat's
+     *  personality is an INDEPENDENT selection stored locally
+     *  (cactai_devshell_personality), so the IDE assistant and the app's
+     *  assistant can differ. Built-ins + developer-authored both appear. */
+    personality?: ProjectPersonalityResponse | null;
 }
-export declare function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant, mcp, byok, onBYOKPatch }: DevShellPreferencesModalProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant, mcp, byok, onBYOKPatch, personality }: DevShellPreferencesModalProps): import("react/jsx-runtime").JSX.Element;

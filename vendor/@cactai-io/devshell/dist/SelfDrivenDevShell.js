@@ -1796,6 +1796,9 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                             if (refetch.ok)
                                 setByok(await refetch.json());
                         },
+                        // Shared personality list for the DevShell-assistant picker on the
+                        // Preferences tab (its selection is independent + stored locally).
+                        personality,
                     }
                     : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate }), capPrompt && (_jsx(ProviderKeyModal, { detail: capPrompt.detail, onSaved: capPrompt.retry, onDismiss: () => setCapPrompt(null), endpoints: { cactaiBase, projectId } }))] }));
 }
