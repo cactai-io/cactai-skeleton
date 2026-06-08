@@ -187,6 +187,51 @@ async function patchDecisions(patch: Record<string, unknown>): Promise<void> {
   if (error) throw new Error(`project_state update failed: ${error.message}`);
 }
 
+// ── v1.4 App Config ADD tabs (Sharing / Collaboration / AI Actions / Custom) ─
+// Stored as decisions.* keys (no migration). Tab visibility derives from the
+// build manifest's pruning flags so disabled-capability tabs stay hidden.
+export interface AppConfigExtras {
+  sharing:       unknown;
+  collaboration: unknown;
+  ai_actions:    unknown[];
+  custom_tabs:   unknown[];
+  visibility:    { ai: boolean; paid: boolean; sharing: boolean; collaboration: boolean };
+}
+
+const APP_CONFIG_KEYS = new Set(['sharing_v1', 'collaboration_v1', 'ai_actions_v1', 'custom_tabs_v1']);
+
+export async function loadAppConfigExtras(): Promise<AppConfigExtras> {
+  const supabase  = createServiceSupabaseClient();
+  const projectId = endpoints.projectId;
+  const { data, error } = await supabase
+    .from('project_state')
+    .select('decisions, build_manifest')
+    .eq('project_id', projectId)
+    .maybeSingle();
+  if (error) throw new Error(`project_state load failed: ${error.message}`);
+  const d = (data?.decisions ?? {}) as Record<string, unknown>;
+  const m = (data?.build_manifest ?? {}) as { pruning?: Record<string, { value?: unknown }> };
+  const p = m.pruning ?? {};
+  const cost = p.cost?.value;
+  return {
+    sharing:       d['sharing_v1'] ?? null,
+    collaboration: d['collaboration_v1'] ?? null,
+    ai_actions:    Array.isArray(d['ai_actions_v1'])  ? d['ai_actions_v1']  as unknown[] : [],
+    custom_tabs:   Array.isArray(d['custom_tabs_v1']) ? d['custom_tabs_v1'] as unknown[] : [],
+    visibility: {
+      ai:            p.ai_integration?.value != null && p.ai_integration?.value !== 'none',
+      paid:          Array.isArray(cost) && (cost as unknown[]).includes('paid'),
+      sharing:       p.sharing?.value === true,
+      collaboration: p.collaboration?.value === 'collab',
+    },
+  };
+}
+
+export async function saveAppConfigExtra(key: string, value: unknown): Promise<void> {
+  if (!APP_CONFIG_KEYS.has(key)) throw new Error(`unknown app-config key: ${key}`);
+  await patchDecisions({ [key]: value });
+}
+
 // ── Capability config (Thread 06) ───────────────────────────────────────────
 
 export async function loadCapabilityConfig(): Promise<CapabilityConfig> {

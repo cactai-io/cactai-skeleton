@@ -136,6 +136,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             (err.detail ? `: ${err.detail}` : ''));
     }).current;
     const [byok, setByok] = useState(null);
+    const [appConfig, setAppConfig] = useState(null);
     const [personality, setPersonality] = useState(null);
     const [workflowSettings, setWorkflowSettings] = useState(null);
     const [capabilityConfig, setCapabilityConfig] = useState(null);
@@ -506,7 +507,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     return null;
                 }
             };
-            const [byokBody, personalityBody, workflowBody, capsBody, credsBody, platformSettings] = await Promise.all([
+            const [byokBody, personalityBody, workflowBody, capsBody, credsBody, platformSettings, appConfigBody] = await Promise.all([
                 settle('/api/settings/byok', 'byok'),
                 settle('/api/settings/personality', 'personality'),
                 settle('/api/settings/workflow', 'workflow_settings'),
@@ -518,9 +519,12 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 // project scope. Migration to a single skeleton source is a
                 // follow-up; both reads are cheap.
                 settle(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/settings`, 'settings'),
+                settle('/api/settings/app-config', 'app_config'),
             ]);
             if (cancelled)
                 return;
+            if (appConfigBody)
+                setAppConfig(appConfigBody);
             if (byokBody)
                 setByok(byokBody);
             if (personalityBody)
@@ -789,6 +793,24 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         else {
             const body = await res.json().catch(() => ({}));
             recordFetchError('role_save', { status: res.status, code: body.error, detail: body.detail });
+        }
+    };
+    // v1.4 — persist one App Config ADD-tab key (sharing/collaboration/ai_actions/
+    // custom_tabs) to decisions via the skeleton route, then refresh from the
+    // response so the panel reflects the stored state.
+    const putAppConfig = async (key, value) => {
+        const res = await fetch('/api/settings/app-config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value }),
+        });
+        if (res.ok) {
+            setAppConfig(await res.json());
+            recordFetchError('app_config_save', null);
+        }
+        else {
+            const body = await res.json().catch(() => ({}));
+            recordFetchError('app_config_save', { status: res.status, code: body.error, detail: body.detail });
         }
     };
     // Per-agent enable/disable overrides (customer DB app_agent_config) for
@@ -1639,6 +1661,21 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     onAIPolicyPatch,
                     tiers,
                     onTierBudgetPatch,
+                    // v1.4 ADD tabs (Sharing / Collaboration / AI Actions / Custom) +
+                    // wizard-driven tab visibility. Persisted via /api/settings/app-config
+                    // (decisions.* keys); visibility derives from the build manifest.
+                    tabVisibility: appConfig?.visibility,
+                    sharingConfig: appConfig?.sharing ?? undefined,
+                    onSharingPatch: (cfg) => putAppConfig('sharing_v1', cfg),
+                    collaborationConfig: appConfig?.collaboration ?? undefined,
+                    onCollaborationPatch: (cfg) => putAppConfig('collaboration_v1', cfg),
+                    aiActions: appConfig?.ai_actions ?? [],
+                    onAIActionsPatch: (acts) => putAppConfig('ai_actions_v1', acts),
+                    customTabs: appConfig?.custom_tabs ?? [],
+                    onAddCustomTab: (label) => putAppConfig('custom_tabs_v1', [
+                        ...(appConfig?.custom_tabs ?? []),
+                        { id: `tab-${Date.now()}`, label },
+                    ]),
                     // MCP — devshell-scope integrations for this project (sprint-1
                     // UI: persisted-but-inert). Catalog + explainer from mui;
                     // handlers hit /v1/projects/:id/mcp/devshell through the proxy.
