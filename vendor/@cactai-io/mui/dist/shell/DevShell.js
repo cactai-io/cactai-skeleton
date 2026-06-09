@@ -313,6 +313,10 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // D2 — revise an answered decision from the History log. POSTs the new value,
     // then refreshes the log + the flagged set (downstream steps to revisit).
     const [decisionFlagged, setDecisionFlagged] = useState([]);
+    // #3 — the change-warning shown when a revision affects downstream decisions:
+    // the affected steps + their previous decisions, plus the wizard step the
+    // server repositioned to (resume_step) for a one-click re-walk.
+    const [reviseWarning, setReviseWarning] = useState(null);
     const reviseDecision = useCallback(async (step, value) => {
         try {
             const res = await fetch(`${apiBaseUrl}/v1/projects/${projectId}/devshell/decision-log/revise`, { method: 'POST', credentials: 'include',
@@ -325,6 +329,8 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                 setDecisionLogStages(json.stages);
             if (Array.isArray(json.flagged))
                 setDecisionFlagged(json.flagged);
+            const affected = Array.isArray(json.affected) ? json.affected : [];
+            setReviseWarning(affected.length > 0 ? { affected, resumeStep: json.resume_step ?? null } : null);
         }
         catch { /* best-effort */ }
     }, [apiBaseUrl, projectId]);
@@ -690,7 +696,9 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             //                            new visitor experiences before they
             //                            have an account.
             if (previewRole) {
-                return (_jsxs("div", { style: { flex: 1, overflow: 'auto', position: 'relative' }, children: [_jsx(RoleViewBanner, { projectId: projectId, pendingFiles: roleViewPendingFiles, activeRoleViewPath: activeFilePath }), _jsx(StudioOverlay, { skill_id: "shell_root", onInspect: handleInspect, active: false, children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: _jsxs("span", { children: ["Test Drive \u00B7 ", previewRole] }) }) }) })] }));
+                return (_jsxs("div", { style: { flex: 1, overflow: 'auto', position: 'relative' }, children: [_jsx(RoleViewBanner, { projectId: projectId, pendingFiles: roleViewPendingFiles, activeRoleViewPath: activeFilePath }), _jsx(StudioOverlay, { skill_id: "shell_root", onInspect: handleInspect, active: false, children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? (typeof window !== 'undefined'
+                                    ? _jsx("iframe", { src: `${window.location.origin}/?lens=${encodeURIComponent(previewRole)}`, title: `Test Drive · ${previewRole}`, style: { width: '100%', height: '100%', border: 'none', display: 'block' } }, `role-${previewRole}`)
+                                    : _jsx("div", { className: "ds-preview-empty", children: _jsxs("span", { children: ["Test Drive \u00B7 ", previewRole] }) })) }) })] }));
             }
             return (_jsx("div", { style: { ...bindSection('build-view', 'amber'), flex: 1, overflow: 'hidden' }, className: "ds-preview-wrap", children: _jsxs("div", { className: "ds-preview-window", children: [_jsxs("div", { className: "ds-preview-chrome", children: [_jsxs("div", { className: "ds-traffic", children: [_jsx("span", {}), _jsx("span", {}), _jsx("span", {})] }), _jsx("div", { className: "ds-preview-url ds-mono", children: vercelPreviewUrl ? vercelPreviewUrl.replace(/^https?:\/\//, '') : `${projectName}.vercel.app` }), vercelPreviewUrl && _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-open", children: "Open \u2197" })] }), _jsx("div", { className: "ds-preview-content", children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: vercelPreviewUrl ? _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-link", children: "Open preview \u2197" }) : 'Commit to dev to see preview.' }) }) })] }) }));
         }
@@ -814,17 +822,20 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                                                 setPreviewRole(null);
                                                 onRoleSwitch(null);
                                             }
-                                        }, children: "Test Drive" })] }), vercelPreviewUrl && (_jsx("button", { type: "button", title: "Open your deployed app", onClick: () => {
-                                    if (workspaceProps?.onOpenApp)
-                                        workspaceProps.onOpenApp();
-                                    else if (typeof window !== 'undefined')
-                                        window.open(vercelPreviewUrl, '_blank', 'noopener');
+                                        }, children: "Test Drive" })] }), view === 'test_drive' && vercelPreviewUrl && (_jsx("button", { type: "button", title: "Open the current role's view in a new tab", onClick: () => {
+                                    if (typeof window === 'undefined')
+                                        return;
+                                    const url = previewRole
+                                        ? `${vercelPreviewUrl}?lens=${encodeURIComponent(previewRole)}`
+                                        : vercelPreviewUrl;
+                                    const name = previewRole ? `cactai-lens-${previewRole}` : 'cactai-preview';
+                                    window.open(url, name);
                                 }, style: {
                                     marginLeft: 10, padding: '5px 12px', fontSize: 12.5, fontWeight: 600,
                                     background: 'transparent', color: 'var(--ds-text-2, #94a3b8)',
                                     border: '1px solid var(--ds-border, #2e2e3c)', borderRadius: 6,
                                     cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-                                }, children: "Open app \u2197" }))] }), _jsx("div", { className: "ds-topbar-spacer" }), view === 'test_drive' && availableRoles.length > 0 && (_jsxs("div", { className: "ds-preview-as", children: [_jsx("span", { className: "ds-preview-as-label", children: "Preview as" }), _jsxs("div", { className: "ds-preview-as-group", children: [availableRoles.map(r => (_jsx("button", { className: `ds-preview-as-btn${previewRole === r.role ? ' ds-preview-as-active' : ''}`, onClick: () => { setPreviewRole(r.role); onRoleSwitch(r.role); }, children: r.label }, r.role))), hasPublicSignup && (_jsx("button", { className: `ds-preview-as-btn${previewRole === null ? ' ds-preview-as-active' : ''}`, onClick: () => { setPreviewRole(null); onRoleSwitch(null); }, title: "Preview the signup screen as a logged-out visitor", children: "Signup" }))] })] })), _jsxs("div", { className: "ds-avatar-wrap", children: [_jsx("button", { className: "ds-avatar", onClick: () => setAvatarOpen(o => !o), title: developerName, "aria-label": "Account menu", children: developerInitials }), avatarOpen && (_jsxs("div", { className: "ds-avatar-menu", role: "menu", ref: avatarMenuRef, children: [_jsx("div", { className: "ds-avatar-menu-section", children: developerName }), _jsx("a", { href: `${dashboardUrl}/settings`, target: "_blank", rel: "noopener noreferrer", className: "ds-avatar-menu-item", onClick: () => setAvatarOpen(false), children: "Account settings \u2197" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "DevShell preferences" }), _jsxs("div", { className: "ds-avatar-theme-row", children: [themeBtn('light', 'Light'), themeBtn('dark', 'Dark'), themeBtn('system', 'System')] }), _jsxs("label", { className: "ds-avatar-menu-item", style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, cursor: 'pointer' }, children: [_jsx("span", { children: "Auto-hide nav rail" }), _jsx("input", { type: "checkbox", checked: railAutoHide, onChange: (e) => {
+                                }, children: "Open this view \u2197" }))] }), _jsx("div", { className: "ds-topbar-spacer" }), view === 'test_drive' && availableRoles.length > 0 && (_jsxs("div", { className: "ds-preview-as", children: [_jsx("span", { className: "ds-preview-as-label", children: "Preview as" }), _jsxs("div", { className: "ds-preview-as-group", children: [availableRoles.map(r => (_jsx("button", { className: `ds-preview-as-btn${previewRole === r.role ? ' ds-preview-as-active' : ''}`, onClick: () => { setPreviewRole(r.role); onRoleSwitch(r.role); }, children: r.label }, r.role))), hasPublicSignup && (_jsx("button", { className: `ds-preview-as-btn${previewRole === null ? ' ds-preview-as-active' : ''}`, onClick: () => { setPreviewRole(null); onRoleSwitch(null); }, title: "Preview the signup screen as a logged-out visitor", children: "Signup" }))] })] })), _jsxs("div", { className: "ds-avatar-wrap", children: [_jsx("button", { className: "ds-avatar", onClick: () => setAvatarOpen(o => !o), title: developerName, "aria-label": "Account menu", children: developerInitials }), avatarOpen && (_jsxs("div", { className: "ds-avatar-menu", role: "menu", ref: avatarMenuRef, children: [_jsx("div", { className: "ds-avatar-menu-section", children: developerName }), _jsx("a", { href: `${dashboardUrl}/settings`, target: "_blank", rel: "noopener noreferrer", className: "ds-avatar-menu-item", onClick: () => setAvatarOpen(false), children: "Account settings \u2197" }), _jsx("div", { className: "ds-avatar-menu-divider" }), _jsx("div", { className: "ds-avatar-menu-section", children: "DevShell preferences" }), _jsxs("div", { className: "ds-avatar-theme-row", children: [themeBtn('light', 'Light'), themeBtn('dark', 'Dark'), themeBtn('system', 'System')] }), _jsxs("label", { className: "ds-avatar-menu-item", style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, cursor: 'pointer' }, children: [_jsx("span", { children: "Auto-hide nav rail" }), _jsx("input", { type: "checkbox", checked: railAutoHide, onChange: (e) => {
                                                     const v = e.target.checked;
                                                     setRailAutoHide(v);
                                                     if (!v)
@@ -855,9 +866,29 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                             // visible as a thin vertical strip with an arrow that
                             // expands the panel back to its previous width on click.
                             // Unread dot appears when new messages arrive while collapsed.
-                            _jsxs("button", { onClick: toggleChat, "aria-label": "Open chat", "aria-expanded": "false", title: "Open chat", className: "ds-chat-collapsed-tab", children: [_jsx("span", { style: { fontSize: 13, lineHeight: 1 }, children: "\u203A" }), hasUnread && _jsx("span", { "aria-hidden": true, className: "ds-chat-collapsed-unread" })] })), chatGuideSlot && (_jsx("div", { className: "ds-chat-guide-host", style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: chatW, zIndex: 60, pointerEvents: 'none', overflow: 'hidden' }, children: chatGuideSlot })), _jsxs("div", { className: "ds-right-area", children: [_jsx("div", { className: "ds-content", children: prefsOpen
-                                            ? renderPrefsPage()
-                                            : (showPanel ? renderPanel() : renderMainContent()) }), (treeCol ? (_jsx("button", { className: "ds-files-collapsed-tab", onClick: () => setTreeCol(false), "aria-expanded": "false", children: "Files \u2303" })) : (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-resize-v", onMouseDown: startTreeDrag, role: "separator", "aria-orientation": "horizontal" }), _jsxs("div", { className: "ds-files-panel", style: { height: treeH, flexShrink: 0 }, children: [_jsxs("div", { className: "ds-files-panel-header", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }, children: [_jsx("span", { className: "ds-files-panel-title", children: "Files" }), onOpenFileGuide && (_jsx("button", { onClick: onOpenFileGuide, "aria-label": "Open file directory guide", title: "File directory guide", style: {
+                            _jsxs("button", { onClick: toggleChat, "aria-label": "Open chat", "aria-expanded": "false", title: "Open chat", className: "ds-chat-collapsed-tab", children: [_jsx("span", { style: { fontSize: 13, lineHeight: 1 }, children: "\u203A" }), hasUnread && _jsx("span", { "aria-hidden": true, className: "ds-chat-collapsed-unread" })] })), chatGuideSlot && (_jsx("div", { className: "ds-chat-guide-host", style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: chatW, zIndex: 60, pointerEvents: 'none', overflow: 'hidden' }, children: chatGuideSlot })), _jsxs("div", { className: "ds-right-area", children: [_jsxs("div", { className: "ds-content", children: [reviseWarning && (_jsxs("div", { style: {
+                                                    margin: '8px 12px 0', padding: '10px 14px',
+                                                    border: '1px solid var(--ds-warn-border, #b4632e)',
+                                                    background: 'color-mix(in srgb, var(--c-warm, #e0853a) 12%, transparent)',
+                                                    borderRadius: 8, fontSize: 12.5, color: 'var(--ds-text, #e5e7eb)',
+                                                    display: 'flex', gap: 12, alignItems: 'flex-start',
+                                                }, children: [_jsxs("div", { style: { flex: 1 }, children: [_jsxs("strong", { children: ["Heads up \u2014 that change affects ", reviseWarning.affected.length, " downstream ", reviseWarning.affected.length === 1 ? 'decision' : 'decisions', ". Please reconsider:"] }), _jsx("ul", { style: { margin: '6px 0 0', paddingLeft: 18 }, children: reviseWarning.affected.map(a => {
+                                                                    const prev = Array.isArray(a.previous_decision)
+                                                                        ? a.previous_decision.join(', ')
+                                                                        : a.previous_decision == null ? '' : String(a.previous_decision);
+                                                                    return _jsxs("li", { children: [a.question, prev ? ` — was: ${prev}` : ''] }, a.step);
+                                                                }) })] }), _jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }, children: [reviseWarning.resumeStep && (_jsx("button", { type: "button", onClick: () => { changeView('build'); setReviseWarning(null); }, style: {
+                                                                    padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                                                    background: 'var(--ds-accent, #5856E5)', color: '#fff', border: 'none', borderRadius: 6,
+                                                                    fontFamily: 'inherit',
+                                                                }, children: "Re-answer \u2192" })), _jsx("button", { type: "button", onClick: () => setReviseWarning(null), style: {
+                                                                    padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+                                                                    background: 'transparent', color: 'var(--ds-text-2, #94a3b8)',
+                                                                    border: '1px solid var(--ds-border, #2e2e3c)', borderRadius: 6,
+                                                                    fontFamily: 'inherit',
+                                                                }, children: "Dismiss" })] })] })), prefsOpen
+                                                ? renderPrefsPage()
+                                                : (showPanel ? renderPanel() : renderMainContent())] }), (treeCol ? (_jsx("button", { className: "ds-files-collapsed-tab", onClick: () => setTreeCol(false), "aria-expanded": "false", children: "Files \u2303" })) : (_jsxs(_Fragment, { children: [_jsx("div", { className: "ds-resize-v", onMouseDown: startTreeDrag, role: "separator", "aria-orientation": "horizontal" }), _jsxs("div", { className: "ds-files-panel", style: { height: treeH, flexShrink: 0 }, children: [_jsxs("div", { className: "ds-files-panel-header", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }, children: [_jsx("span", { className: "ds-files-panel-title", children: "Files" }), onOpenFileGuide && (_jsx("button", { onClick: onOpenFileGuide, "aria-label": "Open file directory guide", title: "File directory guide", style: {
                                                                             background: 'transparent',
                                                                             border: '1px solid var(--ds-border-soft, rgba(255,255,255,0.12))',
                                                                             borderRadius: 10,

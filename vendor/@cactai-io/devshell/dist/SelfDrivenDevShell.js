@@ -77,6 +77,14 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [workflowStep, setWorkflowStep] = useState('name_and_intent');
     const [decisions, setDecisions] = useState({});
     const [backlog, setBacklog] = useState([]);
+    // The app's role catalog (tenant_roles_catalog) for the Test Drive role
+    // switcher. Endpoint orders rank DESC, so the last entry is the lowest-
+    // privilege role (DevShell seeds Test Drive entry to it). session_id is
+    // unused for lens-based viewing (the inline iframe applies ?lens=<role>).
+    const [availableRoles, setAvailableRoles] = useState([]);
+    // Fires the first-test-drive ping (#6) once per session, when the dev opens
+    // Test Drive on a completed build. The endpoint is idempotent regardless.
+    const testDrivePingedRef = React.useRef(false);
     // Active form spec for the current workflow step. Sourced from the
     // platform's /v1/projects/:id/devshell/workflow poll, which reads the
     // step from STEP_REGISTRY. Plan view's WorkflowSurface renders this
@@ -364,6 +372,27 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         const interval = setInterval(tick, 5000);
         return () => { cancelled = true; clearInterval(interval); };
     }, [cactaiBase, projectId, recordFetchError]);
+    // Role catalog for the Test Drive role switcher. Re-fetched when the workflow
+    // advances (a build can add roles). Non-fatal on error — the switcher just
+    // stays empty and Test Drive falls back to the signup lens.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/roles`, {
+                    method: 'GET', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+                });
+                if (!res.ok)
+                    return;
+                const body = await res.json();
+                if (cancelled)
+                    return;
+                setAvailableRoles((body.roles ?? []).map(r => ({ role: r.role, label: r.label, session_id: '' })));
+            }
+            catch { /* non-fatal */ }
+        })();
+        return () => { cancelled = true; };
+    }, [cactaiBase, projectId, workflowStep]);
     // File tree: fetched once on mount. The skeleton route hits GitHub's
     // trees API server-side with GITHUB_TOKEN, so no credential ever
     // reaches the browser. Branch defaults to 'dev'.
@@ -1183,7 +1212,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         : null;
     const character = activeId ? BUILTIN_CHARACTERS[activeId] : undefined;
     // messages, streamingContent, agentState come from MUIShell store via subscribe effect above.
-    const availableRoles = []; // Phase 2 (next): build {role, label, session_id} from tenant_members
+    // availableRoles is now state, fetched from the role catalog above.
     // syncState derives from pendingFiles count: any pending row means
     // we're in the 'local · N uncommitted' state, otherwise 'dev · synced'.
     const syncState = pendingFiles.length > 0
@@ -1271,7 +1300,17 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 // modal. The origin is known from the surface before content loads
                 // (file_directory ⇒ bottom; pending_edits ⇒ modal-split; else ⇒ top), so
                 // the loading shimmer animates into the right container.
-                chatGuideSlot: guide && (guideEffectiveOrigin === 'top' || guideEffectiveOrigin === 'right') ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: guide.content?.origin ?? 'top', title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, filesGuideSlot: guide && guideEffectiveOrigin === 'bottom' ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: "bottom", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onOpenPendingGuide: () => (guide?.surface === 'pending_edits' ? closeGuide() : openGuide('pending_edits')), pendingGuideSlot: guide && guideEffectiveOrigin === 'modal-split' ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: "modal-split", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onRoleSwitch: () => { }, onCommitToDev: async (paths, opts) => {
+                chatGuideSlot: guide && (guideEffectiveOrigin === 'top' || guideEffectiveOrigin === 'right') ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: guide.content?.origin ?? 'top', title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, filesGuideSlot: guide && guideEffectiveOrigin === 'bottom' ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: "bottom", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onOpenPendingGuide: () => (guide?.surface === 'pending_edits' ? closeGuide() : openGuide('pending_edits')), pendingGuideSlot: guide && guideEffectiveOrigin === 'modal-split' ? (_jsx(GuidePanel, { open: !guideClosing, onClose: closeGuide, origin: "modal-split", title: guide.content?.title ?? 'Guide', blocks: guide.content?.blocks ?? [], loading: guide.loading })) : null, onRoleSwitch: () => {
+                    // Lens switching is client-side (the inline iframe reads previewRole).
+                    // This callback only stamps the first-test-drive signal (#6) — once
+                    // per session, on a completed build. Idempotent server-side.
+                    if (workflowStep === 'complete' && !testDrivePingedRef.current) {
+                        testDrivePingedRef.current = true;
+                        void fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/test-drive-opened`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        }).catch(() => { });
+                    }
+                }, onCommitToDev: async (paths, opts) => {
                     // Phase 3b — POST /api/git/commit. The route reads file
                     // content from pending_files server-side (per the user's
                     // RLS-scoped rows), so we don't need to ferry blob bytes

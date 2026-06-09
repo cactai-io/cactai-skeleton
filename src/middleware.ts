@@ -20,7 +20,12 @@ export async function middleware(request: NextRequest) {
   // server code can pick it up via headers().get('x-cactai-lens').
   // We strip any value that doesn't match the safe pattern.
   let response = NextResponse.next({ request });
-  const lensIn = request.headers.get('x-cactai-lens');
+  // Header first; else ?lens= from the URL. The Test Drive preview iframe
+  // navigates to <app>?lens=<role> on the initial GET (no header yet), and the
+  // SSR render needs the lens too. Validation still happens in
+  // resolveEffectiveLens (only a developer can lens to a catalog role they
+  // don't hold), so propagating the param here grants nothing on its own.
+  const lensIn = request.headers.get('x-cactai-lens') ?? request.nextUrl.searchParams.get('lens');
   if (lensIn && VALID_LENS_PATTERN.test(lensIn)) {
     const reqHeaders = new Headers(request.headers);
     reqHeaders.set('x-cactai-lens', lensIn);

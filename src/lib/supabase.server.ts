@@ -79,18 +79,36 @@ export async function getRequestLensHeader(): Promise<string | null> {
  * Resolve the effective lens for the current request.
  *
  * Order:
+ *   0. PREVIEW BYPASS (Test Drive) — a developer (has a platform_roles row)
+ *      may lens into ANY role in tenant_roles_catalog, because when they test-
+ *      drive their own app they hold NO tenant_members roles. End-users never
+ *      have a platform_roles row, so they can never trigger this — no
+ *      escalation path. Fails CLOSED: if the caller isn't a developer or the
+ *      role isn't in the catalog, it falls through to the normal checks below.
  *   1. X-Cactai-Lens header, validated against the user's actual
  *      tenant_members rows. Header wins if the user holds the role.
  *   2. JWT app_metadata.lens claim.
  *   3. The user's highest tenant role as a fallback (matches existing
  *      getActiveLens() behavior).
  *
- * Returns null when the user holds no tenant roles.
+ * Returns null when the user holds no tenant roles (and isn't a previewing dev).
  */
 export async function resolveEffectiveLens(): Promise<string | null> {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
+
+  const headerLens = await getRequestLensHeader();
+
+  // 0. Preview bypass — developers only, any catalog role. See doc above.
+  if (headerLens && await callerIsDeveloper(supabase, user.id)) {
+    const { data: catRole } = await supabase
+      .from('tenant_roles_catalog')
+      .select('role')
+      .eq('role', headerLens)
+      .maybeSingle();
+    if (catRole) return headerLens;
+  }
 
   const { data: memberships } = await supabase
     .from('tenant_members')
@@ -101,7 +119,6 @@ export async function resolveEffectiveLens(): Promise<string | null> {
   const heldRoles = ((memberships ?? []) as Array<{ role: string }>).map(m => m.role);
   if (heldRoles.length === 0) return null;
 
-  const headerLens = await getRequestLensHeader();
   if (headerLens && heldRoles.includes(headerLens)) {
     return headerLens;
   }
@@ -138,6 +155,28 @@ async function pickHighestRole(
     if ((legacyRank[r] ?? 0) > (legacyRank[best] ?? 0)) best = r;
   }
   return best;
+}
+
+/** True when the current user is a developer of this app — has a platform_roles
+ *  row with role dev or collaborator. End-users NEVER have one, so this is the
+ *  gate for the Test Drive preview-lens bypass in resolveEffectiveLens. Any
+ *  error returns false (fails closed → no bypass). */
+async function callerIsDeveloper(
+  supa:   SupabaseClient<Database>,
+  userId: string,
+): Promise<boolean> {
+  try {
+    const { data } = await supa
+      .from('platform_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['dev', 'collaborator'])
+      .limit(1)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
 }
 
 /**
