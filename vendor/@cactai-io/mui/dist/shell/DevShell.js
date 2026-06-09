@@ -146,7 +146,7 @@ function RailBtn({ section, active, onClick }) {
     const tooltip = S_TOOLTIP[section] ?? S_LABEL[section];
     return (_jsx("button", { className: `ds-rail-btn${active ? ' ds-rail-active' : ''}`, onClick: onClick, title: tooltip, "aria-label": tooltip, children: _jsx("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", children: _jsx("path", { d: S_ICON[section] }) }) }));
 }
-export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, }) {
+export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, onRegisterNavigate, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
     // Body lock while the DevShell IDE is mounted. Pre-fix the browser
     // could scroll the entire page past [data-cactai-shell]'s 100vh
@@ -451,6 +451,20 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         setView('build');
         onViewChange?.('build');
     }, [onSectionChange, onViewChange]);
+    // Imperative navigation handle the host (SelfDrivenDevShell) registers, so
+    // primitives like the idle Actions list can jump views/sections. A section
+    // target wins (changeSection also switches to the Build view); else a view.
+    const navigateTo = useCallback((target) => {
+        const sections = ['workspace', 'build', 'authoring', 'schema', 'app-configuration'];
+        const views = ['plan', 'build', 'test_drive', 'history'];
+        if (target.section && sections.includes(target.section)) {
+            changeSection(target.section);
+        }
+        else if (target.view && views.includes(target.view)) {
+            changeView(target.view);
+        }
+    }, [changeSection, changeView]);
+    useEffect(() => { onRegisterNavigate?.(navigateTo); }, [onRegisterNavigate, navigateTo]);
     // Open the Studio rail page with a specific authoring tool active.
     // Called both by the Studio rail button (type omitted → picker grid) and
     // by the launchers placed where a tool's output is used (Config tabs,

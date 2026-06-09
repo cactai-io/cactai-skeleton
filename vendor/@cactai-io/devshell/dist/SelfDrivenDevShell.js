@@ -85,6 +85,9 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // Fires the first-test-drive ping (#6) once per session, when the dev opens
     // Test Drive on a completed build. The endpoint is idempotent regardless.
     const testDrivePingedRef = React.useRef(false);
+    // Holds DevShell's navigateTo so a primitive (the idle Actions list) can jump
+    // views/sections client-side via the renderer's onNavigate.
+    const navigateRef = React.useRef(null);
     // Active form spec for the current workflow step. Sourced from the
     // platform's /v1/projects/:id/devshell/workflow poll, which reads the
     // step from STEP_REGISTRY. Plan view's WorkflowSurface renders this
@@ -1294,7 +1297,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         required_tokens: [],
         description: c.description,
     }));
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, chatError: chatError, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, notes: notes, onCreateNote: createNote, onUpdateNote: updateNote, onDeleteNote: deleteNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent })) : null, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, chatError: chatError, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, notes: notes, onCreateNote: createNote, onUpdateNote: updateNote, onDeleteNote: deleteNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent, onNavigate: (target) => navigateRef.current?.(target) })) : null, onRegisterNavigate: (fn) => { navigateRef.current = fn; }, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
                 // ⓘ-guide overlays. The open guide routes to its container by origin:
                 // top/right ⇒ chat slot, bottom ⇒ files panel, modal-split ⇒ pending
                 // modal. The origin is known from the surface before content loads
