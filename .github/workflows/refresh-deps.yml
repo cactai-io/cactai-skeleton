@@ -1,0 +1,65 @@
+name: Refresh @cactai-io lockfile
+
+# Re-resolves the seven published @cactai-io/* deps to the newest version
+# within the committed ^1.4.0 range and commits the refreshed pnpm-lock.yaml,
+# so a freshly-forked app installs the latest SDK without anyone hand-running
+# `pnpm install`. Only the lockfile's resolved `version:` lines move; the
+# `specifier: ^1.4.0` lines and package.json ranges are left untouched.
+#
+# IMPORTANT: this never runs `pnpm up --latest`. `--latest` rewrites the
+# ^1.4.0 specifiers to the exact newest version and re-introduces the
+# package.json <-> lockfile specifier drift that ERR_PNPM_OUTDATED_LOCKFILE
+# is caused by. A plain `pnpm install` keeps specifiers stable and only
+# advances the resolved version inside the range — that is the whole point.
+#
+# Triggers:
+#   - workflow_dispatch: hit "Run workflow" right after publishing a new
+#     @cactai-io release so the template picks it up immediately.
+#   - schedule: a weekly safety net in case a manual run is forgotten.
+#
+# Prerequisites (one-time, owner-only — this workflow is inert without them):
+#   1. Repo Actions secret CACTAI_NPM_TOKEN with read:packages on the
+#      @cactai-io scope (same token the local .npmrc resolves).
+#   2. The bot push to main must be permitted by branch protection. If
+#      `main` requires status checks, either allow the github-actions bot to
+#      bypass, or this workflow's push step will fail.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+
+      - name: Re-resolve lockfile within range (no specifier mutation)
+        env:
+          CACTAI_NPM_TOKEN: ${{ secrets.CACTAI_NPM_TOKEN }}
+        run: pnpm install --no-frozen-lockfile --lockfile-only
+
+      - name: Commit refreshed lockfile if it changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- pnpm-lock.yaml; then
+            echo "Lockfile already at the newest 1.4.x — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "cactai-bot"
+          git config user.email "bot@cactai.io"
+          git add pnpm-lock.yaml
+          git commit -m "build: refresh @cactai-io lockfile to latest 1.4.x"
+          git push
