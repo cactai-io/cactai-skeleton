@@ -756,7 +756,21 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
         };
         switch (section) {
             case 'workspace':
-                return wrap(_jsx(WorkspacePanel, { ...workspaceProps, projectName: projectName, githubRepoUrl: githubRepoUrl, vercelDashUrl: vercelDashUrl, vercelPreviewUrl: vercelPreviewUrl, syncState: syncState, onViewPendingEdits: () => openPendingEdits() }));
+                // The Workspace window IS the "active" surface (locked 2026-06-08):
+                // whatever the orchestrator is currently driving renders here.
+                // Sprint 1 → the wizard (purpose_capture → stage steps → build),
+                // delivered as buildSurfaceSlot, with the live decision-log dock on
+                // the right once answers start accumulating. When nothing is active
+                // (buildSurfaceSlot null — e.g. post-wizard, or before openSession
+                // resolves), the window falls back to the workspace start page: the
+                // project overview + repo/host links. This is what makes the Start
+                // card reachable — the default landing is Build tab + Workspace.
+                return wrap(buildSurfaceSlot
+                    ? (_jsxs("div", { style: { flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }, children: [_jsx("div", { style: { flex: 1, minWidth: 0, overflow: 'auto' }, children: buildSurfaceSlot }), decisionLogStages.length > 0 && (_jsx("aside", { style: {
+                                    width: 300, flexShrink: 0, overflow: 'auto',
+                                    borderLeft: '1px solid var(--ds-border, rgba(255,255,255,0.08))',
+                                }, children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active" }) }))] }))
+                    : (_jsx(WorkspacePanel, { ...workspaceProps, projectName: projectName, githubRepoUrl: githubRepoUrl, vercelDashUrl: vercelDashUrl, vercelPreviewUrl: vercelPreviewUrl, syncState: syncState, onViewPendingEdits: () => openPendingEdits() })));
             case 'build':
                 return wrap(_jsx(BuildPanel, { ...buildProps, skills: skills }));
             case 'authoring':
