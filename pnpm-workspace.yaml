@@ -32,9 +32,9 @@ minimumReleaseAgeExclude:
 # any other forward-only change. Overrides force fresh re-resolution to the
 # range below for every transitive reference.
 overrides:
-  '@cactai-io/client':       '^1.3.10'
-  '@cactai-io/primitives':   '^1.3.10'
-  '@cactai-io/themes':       '^1.3.10'
-  '@cactai-io/types':        '^1.3.10'
-  '@cactai-io/shell-ui':     '^1.3.10'
-  '@cactai-io/brand-tokens': '^1.3.10'
+  '@cactai-io/client':       '^1.4.0'
+  '@cactai-io/primitives':   '^1.4.0'
+  '@cactai-io/themes':       '^1.4.0'
+  '@cactai-io/types':        '^1.4.0'
+  '@cactai-io/shell-ui':     '^1.4.0'
+  '@cactai-io/brand-tokens': '^1.4.0'
