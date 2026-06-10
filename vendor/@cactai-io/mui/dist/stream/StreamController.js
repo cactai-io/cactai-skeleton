@@ -41,11 +41,10 @@ export class StreamController {
         for (const type of NAMED) {
             this.eventSource.addEventListener(type, (rawEvent) => {
                 const ev = rawEvent;
+                const isTerminal = type === 'turn.complete' || type === 'turn.error';
+                if (isTerminal) completedFlag.v = true;
                 try {
                     const data = JSON.parse(ev.data);
-                    // ingest expects the wrapped StreamEvent. request_id / sequence /
-                    // timestamp aren't always meaningful here; downstream handlers only
-                    // read `event` and `data`, so the stubs are harmless.
                     this.ingest({
                         event: type,
                         request_id: (data && data.request_id) ?? requestId,
@@ -53,15 +52,11 @@ export class StreamController {
                         timestamp: new Date().toISOString(),
                         data,
                     });
-                    if (type === 'turn.complete' || type === 'turn.error') {
-                        completedFlag.v = true;
-                        this.disconnect();
-                    }
                 }
-                catch {
-                    // Malformed event payload — discard silently. The whole stream
-                    // should not die because one event was bad.
+                catch (e) {
+                    console.error('[StreamController] listener throw:', e);
                 }
+                if (isTerminal) this.disconnect();
             });
         }
         // Keep onmessage for any unnamed events the server might emit (e.g. SSE
@@ -142,6 +137,9 @@ export class StreamController {
     // StreamingBubble destroyed. OutputResponse assembled. MessageBubble renders.
     handleTurnComplete(event) {
         this.store.setStreaming(false);
+        // Server emits full output in turn.complete with no preceding output.delta,
+        // so handleOutputDelta (the only other place clearing pending) never runs.
+        this.store.setPending(false);
         this.store.clearStreamBuffer();
         // Assemble OutputResponse from stream data + MUIStore context
         const state = this.store.getState();

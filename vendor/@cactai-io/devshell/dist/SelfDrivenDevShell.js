@@ -317,11 +317,11 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         const sync = () => {
             const s = store.getState();
             const agentMessages = s.conversation.messages
-                .filter(m => m.status === 'complete' && m.output?.text)
+                .filter(m => m.status === 'complete' && m.output?.message)
                 .map(m => ({
                 id: m.request_id,
                 role: 'agent',
-                content: m.output?.text ?? '',
+                content: m.output?.message ?? '',
                 timestamp: m.completed_at ?? new Date().toISOString(),
             }));
             setMessages(agentMessages);
