@@ -3,14 +3,32 @@ name: Refresh @cactai-io lockfile
 # Re-resolves the seven published @cactai-io/* deps to the newest version
 # within the committed ^1.4.0 range and commits the refreshed pnpm-lock.yaml,
 # so a freshly-forked app installs the latest SDK without anyone hand-running
-# `pnpm install`. Only the lockfile's resolved `version:` lines move; the
+# the update. Only the lockfile's resolved `version:` lines move; the
 # `specifier: ^1.4.0` lines and package.json ranges are left untouched.
 #
-# IMPORTANT: this never runs `pnpm up --latest`. `--latest` rewrites the
-# ^1.4.0 specifiers to the exact newest version and re-introduces the
-# package.json <-> lockfile specifier drift that ERR_PNPM_OUTDATED_LOCKFILE
-# is caused by. A plain `pnpm install` keeps specifiers stable and only
-# advances the resolved version inside the range — that is the whole point.
+# IMPORTANT: this uses `pnpm update` (NOT `pnpm install`, NOT `--latest`).
+#   - `pnpm install` is a no-op for version bumps: if the locked version
+#     already satisfies the range (1.4.1 satisfies ^1.4.0), pnpm keeps it
+#     and never advances to 1.4.3. That is the bug this file used to have.
+#   - `pnpm update` (no --latest) advances the resolved version to the
+#     highest within the existing ^1.4.0 range. It DOES, however, rewrite
+#     the package.json specifier to the new version (e.g. ^1.4.0 -> ^1.4.3),
+#     which would let the floor creep and, if left uncommitted, desync
+#     package.json from the lockfile (ERR_PNPM_OUTDATED_LOCKFILE on the next
+#     frozen install). So the run step restores package.json after the
+#     update and reconciles the lockfile's importer specifiers back to
+#     ^1.4.0 with a lockfile-only install — the freshly resolved versions
+#     survive because they still satisfy ^1.4.0.
+#   - `--latest` is even more aggressive (ignores the range entirely). Never
+#     use it here.
+# Scoped to "@cactai-io/*" so third-party deps (and their minimum-release-age
+# protection) are left alone and diffs stay small.
+#
+# Note: a stale LOCAL pnpm metadata cache can hide a just-published version
+# (pnpm won't refetch the version list it cached during an earlier install).
+# CI is immune — fresh runner, empty cache — but if you run this by hand and
+# the bump doesn't appear, clear the pnpm cache dir first (`pnpm store path`
+# is the content store; the metadata cache is under `pnpm config get cacheDir`).
 #
 # Triggers:
 #   - workflow_dispatch: hit "Run workflow" right after publishing a new
@@ -46,10 +64,14 @@ jobs:
           node-version: 20
           registry-url: https://npm.pkg.github.com
 
-      - name: Re-resolve lockfile within range (no specifier mutation)
+      - name: Re-resolve @cactai-io deps to newest within range
         env:
           CACTAI_NPM_TOKEN: ${{ secrets.CACTAI_NPM_TOKEN }}
-        run: pnpm install --no-frozen-lockfile --lockfile-only
+        run: |
+          set -euo pipefail
+          pnpm update --lockfile-only "@cactai-io/*"
+          git checkout -- package.json
+          pnpm install --lockfile-only
 
       - name: Commit refreshed lockfile if it changed
         run: |

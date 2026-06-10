@@ -45,6 +45,7 @@ import { FileTree } from '../components/FileTree.js';
 import { WorkflowSurface } from '../workflow/index.js';
 import { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel, } from '../panels/index.js';
 import { DevShellPreferencesModal } from '../panels/DevShellPreferencesModal.js';
+import { ResizableDock } from '../panels/ResizableDock.js';
 import { DecisionLogPanel } from '../panels/DecisionLogPanel.js';
 import { injectDevShellStyles } from './DevShellStyles.js';
 import { ThemeInspector } from '../inspector/ThemeInspector.js';
@@ -146,7 +147,7 @@ function RailBtn({ section, active, onClick }) {
     const tooltip = S_TOOLTIP[section] ?? S_LABEL[section];
     return (_jsx("button", { className: `ds-rail-btn${active ? ' ds-rail-active' : ''}`, onClick: onClick, title: tooltip, "aria-label": tooltip, children: _jsx("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", children: _jsx("path", { d: S_ICON[section] }) }) }));
 }
-export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, onRegisterNavigate, }) {
+export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, onRegisterNavigate, decisionLogVersion, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
     // Body lock while the DevShell IDE is mounted. Pre-fix the browser
     // could scroll the entire page past [data-cactai-shell]'s 100vh
@@ -309,7 +310,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             catch { /* dock is best-effort; the surface is the source of truth */ }
         })();
         return () => { cancelled = true; };
-    }, [apiBaseUrl, projectId, view, workflowStep]);
+    }, [apiBaseUrl, projectId, view, workflowStep, decisionLogVersion]);
     // D2 — revise an answered decision from the History log. POSTs the new value,
     // then refreshes the log + the flagged set (downstream steps to revisit).
     const [decisionFlagged, setDecisionFlagged] = useState([]);
@@ -680,10 +681,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             // running (Build view, not complete). Plan view already carries the
             // full Running log inside WorkflowSurface, so it gets no dock.
             const showActiveDock = view === 'build' && workflowStep !== 'complete';
-            return (_jsxs("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden', display: 'flex', minWidth: 0 }, children: [_jsx("div", { style: { flex: 1, overflow: 'hidden', minWidth: 0 }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog, onCreateBacklog: onCreateBacklog, onUpdateBacklog: onUpdateBacklog, onDeleteBacklog: onDeleteBacklog, onRenameSprint: onRenameSprint, onDeleteSprint: onDeleteSprint, notes: notes, onCreateNote: onCreateNote, onUpdateNote: onUpdateNote, onDeleteNote: onDeleteNote }) }), showActiveDock && decisionLogStages.length > 0 && (_jsx("aside", { style: {
-                            width: 300, flexShrink: 0, overflow: 'auto',
-                            borderLeft: '1px solid var(--ds-border, rgba(255,255,255,0.08))',
-                        }, children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active" }) }))] }));
+            return (_jsxs("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden', display: 'flex', minWidth: 0 }, children: [_jsx("div", { style: { flex: 1, overflow: 'hidden', minWidth: 0 }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog, onCreateBacklog: onCreateBacklog, onUpdateBacklog: onUpdateBacklog, onDeleteBacklog: onDeleteBacklog, onRenameSprint: onRenameSprint, onDeleteSprint: onDeleteSprint, notes: notes, onCreateNote: onCreateNote, onUpdateNote: onUpdateNote, onDeleteNote: onDeleteNote }) }), showActiveDock && decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged }) }))] }));
         }
         if (view === 'history') {
             // History = the full Running decision log (every wizard answer + its
@@ -711,7 +709,14 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             //                            have an account.
             if (previewRole) {
                 return (_jsxs("div", { style: { flex: 1, overflow: 'auto', position: 'relative' }, children: [_jsx(RoleViewBanner, { projectId: projectId, pendingFiles: roleViewPendingFiles, activeRoleViewPath: activeFilePath }), _jsx(StudioOverlay, { skill_id: "shell_root", onInspect: handleInspect, active: false, children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? (typeof window !== 'undefined'
-                                    ? _jsx("iframe", { src: `${window.location.origin}/?lens=${encodeURIComponent(previewRole)}`, title: `Test Drive · ${previewRole}`, style: { width: '100%', height: '100%', border: 'none', display: 'block' } }, `role-${previewRole}`)
+                                    ? _jsx("iframe", { 
+                                        // Load the app shell directly (/app), not the root (/).
+                                        // The root page redirects a developer session to /dev
+                                        // (DevShell), so framing `/?lens=` would show DevShell
+                                        // inside the preview instead of the app as the role.
+                                        // /app is dev-accessible (requireAppRole = requireAuth)
+                                        // and the lens bypass scopes the render to the role.
+                                        src: `${window.location.origin}/app?lens=${encodeURIComponent(previewRole)}`, title: `Test Drive · ${previewRole}`, style: { width: '100%', height: '100%', border: 'none', display: 'block' } }, `role-${previewRole}`)
                                     : _jsx("div", { className: "ds-preview-empty", children: _jsxs("span", { children: ["Test Drive \u00B7 ", previewRole] }) })) }) })] }));
             }
             return (_jsx("div", { style: { ...bindSection('build-view', 'amber'), flex: 1, overflow: 'hidden' }, className: "ds-preview-wrap", children: _jsxs("div", { className: "ds-preview-window", children: [_jsxs("div", { className: "ds-preview-chrome", children: [_jsxs("div", { className: "ds-traffic", children: [_jsx("span", {}), _jsx("span", {}), _jsx("span", {})] }), _jsx("div", { className: "ds-preview-url ds-mono", children: vercelPreviewUrl ? vercelPreviewUrl.replace(/^https?:\/\//, '') : `${projectName}.vercel.app` }), vercelPreviewUrl && _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-open", children: "Open \u2197" })] }), _jsx("div", { className: "ds-preview-content", children: _jsx("div", { "data-appshell-preview": true, style: { height: '100%' }, children: children ?? _jsx("div", { className: "ds-preview-empty", children: vercelPreviewUrl ? _jsx("a", { href: vercelPreviewUrl, target: "_blank", rel: "noopener noreferrer", className: "ds-preview-link", children: "Open preview \u2197" }) : 'Commit to dev to see preview.' }) }) })] }) }));
@@ -774,6 +779,17 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                     display: 'flex',
                     flexDirection: 'column',
                     position: 'relative',
+                    // The workspace must be a FILLED themed surface (wizard-redesign-
+                    // 2026-06-09): no bare-bg + floating card. Without an explicit
+                    // background, the workspace inherits the chat-panel-adjacent
+                    // light surface, leaving wizard titles stranded on white and
+                    // dark cards looking like they're floating. Painting --ds-canvas
+                    // here gives every wizard primitive a coherent dark surface
+                    // underneath so titles read against it and cards sit *on*
+                    // something instead of *over nothing*. Other sections already
+                    // paint their own panels (BuildPanel, SchemaPanel, etc.) so they
+                    // don't need this and are left alone.
+                    ...(section === 'workspace' ? { background: 'var(--ds-canvas)' } : {}),
                 }, children: [gs && onOpenGuide && (_jsx("button", { type: "button", className: "ds-btn-ghost ds-panel-guide-btn", "aria-label": `${S_LABEL[section]} guide`, title: `${S_LABEL[section]} guide`, onClick: () => onOpenGuide(gs), style: { position: 'absolute', top: 6, right: 10, zIndex: 5, fontSize: 13, lineHeight: 1, padding: '2px 7px', borderRadius: '50%' }, children: "\u24D8" })), node] }));
         };
         switch (section) {
@@ -788,10 +804,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                 // project overview + repo/host links. This is what makes the Start
                 // card reachable — the default landing is Build tab + Workspace.
                 return wrap(buildSurfaceSlot
-                    ? (_jsxs("div", { style: { flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }, children: [_jsx("div", { style: { flex: 1, minWidth: 0, overflow: 'auto' }, children: buildSurfaceSlot }), decisionLogStages.length > 0 && (_jsx("aside", { style: {
-                                    width: 300, flexShrink: 0, overflow: 'auto',
-                                    borderLeft: '1px solid var(--ds-border, rgba(255,255,255,0.08))',
-                                }, children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active" }) }))] }))
+                    ? (_jsxs("div", { style: { flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }, children: [_jsx("div", { style: { flex: 1, minWidth: 0, overflow: 'auto' }, children: buildSurfaceSlot }), decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged }) }))] }))
                     : (_jsx(WorkspacePanel, { ...workspaceProps, projectName: projectName, githubRepoUrl: githubRepoUrl, vercelDashUrl: vercelDashUrl, vercelPreviewUrl: vercelPreviewUrl, syncState: syncState, onViewPendingEdits: () => openPendingEdits() })));
             case 'build':
                 return wrap(_jsx(BuildPanel, { ...buildProps, skills: skills }));
@@ -839,11 +852,19 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                                         }, children: "Test Drive" })] }), view === 'test_drive' && vercelPreviewUrl && (_jsx("button", { type: "button", title: "Open the current role's view in a new tab", onClick: () => {
                                     if (typeof window === 'undefined')
                                         return;
-                                    const url = previewRole
-                                        ? `${vercelPreviewUrl}?lens=${encodeURIComponent(previewRole)}`
-                                        : vercelPreviewUrl;
-                                    const name = previewRole ? `cactai-lens-${previewRole}` : 'cactai-preview';
-                                    window.open(url, name);
+                                    // Mirror the avatar-menu "Open as role" behavior exactly: a
+                                    // RELATIVE, same-origin /app?lens= URL. The dev's session
+                                    // cookie lives on the current host, so a relative open carries
+                                    // it. The absolute vercelPreviewUrl is frequently a different
+                                    // Vercel alias with no session — which is why this button used
+                                    // to land on the login page.
+                                    if (previewRole) {
+                                        window.open(`/app?lens=${encodeURIComponent(previewRole)}`, `cactai-lens-${previewRole}`);
+                                        onRoleSwitch(previewRole);
+                                    }
+                                    else {
+                                        window.open('/app', 'cactai-preview');
+                                    }
                                 }, style: {
                                     marginLeft: 10, padding: '5px 12px', fontSize: 12.5, fontWeight: 600,
                                     background: 'transparent', color: 'var(--ds-text-2, #94a3b8)',

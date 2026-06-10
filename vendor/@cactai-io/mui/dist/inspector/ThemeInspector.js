@@ -45,6 +45,13 @@ export function ThemeInspector({ projectId, apiBaseUrl, onClose, previewUrl, }) 
     const [selected, setSelected] = useState(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
+    // wizard-redesign-2026-06-09 — cluster-walk sequence. The dev can run a
+    // re-runnable walkthrough that visits every token cluster (color,
+    // typography, spacing, …) one at a time, with the live preview on the
+    // right showing the affected elements. Off by default; toggled by the
+    // header button.
+    const [walking, setWalking] = useState(false);
+    const [walkClusterIdx, setWalkClusterIdx] = useState(0);
     // True when the project has no theme file yet — i.e. the first build workflow
     // hasn't generated src/lib/theme.ts. We show a "not generated yet" overlay
     // that the real editor replaces once the file exists.
@@ -68,6 +75,16 @@ export function ThemeInspector({ projectId, apiBaseUrl, onClose, previewUrl, }) 
                             setThemeMissing(true);
                         return;
                     }
+                }
+                if (res.status === 401 || res.status === 403) {
+                    // Auth fell through (cookie missing, or the same-origin proxy can't
+                    // forward Bearer). Surface an actionable message instead of the
+                    // cryptic numeric status the dev used to see.
+                    if (!cancelled)
+                        setError(res.status === 401
+                            ? 'Your DevShell session expired — reload the page to re-auth, then reopen Theme.'
+                            : 'This project\'s theme file isn\'t accessible from this session. Open DevShell on the same project to edit.');
+                    return;
                 }
                 if (!res.ok)
                     throw new Error(`load_failed: ${res.status}`);
@@ -150,15 +167,43 @@ export function ThemeInspector({ projectId, apiBaseUrl, onClose, previewUrl, }) 
         }
     }, [apiBaseUrl, projectId, data, deltas]);
     // ── Render ──────────────────────────────────────────────────────────────
-    return (_jsxs("section", { "data-theme-inspector": true, role: "dialog", "aria-label": "Theme inspector", children: [_jsxs("header", { className: "ti-header", children: [_jsx("h2", { className: "ti-title", children: "Theme" }), lockedCount > 0 && (_jsxs("button", { className: "ti-locked-banner", onClick: () => window.parent?.postMessage({ type: 'cactai:open-brand-lock' }, '*'), children: [_jsx(LockGlyph, { className: "ti-lock-glyph" }), lockedCount, " token", lockedCount === 1 ? '' : 's', " locked by brand settings. Unlock in workflow \u2192 brand."] })), _jsx("div", { className: "ti-spacer" }), _jsx("button", { className: "ti-cancel", onClick: onClose, disabled: saving, children: "Cancel" }), _jsx("button", { className: "ti-save", onClick: save, disabled: saving || Object.keys(deltas).length === 0, children: saving ? 'Saving…' : `Save${Object.keys(deltas).length > 0 ? ` (${Object.keys(deltas).length})` : ''}` })] }), _jsxs("div", { className: "ti-body", style: { position: 'relative' }, children: [themeMissing && (_jsx("div", { style: {
+    return (_jsxs("section", { "data-theme-inspector": true, role: "dialog", "aria-label": "Theme inspector", children: [_jsxs("header", { className: "ti-header", children: [_jsx("h2", { className: "ti-title", children: "Theme" }), lockedCount > 0 && (_jsxs("button", { className: "ti-locked-banner", onClick: () => window.parent?.postMessage({ type: 'cactai:open-brand-lock' }, '*'), children: [_jsx(LockGlyph, { className: "ti-lock-glyph" }), lockedCount, " token", lockedCount === 1 ? '' : 's', " locked by brand settings. Unlock in workflow \u2192 brand."] })), _jsx("div", { className: "ti-spacer" }), _jsx("button", { type: "button", onClick: () => { setWalking(w => !w); setWalkClusterIdx(0); }, disabled: !data, style: {
+                            background: 'transparent', border: '1px solid var(--ds-border, #2A2A38)',
+                            color: 'var(--ds-text-2, #B0B0C2)', padding: '4px 12px', fontSize: 11.5,
+                            borderRadius: 6, cursor: data ? 'pointer' : 'not-allowed', marginRight: 8,
+                        }, title: "Walk through every theme token, cluster by cluster, with the live preview", children: walking ? '× End walk' : '↻ Walk through' }), _jsx("button", { className: "ti-cancel", onClick: onClose, disabled: saving, children: "Cancel" }), _jsx("button", { className: "ti-save", onClick: save, disabled: saving || Object.keys(deltas).length === 0, children: saving ? 'Saving…' : `Save${Object.keys(deltas).length > 0 ? ` (${Object.keys(deltas).length})` : ''}` })] }), _jsxs("div", { className: "ti-body", style: { position: 'relative' }, children: [themeMissing && (_jsx("div", { style: {
                             position: 'absolute', inset: 0, zIndex: 10,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             background: 'var(--ds-surface, var(--c-bg, #0F0F16))',
                             padding: 32, textAlign: 'center',
-                        }, children: _jsxs("div", { style: { maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12 }, children: [_jsx("h3", { style: { margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--c-text, #E6E6EE)' }, children: "Your theme hasn\u2019t been generated yet" }), _jsxs("p", { style: { margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--c-text-3, #9A9AAE)' }, children: ["The Design tab fills in once your first build workflow generates your app\u2019s theme file (", _jsx("code", { style: { fontFamily: 'var(--f-mono, monospace)' }, children: "src/lib/theme.ts" }), "). Run the first workflow, then reopen this tab \u2014 your colors, type, spacing, and more will appear here, ready to edit."] })] }) })), _jsx("div", { className: "ti-col", children: _jsxs("div", { className: "ti-tree", children: [error && (_jsx("p", { style: { padding: '12px 18px', color: 'var(--c-accent)', fontSize: 12 }, children: error })), !data && !error && (_jsx("p", { style: { padding: '12px 18px', color: 'var(--c-text-3)', fontSize: 12 }, children: "Loading theme\u2026" })), Object.entries(grouped).map(([group, items]) => (_jsxs("div", { className: "ti-tree-group", children: [_jsx("div", { className: "ti-tree-group-label", children: group }), items.map(leaf => (_jsxs("button", { className: "ti-tree-leaf", "data-selected": selected === leaf.path, "data-locked": leaf.locked, onClick: () => setSelected(leaf.path), title: leaf.path, children: [isColorLeaf(leaf) && (_jsx("span", { className: "ti-tree-leaf-swatch", style: { background: (deltas[leaf.path] ? composeDelta(deltas[leaf.path]) : leaf.value) } })), !isColorLeaf(leaf) && (_jsx("span", { className: "ti-tree-leaf-dot", "data-dirty": dirtyPaths.has(leaf.path) })), _jsx("span", { className: "ti-tree-leaf-path", children: leaf.path }), leaf.locked && _jsx(LockGlyph, { className: "ti-tree-leaf-lock" })] }, leaf.path)))] }, group)))] }) }), _jsx("div", { className: "ti-col", children: _jsx("div", { className: "ti-control", children: selectedLeaf ? (_jsx(ControlForLeaf, { leaf: selectedLeaf, value: deltas[selectedLeaf.path] ? composeDelta(deltas[selectedLeaf.path]) : selectedLeaf.value, onChange: v => handleChange(selectedLeaf.path, v), siblings: leaves.filter(l => isColorLeaf(l) && l.path !== selectedLeaf.path).map(l => ({
-                                    path: l.path,
-                                    value: (deltas[l.path] ? composeDelta(deltas[l.path]) : l.value),
-                                })) })) : (_jsx("div", { className: "ti-control-empty", children: "Pick a token from the tree to edit." })) }) }), _jsx("div", { className: "ti-col", children: _jsxs("div", { className: "ti-preview", children: [_jsx("div", { className: "ti-preview-label", children: "Live preview" }), previewUrl ? (_jsx("iframe", { ref: iframeRef, className: "ti-preview-iframe", src: previewUrl, title: "Theme preview", 
+                        }, children: _jsxs("div", { style: { maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12 }, children: [_jsx("h3", { style: { margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--c-text, #E6E6EE)' }, children: "Your theme hasn\u2019t been generated yet" }), _jsxs("p", { style: { margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--c-text-3, #9A9AAE)' }, children: ["The Design tab fills in once your first build workflow generates your app\u2019s theme file (", _jsx("code", { style: { fontFamily: 'var(--f-mono, monospace)' }, children: "src/lib/theme.ts" }), "). Run the first workflow, then reopen this tab \u2014 your colors, type, spacing, and more will appear here, ready to edit."] })] }) })), walking ? ((() => {
+                        const clusters = Object.entries(grouped);
+                        const total = clusters.length;
+                        const safeIdx = Math.max(0, Math.min(walkClusterIdx, Math.max(0, total - 1)));
+                        const current = clusters[safeIdx];
+                        if (!current) {
+                            return (_jsx("div", { className: "ti-col", style: { flex: 2 }, children: _jsx("div", { className: "ti-control", children: _jsx("div", { className: "ti-control-empty", children: "No tokens to walk yet." }) }) }));
+                        }
+                        const [groupName, items] = current;
+                        const goPrev = () => setWalkClusterIdx(i => Math.max(0, i - 1));
+                        const goNext = () => setWalkClusterIdx(i => Math.min(total - 1, i + 1));
+                        const done = () => { setWalking(false); setWalkClusterIdx(0); };
+                        return (_jsxs("div", { className: "ti-col", style: { flex: 2, overflow: 'auto' }, children: [_jsxs("div", { style: { padding: '14px 18px', borderBottom: '1px solid var(--ds-border, #2A2A38)' }, children: [_jsxs("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }, children: [_jsxs("div", { style: { fontSize: 11, color: 'var(--ds-text-3)', letterSpacing: '0.06em', textTransform: 'uppercase' }, children: ["Cluster ", safeIdx + 1, " of ", total] }), _jsxs("div", { style: { display: 'flex', gap: 6 }, children: [_jsx("button", { type: "button", onClick: goPrev, disabled: safeIdx === 0, style: { background: 'transparent', border: '1px solid var(--ds-border, #2A2A38)',
+                                                                color: 'var(--ds-text-2)', padding: '3px 10px', fontSize: 11.5, borderRadius: 6,
+                                                                cursor: safeIdx === 0 ? 'not-allowed' : 'pointer', opacity: safeIdx === 0 ? 0.5 : 1 }, children: "\u2190 Prev" }), _jsx("button", { type: "button", onClick: goNext, disabled: safeIdx >= total - 1, style: { background: 'transparent', border: '1px solid var(--ds-border, #2A2A38)',
+                                                                color: 'var(--ds-text-2)', padding: '3px 10px', fontSize: 11.5, borderRadius: 6,
+                                                                cursor: safeIdx >= total - 1 ? 'not-allowed' : 'pointer', opacity: safeIdx >= total - 1 ? 0.5 : 1 }, children: "Next \u2192" }), _jsx("button", { type: "button", onClick: done, style: { background: 'var(--c-accent, #5856E5)', border: 'none',
+                                                                color: '#fff', padding: '3px 12px', fontSize: 11.5, borderRadius: 6, cursor: 'pointer' }, children: "Done" })] })] }), _jsx("h3", { style: { margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--c-text)', textTransform: 'capitalize' }, children: groupName }), _jsx("p", { style: { margin: '4px 0 0', fontSize: 12, color: 'var(--ds-text-3)' }, children: "Tweak any value \u2014 the preview on the right updates live. Save when you're happy." })] }), _jsx("div", { style: { padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 14 }, children: items.map(leaf => {
+                                        const v = deltas[leaf.path] ? composeDelta(deltas[leaf.path]) : leaf.value;
+                                        return (_jsxs("div", { children: [_jsx("div", { style: { fontSize: 11, color: 'var(--ds-text-3)', fontFamily: 'var(--f-mono)', marginBottom: 4 }, children: leaf.path }), _jsx(ControlForLeaf, { leaf: leaf, value: v, onChange: (nv) => handleChange(leaf.path, nv), siblings: leaves.filter(l => isColorLeaf(l) && l.path !== leaf.path).map(l => ({
+                                                        path: l.path,
+                                                        value: (deltas[l.path] ? composeDelta(deltas[l.path]) : l.value),
+                                                    })) })] }, leaf.path));
+                                    }) })] }));
+                    })()) : (_jsxs(_Fragment, { children: [_jsx("div", { className: "ti-col", children: _jsxs("div", { className: "ti-tree", children: [error && (_jsx("p", { style: { padding: '12px 18px', color: 'var(--c-accent)', fontSize: 12 }, children: error })), !data && !error && (_jsx("p", { style: { padding: '12px 18px', color: 'var(--c-text-3)', fontSize: 12 }, children: "Loading theme\u2026" })), Object.entries(grouped).map(([group, items]) => (_jsxs("div", { className: "ti-tree-group", children: [_jsx("div", { className: "ti-tree-group-label", children: group }), items.map(leaf => (_jsxs("button", { className: "ti-tree-leaf", "data-selected": selected === leaf.path, "data-locked": leaf.locked, onClick: () => setSelected(leaf.path), title: leaf.path, children: [isColorLeaf(leaf) && (_jsx("span", { className: "ti-tree-leaf-swatch", style: { background: (deltas[leaf.path] ? composeDelta(deltas[leaf.path]) : leaf.value) } })), !isColorLeaf(leaf) && (_jsx("span", { className: "ti-tree-leaf-dot", "data-dirty": dirtyPaths.has(leaf.path) })), _jsx("span", { className: "ti-tree-leaf-path", children: leaf.path }), leaf.locked && _jsx(LockGlyph, { className: "ti-tree-leaf-lock" })] }, leaf.path)))] }, group)))] }) }), _jsx("div", { className: "ti-col", children: _jsx("div", { className: "ti-control", children: selectedLeaf ? (_jsx(ControlForLeaf, { leaf: selectedLeaf, value: deltas[selectedLeaf.path] ? composeDelta(deltas[selectedLeaf.path]) : selectedLeaf.value, onChange: v => handleChange(selectedLeaf.path, v), siblings: leaves.filter(l => isColorLeaf(l) && l.path !== selectedLeaf.path).map(l => ({
+                                            path: l.path,
+                                            value: (deltas[l.path] ? composeDelta(deltas[l.path]) : l.value),
+                                        })) })) : (_jsx("div", { className: "ti-control-empty", children: "Pick a token from the tree to edit." })) }) })] })), _jsx("div", { className: "ti-col", children: _jsxs("div", { className: "ti-preview", children: [_jsx("div", { className: "ti-preview-label", children: "Live preview" }), previewUrl ? (_jsx("iframe", { ref: iframeRef, className: "ti-preview-iframe", src: previewUrl, title: "Theme preview", 
                                     // Both allow-scripts and allow-same-origin are intentional.
                                     // The iframe loads from a different origin than the platform
                                     // (the dev's Vercel preview), so allow-same-origin treats the

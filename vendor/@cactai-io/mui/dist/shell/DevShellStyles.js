@@ -630,7 +630,10 @@ body.cactai-shell-body-lock {
 }
 
 [data-cactai-shell] .ds-chat-header {
-  height: var(--ds-header-h);
+  /* +50% taller than the top nav header so the avatar can be +50% larger
+     (wizard-redesign-2026-06-09). Don't touch --ds-header-h itself — that
+     drives the top nav too. */
+  height: calc(var(--ds-header-h) * 1.5);
   display: flex;
   align-items: center;
   padding: 0 14px;
@@ -639,14 +642,26 @@ body.cactai-shell-body-lock {
   flex-shrink: 0;
 }
 
-/* Character animation area */
+/* Character animation area — fits the 51px avatar (was 34px / 36px wrap). */
 [data-cactai-shell] .ds-char-wrap {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 54px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Theme-agnostic avatar separation (wizard-redesign-2026-06-09).
+   Ember/SAM ship a dark + light color variant; pairing the same-tone
+   variant against the same-tone theme background made them blend in.
+   Stack a soft white drop-shadow + a soft black drop-shadow so contrast
+   holds against any background (dark, light, vibrant, custom) without
+   the inspector having to know the theme. */
+[data-cactai-shell] .ds-character {
+  filter:
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.18))
+    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.30));
 }
 
 [data-cactai-shell] .ds-char-fallback {
@@ -784,7 +799,9 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-msg.ds-msg-user .ds-msg-body { color: var(--ds-text-2); }
 
 [data-cactai-shell] .ds-msg-body {
-  font-size: 13.5px;
+  /* Matches the config-card description text size (wizard-redesign-2026-06-09):
+     was 13.5px → 12.5px. Same target applied to .ds-chat-textarea. */
+  font-size: 12.5px;
   color: var(--ds-text);
   line-height: 1.65;
   /* Preserve authored line breaks (blank lines + sentence-per-line) so
@@ -842,7 +859,8 @@ body.cactai-shell-body-lock {
   border: none;
   color: var(--ds-text);
   font-family: var(--f-mono);
-  font-size: 13.5px;
+  /* Matches .ds-msg-body — config-card description text size. */
+  font-size: 12.5px;
   line-height: 1.5;
   resize: none;
   outline: none;

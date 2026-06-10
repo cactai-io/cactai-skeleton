@@ -75,6 +75,9 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // without manual refresh. The endpoint is server-side + bearer-gated;
     // the proxy handles auth.
     const [workflowStep, setWorkflowStep] = useState('name_and_intent');
+    // Bumped on every orchestrator turn (see postEvent) so the DevShell
+    // decision-log dock refetches as each wizard step is confirmed.
+    const [decisionLogVersion, setDecisionLogVersion] = useState(0);
     const [decisions, setDecisions] = useState({});
     const [backlog, setBacklog] = useState([]);
     // The app's role catalog (tenant_roles_catalog) for the Test Drive role
@@ -245,6 +248,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
             const next = await client.postEvent({ session_id: sessionId, target_id, payload });
             if (next.tree)
                 setPrimitiveTree(next.tree);
+            // Signal the decision-log dock to refetch: a step was just confirmed.
+            // The wizard advances many steps inside one build_phase, so this
+            // per-turn bump is the only reliable "a decision changed" trigger.
+            setDecisionLogVersion(v => v + 1);
         };
         try {
             await send();
@@ -1297,7 +1304,19 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         required_tokens: [],
         description: c.description,
     }));
-    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, chatError: chatError, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, notes: notes, onCreateNote: createNote, onUpdateNote: updateNote, onDeleteNote: deleteNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent, onNavigate: (target) => navigateRef.current?.(target) })) : null, onRegisterNavigate: (fn) => { navigateRef.current = fn; }, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
+    return (_jsxs(_Fragment, { children: [_jsx(DevShell, { shell: shell, projectId: projectId, projectName: projectName, branch: "dev", syncState: syncState, pendingFiles: pendingFiles, developerInitials: developerInitials, developerName: developerName, agentDisplayName: agentDisplayName, character: character, agentState: agentState, messages: messages, streamingContent: streamingContent, chatError: chatError, availableRoles: availableRoles, apiBaseUrl: cactaiBase, studioPreviewUrl: deployOrigin ? `${deployOrigin}/_studio/preview` : undefined, vercelPreviewUrl: productionUrl ?? deployOrigin ?? undefined, notes: notes, onCreateNote: createNote, onUpdateNote: updateNote, onDeleteNote: deleteNote, buildSurfaceSlot: primitiveTree ? (_jsx(PrimitiveTreeRenderer, { root: primitiveTree, theme: SAMTheme.tokens, postEvent: postEvent, onNavigate: (target) => navigateRef.current?.(target), onHelpMeDecide: (ctx) => {
+                        // wizard-redesign-2026-06-09 — the dev clicked "Help me decide"
+                        // on a decision card. Inject a purpose-aware prompt into Ember
+                        // chat so the suggestion lands in the conversation, NOT on the
+                        // card. Same inject-into-chat mechanism as authoring AI-assist.
+                        // Server already has the manifest as context, so we keep the
+                        // prompt short — just the decision + a request for a suggestion.
+                        const question = ctx.question?.trim();
+                        const prompt = question
+                            ? `Help me decide: ${question} — what would you suggest for my app, and why? Keep it to a sentence or two.`
+                            : `Help me decide on this step — what would you suggest for my app, and why? Keep it to a sentence or two.`;
+                        void shell?.submitInput(prompt);
+                    } })) : null, onRegisterNavigate: (fn) => { navigateRef.current = fn; }, onOpenFileGuide: () => openGuide('file_directory'), onOpenGuide: openGuide, onAuthoringAssist: (prompt) => { void shell?.submitInput(prompt); }, onAuthoringSave: onAuthoringSave, 
                 // ⓘ-guide overlays. The open guide routes to its container by origin:
                 // top/right ⇒ chat slot, bottom ⇒ files panel, modal-split ⇒ pending
                 // modal. The origin is known from the surface before content loads
@@ -1416,7 +1435,7 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         ...prev.filter(p => p.path !== path),
                         { path, operation: 'delete', linesAdded: 0, linesRemoved: 0, lastEditedAt: new Date().toISOString() },
                     ]);
-                }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, workflowForm: workflowForm ?? undefined, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: async (choices) => {
+                }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, decisionLogVersion: decisionLogVersion, workflowForm: workflowForm ?? undefined, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: async (choices) => {
                     // Form submit → synthetic stage_step input. Builds the canonical
                     // token shape Branch 1 already handles:
                     //   __event__:select:stage_step:<step_id> <json-payload>

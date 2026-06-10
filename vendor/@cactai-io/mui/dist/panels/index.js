@@ -189,7 +189,45 @@ function BrowseTab({ items, loading, searchQuery, onSearch, onInstall, onUninsta
 }
 export function SchemaPanel({ tables, migrations, onAddTable, onEditTable, supabaseProjectUrl }) {
     const [expanded, setExpanded] = useState(null);
-    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { className: "ds-panel-section-title", style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }, children: [_jsx("span", { children: "Tables" }), _jsxs("div", { style: { display: 'flex', gap: 6 }, children: [supabaseProjectUrl && (_jsx("a", { className: "ds-btn-ghost", href: supabaseProjectUrl, target: "_blank", rel: "noopener noreferrer", style: { fontSize: 11, padding: '3px 10px', textDecoration: 'none', lineHeight: '1.6' }, title: "Open this project's Table Editor in Supabase", children: "Open in Supabase \u2197" })), onAddTable && (_jsx("button", { className: "ds-btn-ghost", onClick: onAddTable, style: { fontSize: 11, padding: '3px 10px' }, children: "+ Add table" }))] })] }), tables.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "No tables yet. Describe your data model in chat to get started." })), tables.map(table => (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }, onClick: () => setExpanded(expanded === table.name ? null : table.name), children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5, flex: 1 }, children: table.name }), table.rls_enabled && _jsx("span", { className: "ds-badge ds-badge-active", style: { fontSize: 9 }, children: "RLS" }), table.row_count !== undefined && (_jsxs("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: [table.row_count, " rows"] })), _jsx("span", { style: { color: 'var(--ds-text-3)', fontSize: 10 }, children: expanded === table.name ? '▾' : '▸' })] }), expanded === table.name && (_jsxs("div", { style: { marginTop: 10 }, children: [_jsxs("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }, children: [_jsx("thead", { children: _jsxs("tr", { style: { color: 'var(--ds-text-3)' }, children: [_jsx("th", { style: { textAlign: 'left', padding: '4px 0', fontWeight: 500 }, children: "Field" }), _jsx("th", { style: { textAlign: 'left', padding: '4px 8px', fontWeight: 500 }, children: "Type" }), _jsx("th", { style: { textAlign: 'left', padding: '4px 0', fontWeight: 500 }, children: "Nullable" })] }) }), _jsx("tbody", { children: table.fields.map(field => (_jsxs("tr", { style: { borderTop: '1px solid var(--ds-border-soft)' }, children: [_jsxs("td", { style: { padding: '5px 0', color: field.primary ? 'var(--ds-orange)' : 'var(--ds-text)', fontFamily: 'var(--f-mono)', fontSize: 11 }, children: [field.name, field.primary ? ' 🔑' : ''] }), _jsx("td", { style: { padding: '5px 8px', color: 'var(--ds-purple)', fontFamily: 'var(--f-mono)', fontSize: 11 }, children: field.type }), _jsx("td", { style: { padding: '5px 0', color: 'var(--ds-text-3)', fontSize: 10 }, children: field.nullable ? 'null' : 'not null' })] }, field.name))) })] }), onEditTable && (_jsx("button", { className: "ds-btn-ghost", onClick: () => onEditTable(table.name), style: { marginTop: 10, fontSize: 11, padding: '4px 10px' }, children: "Edit table" }))] }))] }, table.name)))] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Migration history" }), migrations.length === 0 ? (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "No migrations yet." })) : (migrations.map(m => (_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--ds-border-soft)', fontSize: 12 }, children: [_jsx("span", { style: { fontFamily: 'var(--f-mono)', flex: 1, color: 'var(--ds-text-2)' }, children: m.name }), _jsx("span", { style: { fontSize: 10, color: m.status === 'applied' ? '#28C940' : m.status === 'failed' ? 'var(--ds-red)' : 'var(--ds-orange)' }, children: m.status }), _jsx("span", { style: { fontSize: 10, color: 'var(--ds-text-3)' }, children: new Date(m.applied_at).toLocaleDateString() })] }, m.id))))] })] }));
+    // wizard-redesign-2026-06-09 — Database page gets a "Data model" view
+    // alongside Tables. The data model isn't asked in the wizard anymore; the
+    // build designs it, and the developer inspects it here. Entity-relationship
+    // view shows each table as a card with its fields + inferred references
+    // (FK conventions: <name>_id → <name>s; user_id → users).
+    const [view, setView] = useState('tables');
+    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { style: { display: 'flex', gap: 6, marginBottom: 12 }, children: [_jsx("button", { type: "button", onClick: () => setView('tables'), className: `ds-view-btn${view === 'tables' ? ' ds-view-active' : ''}`, style: { fontSize: 11.5 }, children: "Tables" }), _jsx("button", { type: "button", onClick: () => setView('data_model'), className: `ds-view-btn${view === 'data_model' ? ' ds-view-active' : ''}`, style: { fontSize: 11.5 }, children: "Data model" })] }), view === 'data_model' ? (_jsx(DataModelView, { tables: tables })) : (_jsxs(_Fragment, { children: [_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { className: "ds-panel-section-title", style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }, children: [_jsx("span", { children: "Tables" }), _jsxs("div", { style: { display: 'flex', gap: 6 }, children: [supabaseProjectUrl && (_jsx("a", { className: "ds-btn-ghost", href: supabaseProjectUrl, target: "_blank", rel: "noopener noreferrer", style: { fontSize: 11, padding: '3px 10px', textDecoration: 'none', lineHeight: '1.6' }, title: "Open this project's Table Editor in Supabase", children: "Open in Supabase \u2197" })), onAddTable && (_jsx("button", { className: "ds-btn-ghost", onClick: onAddTable, style: { fontSize: 11, padding: '3px 10px' }, children: "+ Add table" }))] })] }), tables.length === 0 && (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "No tables yet. Describe your data model in chat to get started." })), tables.map(table => (_jsxs("div", { className: "ds-card", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }, onClick: () => setExpanded(expanded === table.name ? null : table.name), children: [_jsx("span", { className: "ds-card-title", style: { fontSize: 12.5, flex: 1 }, children: table.name }), table.rls_enabled && _jsx("span", { className: "ds-badge ds-badge-active", style: { fontSize: 9 }, children: "RLS" }), table.row_count !== undefined && (_jsxs("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: [table.row_count, " rows"] })), _jsx("span", { style: { color: 'var(--ds-text-3)', fontSize: 10 }, children: expanded === table.name ? '▾' : '▸' })] }), expanded === table.name && (_jsxs("div", { style: { marginTop: 10 }, children: [_jsxs("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }, children: [_jsx("thead", { children: _jsxs("tr", { style: { color: 'var(--ds-text-3)' }, children: [_jsx("th", { style: { textAlign: 'left', padding: '4px 0', fontWeight: 500 }, children: "Field" }), _jsx("th", { style: { textAlign: 'left', padding: '4px 8px', fontWeight: 500 }, children: "Type" }), _jsx("th", { style: { textAlign: 'left', padding: '4px 0', fontWeight: 500 }, children: "Nullable" })] }) }), _jsx("tbody", { children: table.fields.map(field => (_jsxs("tr", { style: { borderTop: '1px solid var(--ds-border-soft)' }, children: [_jsxs("td", { style: { padding: '5px 0', color: field.primary ? 'var(--ds-orange)' : 'var(--ds-text)', fontFamily: 'var(--f-mono)', fontSize: 11 }, children: [field.name, field.primary ? ' 🔑' : ''] }), _jsx("td", { style: { padding: '5px 8px', color: 'var(--ds-purple)', fontFamily: 'var(--f-mono)', fontSize: 11 }, children: field.type }), _jsx("td", { style: { padding: '5px 0', color: 'var(--ds-text-3)', fontSize: 10 }, children: field.nullable ? 'null' : 'not null' })] }, field.name))) })] }), onEditTable && (_jsx("button", { className: "ds-btn-ghost", onClick: () => onEditTable(table.name), style: { marginTop: 10, fontSize: 11, padding: '4px 10px' }, children: "Edit table" }))] }))] }, table.name)))] }), _jsxs("div", { className: "ds-panel-section", children: [_jsx("div", { className: "ds-panel-section-title", children: "Migration history" }), migrations.length === 0 ? (_jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "No migrations yet." })) : (migrations.map(m => (_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--ds-border-soft)', fontSize: 12 }, children: [_jsx("span", { style: { fontFamily: 'var(--f-mono)', flex: 1, color: 'var(--ds-text-2)' }, children: m.name }), _jsx("span", { style: { fontSize: 10, color: m.status === 'applied' ? '#28C940' : m.status === 'failed' ? 'var(--ds-red)' : 'var(--ds-orange)' }, children: m.status }), _jsx("span", { style: { fontSize: 10, color: 'var(--ds-text-3)' }, children: new Date(m.applied_at).toLocaleDateString() })] }, m.id))))] })] }))] }));
+}
+// wizard-redesign-2026-06-09 — Data model view. Shows each table as a card
+// with its fields + inferred references (FK by naming convention: a column
+// named `<entity>_id` is treated as a reference to a table named `<entity>s`
+// when that table exists in the set). This is the entity-relationship view
+// the developer asked for ("I actually like the view that is generated…").
+function DataModelView({ tables }) {
+    const tableNames = new Set(tables.map(t => t.name));
+    // Build inferred references: column `foo_id` → table `foos` if it exists.
+    const refsFor = (table) => {
+        const out = [];
+        for (const f of table.fields) {
+            if (f.primary)
+                continue;
+            const m = f.name.match(/^(.+)_id$/);
+            if (!m)
+                continue;
+            const base = m[1];
+            const candidates = [`${base}s`, base];
+            const target = candidates.find(c => tableNames.has(c));
+            if (target)
+                out.push({ field: f.name, to: target });
+        }
+        return out;
+    };
+    if (tables.length === 0) {
+        return (_jsx("div", { className: "ds-panel-section", children: _jsx("div", { style: { fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "No data model yet \u2014 the build will design one from your goals. Once it runs, the entity view shows up here." }) }));
+    }
+    return (_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 10, color: 'var(--ds-text-2)' }, children: ["Entities the build designed from your goals. References are inferred from ", _jsx("code", { style: { fontFamily: 'var(--f-mono)' }, children: "name_id" }), " column naming."] }), _jsx("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }, children: tables.map(t => {
+                    const refs = refsFor(t);
+                    return (_jsxs("div", { className: "ds-card", style: { padding: 12 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }, children: [_jsx("span", { style: { fontSize: 13, fontWeight: 700, color: 'var(--ds-text)', fontFamily: 'var(--f-mono)' }, children: t.name }), t.rls_enabled && _jsx("span", { className: "ds-badge ds-badge-active", style: { fontSize: 9 }, children: "RLS" })] }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 3 }, children: t.fields.map(f => (_jsxs("div", { style: { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11 }, children: [_jsxs("span", { style: { color: f.primary ? 'var(--ds-orange)' : 'var(--ds-text-2)', fontFamily: 'var(--f-mono)' }, children: [f.name, f.primary ? ' 🔑' : ''] }), _jsx("span", { style: { color: 'var(--ds-purple)', fontFamily: 'var(--f-mono)', fontSize: 10.5 }, children: f.type })] }, f.name))) }), refs.length > 0 && (_jsxs("div", { style: { marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--ds-border-soft)' }, children: [_jsx("div", { style: { fontSize: 10, color: 'var(--ds-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }, children: "References" }), refs.map(r => (_jsxs("div", { style: { fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--ds-text-2)' }, children: [r.field, " \u2192 ", _jsx("span", { style: { color: 'var(--c-accent, #5856E5)' }, children: r.to })] }, r.field)))] }))] }, t.name));
+                }) })] }));
 }
 // Project settings panel ("Project settings")
 //
@@ -319,6 +357,46 @@ const SHARE_MODES = [
     { k: 'read_only', l: 'Read-only view' }, { k: 'copy', l: 'Static copy' },
     { k: 'hosted', l: 'Interactive hosted page' },
 ];
+// wizard-redesign-2026-06-09 — replaces window.prompt('Name your custom tab')
+// with an inline in-app input + Save/Cancel so the IDE never looks "kindergarten"
+// next to a native browser alert. Same affordance, all our chrome.
+function CustomTabAdder({ onAddCustomTab }) {
+    const [open, setOpen] = useState(false);
+    const [draft, setDraft] = useState('');
+    const inputRef = useRef(null);
+    useEffect(() => { if (open)
+        inputRef.current?.focus(); }, [open]);
+    const submit = () => {
+        const v = draft.trim();
+        if (!v) {
+            setOpen(false);
+            setDraft('');
+            return;
+        }
+        void onAddCustomTab(v);
+        setOpen(false);
+        setDraft('');
+    };
+    if (!open) {
+        return (_jsx("button", { className: "ds-view-btn", onClick: () => setOpen(true), style: { fontSize: 11.5, opacity: 0.8 }, children: "+ Custom tab" }));
+    }
+    return (_jsxs("div", { style: { display: 'flex', gap: 4, alignItems: 'center' }, children: [_jsx("input", { ref: inputRef, type: "text", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        submit();
+                    }
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setOpen(false);
+                        setDraft('');
+                    }
+                }, placeholder: "Tab name", style: {
+                    fontSize: 11.5, padding: '4px 8px', borderRadius: 4,
+                    border: '1px solid var(--ds-border)', background: 'var(--ds-surface)',
+                    color: 'var(--ds-text)', outline: 'none', fontFamily: 'inherit',
+                    minWidth: 120,
+                } }), _jsx("button", { className: "ds-view-btn", onClick: submit, style: { fontSize: 11.5 }, children: "Add" }), _jsx("button", { className: "ds-view-btn", onClick: () => { setOpen(false); setDraft(''); }, style: { fontSize: 11.5, opacity: 0.7 }, children: "Cancel" })] }));
+}
 function ChipRow({ options, selected, onToggle }) {
     return (_jsx("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }, children: options.map(o => {
             const active = selected.includes(o.k);
@@ -539,10 +617,12 @@ export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredent
     const showPaid = vis?.paid ?? true;
     const showSharing = vis?.sharing ?? true;
     const showCollab = vis?.collaboration ?? true;
+    // wizard-redesign-2026-06-09 — Tools and Skills are no longer config tabs:
+    // the build auto-wires capabilities from goals + the capability match, and
+    // the only authoring affordance is "write your own" in Studio. The catalogs
+    // here used to ask the dev to curate from a list — gone.
     const tabs = [
         { key: 'workflow', label: 'Workflow' },
-        { key: 'tools', label: 'Tools' },
-        { key: 'skills', label: 'Skills' },
         ...(showAI ? [{ key: 'ai', label: 'Providers' }] : []),
         ...(showAI ? [{ key: 'ai_actions', label: 'AI Actions' }] : []),
         { key: 'agents', label: 'Agents' },
@@ -554,11 +634,7 @@ export function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredent
         { key: 'design', label: 'Design' },
         ...(customTabs ?? []).map(c => ({ key: `custom:${c.id}`, label: c.label })),
     ];
-    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { style: { display: 'flex', gap: 4, flexWrap: 'wrap' }, children: [tabs.map((t) => (_jsx("button", { className: `ds-view-btn${tab === t.key ? ' ds-view-active' : ''}`, onClick: () => setTab(t.key), style: { fontSize: 11.5 }, children: t.label }, t.key))), onAddCustomTab && (_jsx("button", { className: "ds-view-btn", onClick: () => {
-                            const label = typeof window !== 'undefined' ? window.prompt('Name your custom tab') : null;
-                            if (label && label.trim())
-                                void onAddCustomTab(label.trim());
-                        }, style: { fontSize: 11.5, opacity: 0.8 }, children: "+ Custom tab" }))] }), tab === 'workflow' && (workflow && onWorkflowPatch
+    return (_jsxs("div", { className: "ds-panel", children: [_jsxs("div", { style: { display: 'flex', gap: 4, flexWrap: 'wrap' }, children: [tabs.map((t) => (_jsx("button", { className: `ds-view-btn${tab === t.key ? ' ds-view-active' : ''}`, onClick: () => setTab(t.key), style: { fontSize: 11.5 }, children: t.label }, t.key))), onAddCustomTab && (_jsx(CustomTabAdder, { onAddCustomTab: onAddCustomTab }))] }), tab === 'workflow' && (workflow && onWorkflowPatch
                 ? _jsx(WorkflowSection, { response: workflow, onPatch: onWorkflowPatch, marketplaceUrl: marketplaceWorkflowsUrl })
                 : _jsx(ConfigLoading, { title: "Workflow" })), tab === 'tools' && (capabilityCatalogue && capabilityConfig && onCapabilityPatch
                 ? (_jsxs("div", { className: "ds-panel-section", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5 }, children: "Which tools your deployed app can use. The IDE's own tools are set in DevShell Configuration." }), _jsx("button", { className: "ds-btn-ghost", onClick: () => onOpenAuthoring?.('tool'), style: { fontSize: 11.5, padding: '4px 12px', flexShrink: 0 }, children: "+ Create tool" })] }), _jsx(CapabilityListPanel, { scope: "appshell", catalogue: capabilityCatalogue, config: capabilityConfig.appshell, allowHide: true, onPatch: onCapabilityPatch, only: "tool" })] }))
