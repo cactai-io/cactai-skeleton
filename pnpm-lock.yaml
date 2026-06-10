@@ -21,10 +21,10 @@ importers:
         version: 7.29.7
       '@cactai-io/brand-tokens':
         specifier: ^1.4.0
-        version: 1.4.5(react@19.2.6)
+        version: 1.4.6(react@19.2.6)
       '@cactai-io/client':
         specifier: ^1.4.0
-        version: 1.4.5(react@19.2.6)
+        version: 1.4.6(react@19.2.6)
       '@cactai-io/devshell':
         specifier: file:vendor/@cactai-io/devshell
         version: file:vendor/@cactai-io/devshell(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -33,16 +33,16 @@ importers:
         version: file:vendor/@cactai-io/mui(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))
       '@cactai-io/primitives':
         specifier: ^1.4.0
-        version: 1.4.5(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+        version: 1.4.6(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@cactai-io/shell-ui':
         specifier: ^1.4.0
-        version: 1.4.5(react@19.2.6)
+        version: 1.4.6(react@19.2.6)
       '@cactai-io/themes':
         specifier: ^1.4.0
-        version: 1.4.5
+        version: 1.4.6
       '@cactai-io/types':
         specifier: ^1.4.0
-        version: 1.4.5
+        version: 1.4.6
       '@supabase/ssr':
         specifier: ^0.5.0
         version: 0.5.2(@supabase/supabase-js@2.106.2)
@@ -150,13 +150,13 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@cactai-io/brand-tokens@1.4.5':
-    resolution: {integrity: sha512-woOEwLanT8PfSvzm6ARgXzHyzaxVEY5RyoIqNzIL5Vlb0g2CM/Fv0NUWJYPKs+MIWQkL88T+T9ud1rgRtJUMJA==, tarball: https://npm.pkg.github.com/download/@cactai-io/brand-tokens/1.4.5/d101e032c219df6b39356887a39ac588867c670c}
+  '@cactai-io/brand-tokens@1.4.6':
+    resolution: {integrity: sha512-FUkyQjyauR+Vs1CJNbtmlH/THPhb2f7nL/0m/0sgC5FPcem50FmC5ChD5GSIgVExKTVNrvQTi0jbEpJOz++6+g==, tarball: https://npm.pkg.github.com/download/@cactai-io/brand-tokens/1.4.6/50544a66260db774f45dcdc50ae0d45b787cd9b9}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  '@cactai-io/client@1.4.5':
-    resolution: {integrity: sha512-AFHZ2qW1yfVNqtlNKOl9e4TgHkk0X9EDWtSmKQfzqq+co2u+B8zcfCw7rFpHij1mAciwPJl+pTAbykQFw647mA==, tarball: https://npm.pkg.github.com/download/@cactai-io/client/1.4.5/3edcdcf418fb773a57b7df0fb66abb8b495df474}
+  '@cactai-io/client@1.4.6':
+    resolution: {integrity: sha512-2z5git92DCCbG002/o90aIg5sy1vcobkI1RwJsDLxvRucjCIrsIIsBBM6os7gHwoc7JqUtqxCPikcWSD1ci4oQ==, tarball: https://npm.pkg.github.com/download/@cactai-io/client/1.4.6/6014aee1eb043c5193c90ceab621848e941cdbbc}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
@@ -168,23 +168,23 @@ packages:
   '@cactai-io/mui@file:vendor/@cactai-io/mui':
     resolution: {directory: vendor/@cactai-io/mui, type: directory}
 
-  '@cactai-io/primitives@1.4.5':
-    resolution: {integrity: sha512-+DD5kBjBSOuPbilHkm+K2cwYO+jqErdOHQ6h/Gkr4hf18RM/tFM05m/artaJRjAXclQkbOta73DYqAiPSAYDPQ==, tarball: https://npm.pkg.github.com/download/@cactai-io/primitives/1.4.5/a9174354e371a9593a7ca0e28092d71353167d4c}
+  '@cactai-io/primitives@1.4.6':
+    resolution: {integrity: sha512-kIMo2d8Vbgpk1m1WxWje+4olFywFJr49OamOjAtGHxpklUoEJbnDd5PepRw+K51bXRaw+U2XGW/Ru/+QnMlFcw==, tarball: https://npm.pkg.github.com/download/@cactai-io/primitives/1.4.6/e44dce8c12373a648f99ca0ae8bc98ee02774333}
     peerDependencies:
       marked: ^12.0.0
       react: ^18.3.0 || ^19.0.0
       react-dom: ^18.3.0 || ^19.0.0
 
-  '@cactai-io/shell-ui@1.4.5':
-    resolution: {integrity: sha512-ygY03pZLDd1Prefr8oXs/QgUwhOuYZzFBIZY07+pYbUILU/YbYNRFMM3ieT98oHQzWqP05yDuWyKI0slnjdUvw==, tarball: https://npm.pkg.github.com/download/@cactai-io/shell-ui/1.4.5/f26b9bb965e5f28bfffd9ccc3da0d0bf3a983906}
+  '@cactai-io/shell-ui@1.4.6':
+    resolution: {integrity: sha512-rwCa+9aA70Zs5FsZaVL/rQvD+mMnBt4/O/wOUaqGZ2MuG/rtFkiIIVt1TQ8szd3P5BRfBdq+IyZtH8DE2J6NZg==, tarball: https://npm.pkg.github.com/download/@cactai-io/shell-ui/1.4.6/7d16125aeea3c0e8abd6630a4c8b1126f2e6efbb}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  '@cactai-io/themes@1.4.5':
-    resolution: {integrity: sha512-KZCJTW/Cp24wj0mbjSOzgZ8gNj0tq2jSLzn6je3VohkGXZ5cGTqLQfcY6Id6uVm9gQQP50IgugXk/K+bUkJB3A==, tarball: https://npm.pkg.github.com/download/@cactai-io/themes/1.4.5/a4a9db80d35bfcdf7ea9aa046e4e33b8a1b7137b}
+  '@cactai-io/themes@1.4.6':
+    resolution: {integrity: sha512-EPjsYRXiPg+AmklWmc/0OUGUZIzcP4mJO+vHoawptdEtFblHXE5HZ3c3ZaYXaIZq1l1DJhND2N2maP4geBBdNQ==, tarball: https://npm.pkg.github.com/download/@cactai-io/themes/1.4.6/31dfe5e9522903961ddc2a8a66863d30449f132b}
 
-  '@cactai-io/types@1.4.5':
-    resolution: {integrity: sha512-XGS5BHwbvE6zcN9vR4d7c3P1ypYMgw5/eRDFhWNT4y7bpbRMs1XO91UGpS+CoHY8CU/AEPlgGaiiQ/eRB+BH0Q==, tarball: https://npm.pkg.github.com/download/@cactai-io/types/1.4.5/23d0fa9c01b559c9749606447bc210c327a1e46f}
+  '@cactai-io/types@1.4.6':
+    resolution: {integrity: sha512-IDN2KHPfW0yy2YR/yQWfzDLJlYm3DVvpQUnEoJLO243Ma1WrS+bGYqjJwt076axVi5fNQjQBTwCv2qNPNiKwZA==, tarball: https://npm.pkg.github.com/download/@cactai-io/types/1.4.6/c474bc0aad3d882c43787418a90626243b3b9d60}
 
   '@codemirror/autocomplete@6.20.3':
     resolution: {integrity: sha512-tlosUqb+3BbxCxZdu4tKeRghPFC+QM7q4X5YhKV2eCmPG+1r2F3f4AaSz5sCrFqUtX4Jh20VFTKecl16MgiV9g==}
@@ -2177,21 +2177,21 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@cactai-io/brand-tokens@1.4.5(react@19.2.6)':
+  '@cactai-io/brand-tokens@1.4.6(react@19.2.6)':
     dependencies:
       react: 19.2.6
 
-  '@cactai-io/client@1.4.5(react@19.2.6)':
+  '@cactai-io/client@1.4.6(react@19.2.6)':
     dependencies:
       react: 19.2.6
 
   '@cactai-io/devshell@file:vendor/@cactai-io/devshell(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
-      '@cactai-io/client': 1.4.5(react@19.2.6)
+      '@cactai-io/client': 1.4.6(react@19.2.6)
       '@cactai-io/mui': file:vendor/@cactai-io/mui(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))
-      '@cactai-io/primitives': 1.4.5(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@cactai-io/themes': 1.4.5
-      '@cactai-io/types': 1.4.5
+      '@cactai-io/primitives': 1.4.6(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@cactai-io/themes': 1.4.6
+      '@cactai-io/types': 1.4.6
       react: 19.2.6
     transitivePeerDependencies:
       - '@types/react'
@@ -2201,9 +2201,9 @@ snapshots:
 
   '@cactai-io/mui@file:vendor/@cactai-io/mui(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))':
     dependencies:
-      '@cactai-io/brand-tokens': 1.4.5(react@19.2.6)
-      '@cactai-io/themes': 1.4.5
-      '@cactai-io/types': 1.4.5
+      '@cactai-io/brand-tokens': 1.4.6(react@19.2.6)
+      '@cactai-io/themes': 1.4.6
+      '@cactai-io/types': 1.4.6
       '@monaco-editor/react': 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       diff: 5.2.2
       dompurify: 3.4.7
@@ -2217,10 +2217,10 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@cactai-io/primitives@1.4.5(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+  '@cactai-io/primitives@1.4.6(@types/react@19.2.15)(marked@12.0.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
-      '@cactai-io/themes': 1.4.5
-      '@cactai-io/types': 1.4.5
+      '@cactai-io/themes': 1.4.6
+      '@cactai-io/types': 1.4.6
       '@codemirror/commands': 6.10.3
       '@codemirror/lang-css': 6.3.1
       '@codemirror/lang-html': 6.4.11
@@ -2244,13 +2244,13 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  '@cactai-io/shell-ui@1.4.5(react@19.2.6)':
+  '@cactai-io/shell-ui@1.4.6(react@19.2.6)':
     dependencies:
       react: 19.2.6
 
-  '@cactai-io/themes@1.4.5': {}
+  '@cactai-io/themes@1.4.6': {}
 
-  '@cactai-io/types@1.4.5': {}
+  '@cactai-io/types@1.4.6': {}
 
   '@codemirror/autocomplete@6.20.3':
     dependencies:
