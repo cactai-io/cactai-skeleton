@@ -55,6 +55,15 @@ export class InputRouter {
         // /api/cactai proxy injects provider + model_api_key from the
         // wizard's BYOK secret, but it doesn't know the developer's
         // identity — that's our responsibility.
+        // submitTurnSchema requires `user_id` as a string (z.string(), no min).
+        // If endUserId is undefined the proxy will forward a body missing user_id
+        // and the platform 400s with invalid_body — the chat appears broken with
+        // no actionable error. Always attach a string so schema validation
+        // passes; the platform tolerates empty user_id for unauthenticated
+        // surfaces. A console warn flags the misconfig for the developer.
+        if (!this.endUserId) {
+            console.warn('[InputRouter] end_user_id missing — chat turn will submit with empty user_id. Check the DevShell mount wiring.');
+        }
         const turnRequest = {
             input: payload.content,
             turn_number: turnNumber,
@@ -62,7 +71,7 @@ export class InputRouter {
                 input_type: payload.input_type,
                 timestamp: payload.timestamp,
             },
-            ...(this.endUserId ? { user_id: this.endUserId } : {}),
+            user_id: this.endUserId ?? '',
         };
         // Step 5: POST to API
         const sessionId = this.store.getState().session.session_id;

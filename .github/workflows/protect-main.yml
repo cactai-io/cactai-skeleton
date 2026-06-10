@@ -40,7 +40,7 @@ jobs:
           # `DevShellEnvStatusCard.tsx` is a client component mounted on
           # /dev/preferences that fetches /api/operate/env-status — no
           # DevShell runtime logic, just a status table.
-          ALLOWED="src/app/dev/layout.tsx src/app/dev/page.tsx src/app/dev/_with-thumbnail.tsx src/app/dev/preferences/page.tsx src/app/dev/preferences/DevShellEnvStatusCard.tsx"
+          ALLOWED="src/app/dev/layout.tsx src/app/dev/page.tsx src/app/dev/_with-thumbnail.tsx src/app/dev/preferences/page.tsx src/app/dev/preferences/DevShellEnvStatusCard.tsx src/app/dev/mcp/page.tsx src/app/dev/mcp/AppShellSharedMCPClient.tsx"
           # Find every .ts/.tsx under src/app/dev
           FOUND=$(find src/app/dev -type f \( -name '*.ts' -o -name '*.tsx' \) | sort)
           for f in $FOUND; do

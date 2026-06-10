@@ -98,6 +98,26 @@ export function DevChatPanel({ shell, messages, agentState, character, agentDisp
         ta.style.height = 'auto';
         ta.style.height = `${Math.min(ta.scrollHeight, 180)}px`;
     }, [input]);
+    // Listen for chat-inject events from Plan tab / decision-log Revisit. The
+    // dispatcher (SelfDrivenDevShell.onRevisitDecision) fires a CustomEvent
+    // with a prefill message; we drop it into the textarea + focus.
+    useEffect(() => {
+        const handler = (e) => {
+            const detail = e.detail;
+            if (!detail?.message)
+                return;
+            setInput(detail.message);
+            requestAnimationFrame(() => {
+                const ta = textareaRef.current;
+                if (ta) {
+                    ta.focus();
+                    ta.setSelectionRange(ta.value.length, ta.value.length);
+                }
+            });
+        };
+        window.addEventListener('cactai:chat:inject', handler);
+        return () => window.removeEventListener('cactai:chat:inject', handler);
+    }, []);
     const handleSend = useCallback(async () => {
         const trimmed = input.trim();
         if (!trimmed || sending || disabled)
