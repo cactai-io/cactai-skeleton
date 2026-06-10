@@ -44,6 +44,12 @@ name: Refresh @cactai-io lockfile
 
 on:
   workflow_dispatch:
+  # Auto-fired by the platform's publish-public-packages workflow on every
+  # successful tag publish (event_type: cactai-packages-published). With the
+  # platform-side PAT wired, a new @cactai-io/* release triggers this within
+  # seconds — no manual click and no waiting for the weekly cron.
+  repository_dispatch:
+    types: [cactai-packages-published]
   schedule:
     - cron: '0 9 * * 1'
 
@@ -61,7 +67,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm 11.5+ requires Node 22+ (it imports node:sqlite). Bumping
+          # from 20 → 22 unblocks the refresh step; also aligns with GitHub's
+          # Node 20 actions-runner deprecation that lands 2026-06-16.
+          node-version: 22
           registry-url: https://npm.pkg.github.com
 
       - name: Re-resolve @cactai-io deps to newest within range
