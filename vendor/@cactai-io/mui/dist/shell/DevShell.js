@@ -780,16 +780,14 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                     flexDirection: 'column',
                     position: 'relative',
                     // The workspace must be a FILLED themed surface (wizard-redesign-
-                    // 2026-06-09): no bare-bg + floating card. Without an explicit
-                    // background, the workspace inherits the chat-panel-adjacent
-                    // light surface, leaving wizard titles stranded on white and
-                    // dark cards looking like they're floating. Painting --ds-canvas
-                    // here gives every wizard primitive a coherent dark surface
-                    // underneath so titles read against it and cards sit *on*
-                    // something instead of *over nothing*. Other sections already
-                    // paint their own panels (BuildPanel, SchemaPanel, etc.) so they
-                    // don't need this and are left alone.
-                    ...(section === 'workspace' ? { background: 'var(--ds-canvas)' } : {}),
+                    // 2026-06-09). The previous attempt painted `var(--ds-canvas)`,
+                    // which resolves to `--c-bg` — the SAME color as the page bg,
+                    // so the "fill" was invisible. Use --ds-surface-2 (one elevation
+                    // up) with an explicit dark fallback so the workspace is always
+                    // visually distinct from the page underneath, in both light and
+                    // dark themes. Other rail sections paint their own panels and
+                    // are left alone.
+                    ...(section === 'workspace' ? { background: 'var(--ds-surface-2, #13131F)' } : {}),
                 }, children: [gs && onOpenGuide && (_jsx("button", { type: "button", className: "ds-btn-ghost ds-panel-guide-btn", "aria-label": `${S_LABEL[section]} guide`, title: `${S_LABEL[section]} guide`, onClick: () => onOpenGuide(gs), style: { position: 'absolute', top: 6, right: 10, zIndex: 5, fontSize: 13, lineHeight: 1, padding: '2px 7px', borderRadius: '50%' }, children: "\u24D8" })), node] }));
         };
         switch (section) {
@@ -804,7 +802,11 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                 // project overview + repo/host links. This is what makes the Start
                 // card reachable — the default landing is Build tab + Workspace.
                 return wrap(buildSurfaceSlot
-                    ? (_jsxs("div", { style: { flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }, children: [_jsx("div", { style: { flex: 1, minWidth: 0, overflow: 'auto' }, children: buildSurfaceSlot }), decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged }) }))] }))
+                    ? (_jsxs("div", { style: { flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }, children: [_jsx("div", { style: {
+                                    flex: 1, minWidth: 0, overflow: 'auto',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    padding: '24px 32px',
+                                }, children: _jsx("div", { style: { width: '100%', maxWidth: 760 }, children: buildSurfaceSlot }) }), decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged }) }))] }))
                     : (_jsx(WorkspacePanel, { ...workspaceProps, projectName: projectName, githubRepoUrl: githubRepoUrl, vercelDashUrl: vercelDashUrl, vercelPreviewUrl: vercelPreviewUrl, syncState: syncState, onViewPendingEdits: () => openPendingEdits() })));
             case 'build':
                 return wrap(_jsx(BuildPanel, { ...buildProps, skills: skills }));

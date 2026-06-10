@@ -81,22 +81,20 @@ export const DEVSHELL_CSS = `
   --ds-chat-w:   340px;
   --ds-tree-h:   240px;
 
-  /* Owl character vars — character/mark layer, not part of the brand-tokens
-     surface palette. These are touched by thread B Phase 7 alongside the
-     character migration; leaving as-is. */
-  --owl-body:  #2A2A3D;
-  --owl-chest: #1E1E2E;
+  /* Owl character vars. Wizard-redesign-2026-06-09: variants pair OPPOSITE
+     the theme tone — light owl on dark, dark owl on light — so the avatar
+     always reads against its background. Same-tone pairing (dark-on-dark,
+     light-on-light) made the owl blend in; a drop-shadow band-aid looked
+     worse than the original. The owl-feet accent stays put. */
+  --owl-body:  #C8C8D8;
+  --owl-chest: #D8D8E4;
   --owl-feet:  #FFB44D;
 }
 
-/* When the document toggles to light, character vars need their own values.
-   Surface/text vars are handled entirely by brand-tokens' [data-theme="light"]
-   selector — brand-tokens fires on any ancestor matching that selector, so
-   setting data-theme on [data-cactai-shell] is sufficient to flip the
-   surface palette without coordinating with the host document. */
+/* In light mode use the DARK owl so it pops against the lighter shell. */
 [data-cactai-shell][data-theme="light"] {
-  --owl-body:  #C8C8D8;
-  --owl-chest: #D8D8E4;
+  --owl-body:  #2A2A3D;
+  --owl-chest: #1E1E2E;
 }
 
 /* Body lock — applied by the DevShell on mount via a body class so it
@@ -652,17 +650,10 @@ body.cactai-shell-body-lock {
   justify-content: center;
 }
 
-/* Theme-agnostic avatar separation (wizard-redesign-2026-06-09).
-   Ember/SAM ship a dark + light color variant; pairing the same-tone
-   variant against the same-tone theme background made them blend in.
-   Stack a soft white drop-shadow + a soft black drop-shadow so contrast
-   holds against any background (dark, light, vibrant, custom) without
-   the inspector having to know the theme. */
-[data-cactai-shell] .ds-character {
-  filter:
-    drop-shadow(0 0 6px rgba(255, 255, 255, 0.18))
-    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.30));
-}
+/* Drop-shadow band-aid removed (wizard-redesign-2026-06-09): swapping the
+   owl variants (dark-owl in light mode, light-owl in dark mode) gives real
+   contrast without filters. The shadow looked worse than the original
+   problem. .ds-character intentionally has no filter now. */
 
 [data-cactai-shell] .ds-char-fallback {
   border-radius: 50%;
