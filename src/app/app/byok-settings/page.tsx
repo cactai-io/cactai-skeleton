@@ -20,6 +20,7 @@ import { featureEnabled } from '@/lib/features';
 import { TokenUsagePanel } from './TokenUsagePanel.client';
 import { EmbeddingsLine } from './EmbeddingsLine.client';
 import { BudgetPanel } from './BudgetPanel.client';
+import { UserModelSelectionPanel } from './UserModelSelectionPanel.client';
 
 export default async function ByokSettingsPage() {
   const session = await requireAuth();
@@ -65,6 +66,7 @@ export default async function ByokSettingsPage() {
         provider directly. Set your own monthly spend caps + alerts below.
       </div>
 
+      <UserModelSelectionPanel />
       <TokenUsagePanel />
       <EmbeddingsLine />
       <BudgetPanel />
