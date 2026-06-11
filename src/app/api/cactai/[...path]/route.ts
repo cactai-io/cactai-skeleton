@@ -1,29 +1,14 @@
 // src/app/api/cactai/[...path]/route.ts
 //
-// Server-side proxy for browser-direct DevShell calls to the Cactai platform.
+// Server-side proxy for browser-direct DevShell calls to the Cactai
+// platform. Same-origin so credentials:'include' works; injects the
+// project's CACTAI_API_KEY Bearer so the per-project bearer secret
+// never reaches the browser.
 //
-// Why this exists: the DevShell client (CactaiClient from @cactai-io/client)
-// makes browser-direct POSTs to /v1/shell/{sessions,turn,event} and
-// /v1/skills/regenerate. On a customer's Vercel preview deploy:
-//   - The browser origin is *.vercel.app, not dashboard.cactai.io
-//   - The platform's /v1/shell/* CORS only sets Access-Control-Allow-
-//     Credentials=true for the dashboard origin, so credentials:'include'
-//     fails preflight from any other origin
-//   - Without credentials, /v1/shell/* needs Bearer auth — and exposing
-//     CACTAI_API_KEY to the browser would leak the project-wide secret
-//
-// Solution: same-origin proxy. DevShell is mounted with
-// cactaiBase='/api/cactai', so CactaiClient calls land here at
-// /api/cactai/v1/shell/sessions, etc. This route:
-//   1. Authenticates the caller as dev/collaborator
-//   2. Reads the wizard-collected AI provider keys from the customer DB
-//      (project_state.decisions.byok — same place app runtime reads its
-//      own settings-configured BYOK from, just a different consumer)
-//   3. Injects provider + model_api_key into the JSON body for /v1/shell/*
-//      and /v1/skills/* requests so the platform handler can use them
-//      per-call without ever storing the customer's AI key
-//   4. Attaches CACTAI_API_KEY (project Bearer) and forwards to the
-//      platform with the request body intact
+// v1.4 — AI provider key injection stripped per
+// docs/ai-provider-architecture.md §5. Keys never travel in the request
+// body. The platform resolves provider + key + selection server-side via
+// resolveTurnPick using the session's developer/project/end-user context.
 //
 // Auth: gated on dev/collaborator role so only the authenticated
 // developer who passed the DevShell handoff can use the proxy.
@@ -31,8 +16,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDevRole } from '@/lib/auth';
 import { endpoints } from '@/lib/endpoints';
-import { createServiceSupabaseClient } from '@/lib/supabase.server';
-import { decryptSecret } from '@/lib/secrets.server';
 
 // SSE pass-through requires no buffering. Node runtime + force-dynamic
 // ensures Next won't try to cache or convert the body to a fixed-length
@@ -47,55 +30,6 @@ export const dynamic = 'force-dynamic';
 // the proxy survives a full turn. Vercel clamps this to the plan's max
 // (Hobby ~60s, Pro up to 300s).
 export const maxDuration = 300;
-
-/**
- * Read + decrypt the wizard-collected AI provider key for DevShell agent
- * runs. Wizard writes these to project_state.decisions.byok.providers
- * with id 'ai.anthropic' / 'ai.openai' (encrypted with the shared
- * SECRETS_ENCRYPTION_KEY).
- *
- * Preference order: anthropic first (better agent surface today), openai
- * fallback. Returns null when neither is configured — caller surfaces a
- * clear "wizard never collected an AI key" error so the developer doesn't
- * land on a generic 412.
- */
-async function readWizardAiProviderKey(): Promise<
-  | { provider: 'anthropic' | 'openai'; api_key: string }
-  | null
-> {
-  const supa = createServiceSupabaseClient();
-  // Read THIS app's row explicitly (the seed writes project_state keyed by the
-  // same NEXT_PUBLIC_CACTAI_PROJECT_ID). A filterless .limit(1) could read a
-  // stray/key-less row if more than one ever exists.
-  const { data, error } = await supa
-    .from('project_state')
-    .select('decisions')
-    .eq('project_id', endpoints.projectId)
-    .maybeSingle();
-  if (error || !data) return null;
-
-  const decisions  = ((data as { decisions?: Record<string, unknown> }).decisions) ?? {};
-  const byok       = (decisions['byok'] as { providers?: Record<string, { encrypted?: string }> } | undefined);
-  const providers  = byok?.providers ?? {};
-
-  const tryProvider = async (
-    slot:     'ai.anthropic' | 'ai.openai',
-    provider: 'anthropic' | 'openai',
-  ): Promise<{ provider: 'anthropic' | 'openai'; api_key: string } | null> => {
-    const enc = providers[slot]?.encrypted;
-    if (typeof enc !== 'string' || !enc) return null;
-    try {
-      const api_key = await decryptSecret(enc);
-      return { provider, api_key };
-    } catch (err) {
-      console.error(`[api/cactai] decryptSecret failed for ${slot}:`, (err as Error).message);
-      return null;
-    }
-  };
-
-  return (await tryProvider('ai.anthropic', 'anthropic'))
-      ?? (await tryProvider('ai.openai',    'openai'));
-}
 
 async function forward(
   req: NextRequest,
@@ -116,52 +50,12 @@ async function forward(
     return NextResponse.json({ error: 'missing_path' }, { status: 400 });
   }
 
-  // Inject the wizard-collected AI provider key for any path that drives
-  // an LLM call on the platform:
-  //   - /v1/shell/{sessions,event,turn}              — DevShell agent
-  //   - /v1/skills/regenerate                        — skill rebuilds
-  //   - /v1/sessions/:session_id/turns               — the InputRouter
-  //     chat turn endpoint (this is what the rich DevShell's chat panel
-  //     actually hits — its absence here is why early chat submits
-  //     returned 412 no_provider_configured even though the UI looked
-  //     wired)
-  const isAgentMutation =
-    (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') &&
-    path[0] === 'v1' && (
-      path[1] === 'shell'  ||
-      path[1] === 'skills' ||
-      // /v1/sessions/<sid>/turns — match by shape so future suffixes
-      // (e.g. /turns/<turn_id>/regenerate) flow through the same gate.
-      (path[1] === 'sessions' && path[3] === 'turns')
-    );
-
+  // v1.4: forward the body verbatim. No more model_api_key / provider
+  // injection — the platform's resolveTurnPick handles all resolution
+  // server-side from the session's project + end-user context.
   let outgoingBody: string | undefined;
   if (req.method !== 'GET' && req.method !== 'DELETE') {
-    const rawBody = await req.text();
-    if (isAgentMutation) {
-      const ai = await readWizardAiProviderKey();
-      if (!ai) {
-        return NextResponse.json(
-          {
-            error:  'no_provider_configured',
-            detail: 'No DevShell AI provider key is configured in project_state.decisions.byok ' +
-                    '(slot ai.anthropic or ai.openai). The wizard collects these during provision; ' +
-                    'if the BYOK seed warning appeared on the project page, retry it from there.',
-          },
-          { status: 412 },
-        );
-      }
-      try {
-        const parsed = JSON.parse(rawBody) as Record<string, unknown>;
-        parsed.provider      = ai.provider;
-        parsed.model_api_key = ai.api_key;
-        outgoingBody = JSON.stringify(parsed);
-      } catch {
-        outgoingBody = rawBody;
-      }
-    } else {
-      outgoingBody = rawBody;
-    }
+    outgoingBody = await req.text();
   }
 
   // Preserve the query string — guide/welcome calls carry ?surface=…&personality_name=…
