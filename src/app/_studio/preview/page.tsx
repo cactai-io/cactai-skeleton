@@ -10,16 +10,10 @@
 // CSS variable, and update the document element so the preview reflects the
 // dev's unsaved state.
 //
-// Gating:
-//   - Enabled by default; only an explicit STUDIO_PREVIEW_ENABLED=false opts
-//     out. The Theme tab in the DevShell needs this route, and the page renders
-//     no sensitive data (only token-driven styling), so exposing it on the
-//     dev's own preview deploy is safe. (Previously this required opt-IN, which
-//     left the Theme tab showing a 404 on every provisioned app.)
-//   - Same-origin sandboxing on the iframe is the Inspector's responsibility
-//     (sandbox="allow-scripts allow-same-origin"). This page is otherwise
-//     publicly addressable when the env var is on — there's no auth here
-//     because the page renders no sensitive data, only token-driven styling.
+// Same-origin sandboxing on the iframe is the Inspector's responsibility
+// (sandbox="allow-scripts allow-same-origin"). This page is publicly
+// addressable but renders no sensitive data — only token-driven CSS variable
+// swaps from the developer's theme.
 //
 // Token name translation:
 //   The Inspector posts dotted paths like "color.primary" or "shadows.md".
@@ -34,13 +28,10 @@
 //   restriction here would break the legitimate flow. The Inspector is the
 //   trust boundary; this page is a render-only consumer.
 
-import { notFound } from 'next/navigation';
 import { StudioPreviewClient } from './client';
 
 export const dynamic = 'force-dynamic';
 
 export default function StudioPreviewPage() {
-  // Opt-out gating: render the preview unless explicitly disabled.
-  if (process.env.STUDIO_PREVIEW_ENABLED === 'false') return notFound();
   return <StudioPreviewClient />;
 }
