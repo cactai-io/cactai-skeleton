@@ -23,9 +23,9 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@cactai-io/types": "workspace:*",
-    "@cactai-io/themes": "workspace:*",
-    "@cactai-io/brand-tokens": "workspace:*",
+    "@cactai-io/types": "^1.4.0",
+    "@cactai-io/themes": "^1.4.0",
+    "@cactai-io/brand-tokens": "^1.4.0",
     "react": "^19.0.0",
     "react-markdown": "^9.0.1",
     "remark-gfm": "^4.0.0",
