@@ -41,8 +41,14 @@ export class StreamController {
         for (const type of NAMED) {
             this.eventSource.addEventListener(type, (rawEvent) => {
                 const ev = rawEvent;
+                // Mark terminal events BEFORE dispatching ingest. If a downstream
+                // subscriber re-render throws, the silent catch would otherwise
+                // leave completedFlag.v=false and the eventSource auto-reconnect
+                // would trip the onerror "Stream connection interrupted" UI even
+                // though the server actually finished the turn.
                 const isTerminal = type === 'turn.complete' || type === 'turn.error';
-                if (isTerminal) completedFlag.v = true;
+                if (isTerminal)
+                    completedFlag.v = true;
                 try {
                     const data = JSON.parse(ev.data);
                     this.ingest({
@@ -56,7 +62,8 @@ export class StreamController {
                 catch (e) {
                     console.error('[StreamController] listener throw:', e);
                 }
-                if (isTerminal) this.disconnect();
+                if (isTerminal)
+                    this.disconnect();
             });
         }
         // Keep onmessage for any unnamed events the server might emit (e.g. SSE
@@ -137,8 +144,10 @@ export class StreamController {
     // StreamingBubble destroyed. OutputResponse assembled. MessageBubble renders.
     handleTurnComplete(event) {
         this.store.setStreaming(false);
-        // Server emits full output in turn.complete with no preceding output.delta,
-        // so handleOutputDelta (the only other place clearing pending) never runs.
+        // The server emits the full output in turn.complete with no preceding
+        // output.delta events, so handleOutputDelta (the only other place that
+        // clears pending) never runs. Without this, the thinking-dots indicator
+        // would stay on forever after the reply renders.
         this.store.setPending(false);
         this.store.clearStreamBuffer();
         // Assemble OutputResponse from stream data + MUIStore context

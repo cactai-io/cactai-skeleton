@@ -28,6 +28,17 @@ export interface DecisionLogPanelProps {
     onRevise?: (step: string, value: unknown) => void | Promise<void>;
     /** Step ids whose validity shifted after a revise — shown with a revisit flag. */
     flagged?: string[];
+    /** Click a decision card to navigate the wizard to that step. Forward-jump
+     *  and backward-jump go through the same code path. Host wires this to the
+     *  /devshell/navigate-to-step endpoint + view='build' switch. */
+    onNavigateToStep?: (step: string) => void;
+    /** Steps that need a (new) answer after a cascading revise. Renders an
+     *  amber outline on the decision log card so the dev sees what to revisit. */
+    pendingRevisitSteps?: string[];
+    /** Steps whose entire decision was cleared by an upstream revise (e.g.
+     *  switching tenancy to single-user clears roles). Renders grayed out so
+     *  the dev sees what's no longer applicable. */
+    clearedSteps?: string[];
 }
-export declare function DecisionLogPanel({ stages, variant, onRevise, flagged }: DecisionLogPanelProps): React.ReactElement;
+export declare function DecisionLogPanel({ stages, variant, onRevise, flagged, onNavigateToStep, pendingRevisitSteps, clearedSteps, }: DecisionLogPanelProps): React.ReactElement;
 export default DecisionLogPanel;

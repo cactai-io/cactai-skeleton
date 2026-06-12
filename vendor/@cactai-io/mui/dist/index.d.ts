@@ -99,6 +99,8 @@ export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export type { CapabilityListPanelProps } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';
 export type { PersonalityPickerPanelProps } from './panels/PersonalityPickerPanel.js';
+export { ProviderModelPanel, isProviderModelComplete, DEFAULT_SELECTIONS } from './panels/ProviderModelPanel.js';
+export type { ProviderModelPanelProps, ProviderModelValue, ProviderModelPick, Owner as ProviderModelOwner } from './panels/ProviderModelPanel.js';
 export { PersonalityEditor } from './panels/PersonalityEditor.js';
 export type { PersonalityEditorProps } from './panels/PersonalityEditor.js';
 export { OnboardingModal } from './panels/OnboardingModal.js';

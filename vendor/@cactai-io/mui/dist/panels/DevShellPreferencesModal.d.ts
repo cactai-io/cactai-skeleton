@@ -1,4 +1,5 @@
 import { type MCPCatalogEntry } from './MCPManager.js';
+import { type ProviderModelValue } from './ProviderModelPanel.js';
 import type { CapabilityCatalogueItem, CapabilityScopeConfig, CapabilityConfigPatch, MCPServerPublic, MCPAuthType, ProjectBYOKResponse, ProjectBYOKPatch, ProjectPersonalityResponse } from '@cactai-io/types';
 export interface DevShellMcpConfig {
     servers: MCPServerPublic[];
@@ -35,5 +36,10 @@ export interface DevShellPreferencesModalProps {
      *  (cactai_devshell_personality), so the IDE assistant and the app's
      *  assistant can differ. Built-ins + developer-authored both appear. */
     personality?: ProjectPersonalityResponse | null;
+    /** Per-provider chat_model + generative_model picks. Hydrated by the
+     *  host from GET /devshell/model-selections and persisted via
+     *  PATCH /devshell/model-selections (project_state.decisions.model_selections_v1). */
+    modelSelections?: Partial<ProviderModelValue>;
+    onModelSelectionsChange?: (next: ProviderModelValue) => void;
 }
-export declare function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant, mcp, byok, onBYOKPatch, personality }: DevShellPreferencesModalProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant, mcp, byok, onBYOKPatch, personality, modelSelections, onModelSelectionsChange }: DevShellPreferencesModalProps): import("react/jsx-runtime").JSX.Element;

@@ -32,18 +32,58 @@ function displayDecision(step) {
     }
     return String(v ?? '');
 }
-export function DecisionLogPanel({ stages, variant = 'running', onRevise, flagged }) {
+export function DecisionLogPanel({ stages, variant = 'running', onRevise, flagged, onNavigateToStep, pendingRevisitSteps, clearedSteps, }) {
     const compact = variant === 'active';
     const flaggedSet = new Set(flagged ?? []);
+    const pendingSet = new Set(pendingRevisitSteps ?? []);
+    const clearedSet = new Set(clearedSteps ?? []);
+    // Per-stage collapse state. Empty set means all stages are expanded — the
+    // default — and we add stage names as the dev collapses them.
+    const [collapsedStages, setCollapsedStages] = useState(() => new Set());
+    const toggleStage = (name) => setCollapsedStages(prev => {
+        const next = new Set(prev);
+        if (next.has(name))
+            next.delete(name);
+        else
+            next.add(name);
+        return next;
+    });
     if (stages.length === 0) {
         return (_jsx("div", { style: { padding: 16, fontSize: 12.5, color: 'var(--ds-text-3)' }, children: "Decisions you make will appear here as you go." }));
     }
-    return (_jsxs("div", { style: { padding: compact ? 12 : 20, display: 'flex', flexDirection: 'column', gap: compact ? 10 : 16 }, children: [!compact && (_jsx("div", { style: { fontSize: 14, fontWeight: 700, color: 'var(--ds-text)' }, children: "Decision log" })), stages.map(stage => (_jsxs("div", { children: [_jsx("div", { style: {
-                            fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase',
-                            color: 'var(--ds-text-3)', marginBottom: 8,
-                        }, children: stage.stage }), _jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: stage.steps.map(step => (_jsx(DecisionStepRow, { step: step, compact: compact, onRevise: onRevise, flagged: flaggedSet.has(step.step) }, step.step))) })] }, stage.stage)))] }));
+    return (_jsxs("div", { style: { padding: compact ? 12 : 20, display: 'flex', flexDirection: 'column', gap: compact ? 10 : 16 }, children: [!compact && (_jsx("div", { style: { fontSize: 14, fontWeight: 700, color: 'var(--ds-text)' }, children: "Decision log" })), stages.map(stage => {
+                const isCollapsed = collapsedStages.has(stage.stage);
+                const stepCount = stage.steps.length;
+                return (_jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: [_jsxs("button", { type: "button", onClick: () => toggleStage(stage.stage), "aria-expanded": !isCollapsed, style: {
+                                background: 'var(--ds-elevated, #1B1B2A)',
+                                border: '1px solid var(--ds-border, #25253A)',
+                                borderLeft: '3px solid var(--ds-accent, #5856E5)',
+                                borderRadius: 8,
+                                padding: compact ? '8px 10px' : '10px 12px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                fontFamily: 'inherit',
+                                color: 'var(--ds-text)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                                width: '100%',
+                            }, children: [_jsx("span", { style: {
+                                        fontSize: compact ? 12.5 : 13,
+                                        fontWeight: 600,
+                                        letterSpacing: '0.02em',
+                                    }, children: stage.stage }), _jsxs("span", { style: {
+                                        fontSize: 11, color: 'var(--ds-text-3)', display: 'flex', alignItems: 'center', gap: 8,
+                                    }, children: [_jsxs("span", { children: [stepCount, " decision", stepCount === 1 ? '' : 's'] }), _jsx("span", { style: {
+                                                display: 'inline-block',
+                                                transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                                                transition: 'transform 120ms ease',
+                                                fontSize: 12,
+                                            }, children: "\u203A" })] })] }), !isCollapsed && (_jsx("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: stage.steps.map(step => (_jsx(DecisionStepRow, { step: step, compact: compact, onRevise: onRevise, flagged: flaggedSet.has(step.step), pendingRevisit: pendingSet.has(step.step), cleared: clearedSet.has(step.step), onNavigateToStep: onNavigateToStep }, step.step))) }))] }, stage.stage));
+            })] }));
 }
-function DecisionStepRow({ step, compact, onRevise, flagged }) {
+function DecisionStepRow({ step, compact, onRevise, flagged, pendingRevisit, cleared, onNavigateToStep }) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -76,24 +116,38 @@ function DecisionStepRow({ step, compact, onRevise, flagged }) {
         }
     };
     const toggleDraft = (value) => setDraft(d => d.includes(value) ? d.filter(x => x !== value) : [...d, value]);
-    return (_jsxs("div", { style: {
+    // pendingRevisit (still needs answer after upstream cascade) takes
+    // priority over flagged (subtle indicator) for the amber outline.
+    const showAmber = pendingRevisit || flagged;
+    const isCleared = Boolean(cleared);
+    // Whole-card click navigates to the wizard step. Edit button still works
+    // for an inline option change without leaving the log — but the primary
+    // affordance is now navigation, matching the locked spec.
+    const handleCardClick = () => { if (onNavigateToStep && !editing)
+        onNavigateToStep(step.step); };
+    return (_jsxs("div", { onClick: handleCardClick, style: {
             background: 'var(--ds-surface, #13131F)',
-            border: `1px solid ${flagged ? '#F5B544' : 'var(--ds-border, #25253A)'}`,
+            border: `1px solid ${showAmber ? '#F5B544' : 'var(--ds-border, #25253A)'}`,
             borderRadius: 8,
             padding: compact ? '8px 10px' : '10px 12px',
-        }, children: [_jsxs("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }, children: [_jsx("div", { style: { fontSize: compact ? 12 : 12.5, color: 'var(--ds-text-2)' }, children: step.question }), canEdit && !editing && (_jsx("button", { onClick: () => setEditing(true), style: { background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-                            color: 'var(--ds-accent, #5856E5)', fontSize: 11, fontFamily: 'inherit', flexShrink: 0 }, children: "Edit" }))] }), flagged && (_jsx("div", { style: { fontSize: 10.5, color: '#F5B544', marginTop: 2 }, children: "\u26A0 Revisit \u2014 an earlier change may have affected this." })), !editing && (_jsx("div", { style: { fontSize: compact ? 12.5 : 13, fontWeight: 600, color: 'var(--ds-text)', marginTop: 3 }, children: displayDecision(step) })), editing && step.options && (_jsxs("div", { style: { marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }, children: [step.options.map((o, i) => {
+            cursor: onNavigateToStep && !editing ? 'pointer' : 'default',
+            opacity: isCleared ? 0.45 : 1,
+            // Cleared steps don't navigate — they're a historical marker only.
+            pointerEvents: isCleared ? 'none' : 'auto',
+            position: 'relative',
+        }, children: [_jsxs("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }, children: [_jsx("div", { style: { fontSize: compact ? 12 : 12.5, color: 'var(--ds-text-2)' }, children: step.question }), canEdit && !editing && !isCleared && (_jsx("button", { onClick: (e) => { e.stopPropagation(); setEditing(true); }, style: { background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                            color: 'var(--ds-accent, #5856E5)', fontSize: 11, fontFamily: 'inherit', flexShrink: 0 }, children: "Edit" }))] }), pendingRevisit && (_jsx("div", { style: { fontSize: 10.5, color: '#F5B544', marginTop: 2 }, children: "\u26A0 Needs a new answer \u2014 an earlier change made the previous one no longer apply." })), !pendingRevisit && flagged && (_jsx("div", { style: { fontSize: 10.5, color: '#F5B544', marginTop: 2 }, children: "\u26A0 Revisit \u2014 an earlier change may have affected this." })), isCleared && (_jsx("div", { style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 2, fontStyle: 'italic' }, children: "No longer applicable \u2014 cleared by an upstream change." })), !editing && (_jsx("div", { style: { fontSize: compact ? 12.5 : 13, fontWeight: 600, color: 'var(--ds-text)', marginTop: 3 }, children: displayDecision(step) })), editing && step.options && (_jsxs("div", { onClick: (e) => e.stopPropagation(), style: { marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }, children: [step.options.map((o, i) => {
                         const active = isMulti ? draft.includes(o.value) : false;
-                        return (_jsx("button", { disabled: saving, onClick: () => isMulti ? toggleDraft(o.value) : void pickSingle(o.value), style: {
+                        return (_jsx("button", { disabled: saving, onClick: (e) => { e.stopPropagation(); isMulti ? toggleDraft(o.value) : void pickSingle(o.value); }, style: {
                                 padding: '4px 10px', fontSize: 12, borderRadius: 6, cursor: saving ? 'wait' : 'pointer',
                                 fontFamily: 'inherit',
                                 border: `1px solid ${active ? 'var(--ds-accent, #5856E5)' : 'var(--ds-border, #25253A)'}`,
                                 background: active ? 'var(--ds-accent, #5856E5)' : 'transparent',
                                 color: active ? '#fff' : 'var(--ds-text-2)',
                             }, children: o.label }, i));
-                    }), isMulti && (_jsx("button", { onClick: () => void saveMulti(), disabled: saving, style: { padding: '4px 10px', fontSize: 12, borderRadius: 6, border: 'none',
-                            background: 'var(--ds-accent, #5856E5)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }, children: "Save" })), _jsx("button", { onClick: () => setEditing(false), disabled: saving, style: { padding: '4px 10px', fontSize: 12, borderRadius: 6, border: 'none', background: 'transparent',
-                            color: 'var(--ds-text-3)', cursor: 'pointer', fontFamily: 'inherit' }, children: "Cancel" })] })), hasChat && (_jsx("button", { onClick: () => setOpen(o => !o), style: {
+                    }), isMulti && (_jsx("button", { onClick: (e) => { e.stopPropagation(); void saveMulti(); }, disabled: saving, style: { padding: '4px 10px', fontSize: 12, borderRadius: 6, border: 'none',
+                            background: 'var(--ds-accent, #5856E5)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }, children: "Save" })), _jsx("button", { onClick: (e) => { e.stopPropagation(); setEditing(false); }, disabled: saving, style: { padding: '4px 10px', fontSize: 12, borderRadius: 6, border: 'none', background: 'transparent',
+                            color: 'var(--ds-text-3)', cursor: 'pointer', fontFamily: 'inherit' }, children: "Cancel" })] })), hasChat && (_jsx("button", { onClick: (e) => { e.stopPropagation(); setOpen(o => !o); }, style: {
                     marginTop: 6, background: 'transparent', border: 'none', padding: 0,
                     color: 'var(--ds-accent, #5856E5)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
                 }, children: open ? 'Hide' : `Chat (${step.chat.length})` })), open && (_jsx("div", { style: { marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }, children: step.chat.map((c, i) => (_jsxs("div", { style: { fontSize: 11.5, lineHeight: 1.5 }, children: [_jsxs("div", { style: { color: 'var(--ds-text-2)' }, children: [_jsx("strong", { children: "You:" }), " ", c.dev] }), c.assistant && _jsxs("div", { style: { color: 'var(--ds-text-3)' }, children: [_jsx("strong", { children: "Ember:" }), " ", c.assistant] })] }, i))) }))] }));

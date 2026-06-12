@@ -17,6 +17,7 @@ import { CapabilityListPanel } from './CapabilityListPanel.js';
 import { groupAIProviders, CATEGORY_LABEL, BUDGET_UNIT } from './aiProviders.js';
 import { MCPManager } from './MCPManager.js';
 import { PersonalityPickerPanel } from './PersonalityPickerPanel.js';
+import { ProviderModelPanel, DEFAULT_SELECTIONS } from './ProviderModelPanel.js';
 const DEVSHELL_PERSONALITY_KEY = 'cactai_devshell_personality';
 const LANDING_KEY = 'cactai_devshell_landing';
 const LANDING_OPTIONS = [
@@ -35,7 +36,7 @@ const DS_INPUT = {
     borderRadius: 'var(--ds-r-sm)', padding: '4px 8px', color: 'var(--ds-text)',
     fontSize: 11.5, fontFamily: 'var(--f-mono)', outline: 'none',
 };
-function DevShellAITab({ byok, onBYOKPatch }) {
+function DevShellAITab({ byok, onBYOKPatch, modelSelections, onModelSelectionsChange }) {
     const grouped = useMemo(() => groupAIProviders(), []);
     const [budget, setBudget] = useState({});
     const [editing, setEditing] = useState(null);
@@ -62,7 +63,13 @@ function DevShellAITab({ byok, onBYOKPatch }) {
                                                             setEditing(null);
                                                             setEditVal('');
                                                         } }, placeholder: "API key\u2026", style: { ...DS_INPUT, flex: 1 } }), _jsx("button", { className: "ds-btn-primary", onClick: () => void save(p.id), disabled: saving === p.id, style: { fontSize: 11, padding: '3px 10px' }, children: saving === p.id ? '…' : 'Save' }), _jsx("button", { className: "ds-btn-ghost", onClick: () => { setEditing(null); setEditVal(''); }, style: { fontSize: 11, padding: '3px 8px' }, children: "\u2715" })] })) : (_jsxs(_Fragment, { children: [_jsx("span", { style: { fontSize: 11, color: rec ? 'var(--ds-text-2)' : 'var(--ds-text-3)', fontFamily: 'var(--f-mono)' }, children: rec?.masked || 'Not set' }), onBYOKPatch && (_jsx("button", { className: "ds-btn-ghost", onClick: () => { setEditing(p.id); setEditVal(''); }, style: { fontSize: 11, padding: '3px 10px' }, children: rec ? 'Update' : 'Set key' }))] }))] }), _jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }, children: [_jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: "Budget" }), _jsx("input", { type: "number", min: 0, value: budget[p.id] ?? '', onChange: e => setBudget(prev => ({ ...prev, [p.id]: e.target.value })), placeholder: "0", style: { ...DS_INPUT, width: 110 } }), _jsx("span", { style: { fontSize: 11, color: 'var(--ds-text-3)' }, children: BUDGET_UNIT[group.category] ?? 'units / mo' })] })] }, p.id));
-                        }) })] }, group.category))), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: "Budgets are framework-first (not yet persisted). Key changes save immediately to your app's encrypted store." })] }));
+                        }) })] }, group.category))), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 4 }, children: "Budgets are framework-first (not yet persisted). Key changes save immediately to your app's encrypted store." }), onModelSelectionsChange && (_jsxs("div", { style: { marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--ds-border)' }, children: [_jsx("div", { style: { fontSize: 12.5, fontWeight: 600, marginBottom: 12, color: 'var(--ds-text)' }, children: "Model selection" }), _jsx(ProviderModelPanelInline, { value: (modelSelections ?? {}), onChange: onModelSelectionsChange }), _jsx("div", { style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 8, lineHeight: 1.5 }, children: "These power your DevShell testing. The deployed app uses its own picks configured in App Config." })] }))] }));
+}
+function ProviderModelPanelInline({ value, onChange }) {
+    // DevShell Config edits the developer's testing slice ('dev' owner).
+    // chat + gen pickers; per-capability gen.<subkind> overrides ship as
+    // their own row when added by the developer.
+    return (_jsx(ProviderModelPanel, { owner: "dev", capabilities: ['chat', 'gen'], value: value, onChange: onChange, required: ['chat', 'gen'], selections: DEFAULT_SELECTIONS, variant: "full" }));
 }
 // DevShell Configuration → Integrations. The IDE-scope MCP servers (separate
 // from the app's Integrations). Framework-first add form; the connected-server
@@ -75,7 +82,7 @@ function DevShellIntegrationsTab({ mcp }) {
     }
     return (_jsxs("div", { children: [_jsx("div", { className: "ds-card-body", style: { fontSize: 11.5, marginBottom: 10, color: 'var(--ds-text-2)', lineHeight: 1.5 }, children: "Connect MCP servers the IDE's agent can use while you build. DevShell scope \u2014 these are yours, separate from your app's Integrations." }), _jsxs("div", { className: "ds-card", children: [_jsx("div", { className: "ds-card-title", style: { fontSize: 12, marginBottom: 6 }, children: "Add MCP server" }), _jsxs("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 }, children: [_jsx("input", { placeholder: "Label (e.g. GitHub)", style: { ...DS_INPUT, fontFamily: 'var(--f-ui)' }, disabled: true }), _jsx("input", { placeholder: "SSE endpoint URL", style: DS_INPUT, disabled: true }), _jsx("button", { className: "ds-btn-primary", disabled: true, style: { fontSize: 11.5, padding: '5px 12px', alignSelf: 'flex-start' }, children: "Connect" })] })] }), _jsx("div", { className: "ds-card-body", style: { fontSize: 10.5, color: 'var(--ds-text-3)', marginTop: 8 }, children: "Loading devshell MCP\u2026" })] }));
 }
-export function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant = 'modal', mcp, byok, onBYOKPatch, personality }) {
+export function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, variant = 'modal', mcp, byok, onBYOKPatch, personality, modelSelections, onModelSelectionsChange }) {
     // DevShell chat personality — an INDEPENDENT local selection (the IDE
     // assistant can differ from the app's). Falls back to the app's active
     // personality until the dev picks one here.
@@ -116,7 +123,7 @@ export function DevShellPreferencesModal({ catalogue, config, onPatch, onClose, 
                                             window.localStorage.setItem(DEVSHELL_PERSONALITY_KEY, patch.active_id);
                                         }
                                         setDevPersonality(patch.active_id);
-                                    }, onOpenEditor: () => { } })] }) }))] })), tab === 'ai' && _jsx(DevShellAITab, { byok: byok, onBYOKPatch: onBYOKPatch }), tab === 'integrations' && _jsx(DevShellIntegrationsTab, { mcp: mcp })] }));
+                                    }, onOpenEditor: () => { } })] }) }))] })), tab === 'ai' && _jsx(DevShellAITab, { byok: byok, onBYOKPatch: onBYOKPatch, modelSelections: modelSelections, onModelSelectionsChange: onModelSelectionsChange }), tab === 'integrations' && _jsx(DevShellIntegrationsTab, { mcp: mcp })] }));
     // Full-page variant — fills the DevShell workspace content area. No
     // overlay/backdrop; a header row with a Back affordance returns to the
     // last active IDE view.

@@ -214,7 +214,7 @@ export function ThemeInspector({ projectId, apiBaseUrl, onClose, previewUrl, }) 
                                     // its own cookies or storage, so any future auth-dependent
                                     // preview features fail. The "both flags together is a smell"
                                     // rule applies to *same-origin* iframes — not this one.
-                                    sandbox: "allow-scripts allow-same-origin" })) : (_jsxs("div", { className: "ti-preview-empty", children: ["Preview unavailable \u2014 set ", _jsx("code", { children: "STUDIO_PREVIEW_ENABLED=true" }), " on the skeleton deployment to enable the preview iframe."] }))] }) })] })] }));
+                                    sandbox: "allow-scripts allow-same-origin" })) : (_jsx("div", { className: "ti-preview-empty", children: "Preview unavailable \u2014 the deploy origin couldn't be resolved for this session." }))] }) })] })] }));
 }
 // ── Internal helpers ───────────────────────────────────────────────────────
 function flattenLeaves(tree, locked, prefix = '') {

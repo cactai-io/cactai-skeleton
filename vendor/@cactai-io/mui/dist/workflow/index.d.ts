@@ -15,11 +15,18 @@ export interface WorkflowSurfaceProps {
     backlog: GoalBacklogEntry[];
     sprints: SprintRecord[];
     onFormSubmit: (choices: Record<string, unknown>) => void;
+    /** Wizard back navigation — when wired, the DecisionInput shows a Back
+     *  button on the left of the action row. Host calls the navigate-back
+     *  endpoint to step the wizard one step earlier in the walk order. */
+    onBack?: () => void;
     onRevisit: (decisionKey: string) => void;
     onResolveBacklog: (entryId: string) => void;
     onCreateBacklog?: (description: string) => Promise<void> | void;
     onUpdateBacklog?: (id: string, description: string) => Promise<void> | void;
     onDeleteBacklog?: (id: string) => Promise<void> | void;
+    /** Inject a backlog entry's description into the chat as the developer's
+     *  next turn. Minimal-viable v1 until backlog → sprint workflow is built. */
+    onDiscussBacklog?: (description: string) => void;
     onRenameSprint?: (id: string, name: string) => Promise<void> | void;
     onDeleteSprint?: (id: string) => Promise<void> | void;
     /** Project notes (Plan view) — a collection of independent named notes with
@@ -36,7 +43,7 @@ export interface WorkflowSurfaceProps {
     }) => Promise<void> | void;
     onDeleteNote?: (id: string) => Promise<void> | void;
 }
-export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
+export declare function WorkflowSurface({ activeForm, decisions, backlog, sprints, onFormSubmit, onBack, onRevisit, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onDiscussBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, }: WorkflowSurfaceProps): import("react/jsx-runtime").JSX.Element;
 interface DecisionLogProps {
     decisions: Record<string, WorkflowDecisionRecord>;
     onRevisit: (key: string) => void;
@@ -46,8 +53,11 @@ interface DecisionInputProps {
     stage: string;
     fields: SurfaceFormField[];
     onSubmit: (choices: Record<string, unknown>) => void;
+    /** Back-button handler. When set, a Back button appears on the left of
+     *  the action row, mirroring the Confirm choices button on the right. */
+    onBack?: () => void;
 }
-declare function DecisionInput({ stage, fields, onSubmit }: DecisionInputProps): import("react/jsx-runtime").JSX.Element;
+declare function DecisionInput({ stage, fields, onSubmit, onBack }: DecisionInputProps): import("react/jsx-runtime").JSX.Element;
 interface ButtonSelectProps {
     options: string[];
     value: string | string[] | undefined;
@@ -81,8 +91,12 @@ interface GoalBacklogProps {
     onUpdate?: (id: string, description: string) => Promise<void> | void;
     /** Hard-delete an entry (vs onResolve which keeps the row resolved=true). */
     onDelete?: (id: string) => Promise<void> | void;
+    /** Inject the entry's description into the chat as the developer's next
+     *  turn. The minimal-viable workflow path until backlog-driven sprints are
+     *  built — clicking an entry kicks off a chat conversation about it. */
+    onDiscussInChat?: (description: string) => void;
 }
-declare function GoalBacklog({ entries, onResolve, onCreate, onUpdate, onDelete }: GoalBacklogProps): import("react/jsx-runtime").JSX.Element;
+declare function GoalBacklog({ entries, onResolve, onCreate, onUpdate, onDelete, onDiscussInChat }: GoalBacklogProps): import("react/jsx-runtime").JSX.Element;
 interface SprintOverviewProps {
     sprints: SprintRecord[];
     activeSprint?: SprintRecord;

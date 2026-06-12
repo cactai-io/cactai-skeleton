@@ -226,6 +226,14 @@ export interface AppConfigurationPanelProps {
     aiPolicy?: AIKeysPolicyState;
     /** Persist the global policy and/or one provider's override. */
     onAIPolicyPatch?: (patch: AIPolicyPatch) => Promise<void>;
+    /** v1.4 — app-owner provider/selection picks shown above the policy +
+     *  budgets panel on the AI tab. Persists to the app slice of the
+     *  customer DB's decisions.model_selections_v1. Optional so hosts that
+     *  haven't wired the endpoint yet still render the tab. */
+    appModelSelections?: import('./ProviderModelPanel.js').ProviderModelValue;
+    /** Persist the full app-slice picks blob. The component fires this on
+     *  every change (debounce in the host if needed). */
+    onAppModelSelectionsChange?: (next: import('./ProviderModelPanel.js').ProviderModelValue) => Promise<void> | void;
     /** Live tiers + per-tier per-provider budgets (customer DB app_tiers +
      *  app_tier_budgets) for the Tiers tab. */
     tiers?: TierEntry[];
@@ -309,4 +317,4 @@ export interface CustomTabDef {
     id: string;
     label: string;
 }
-export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, tiers, onTierBudgetPatch, tabVisibility, sharingConfig, onSharingPatch, collaborationConfig, onCollaborationPatch, aiActions, onAIActionsPatch, customTabs, onAddCustomTab, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;
+export declare function AppConfigurationPanel({ credentials, dashboardUrl, onSaveCredential, capabilityCatalogue, capabilityConfig, onCapabilityPatch, personality, onPersonalityPatch, onPersonalityLoad, onPersonalitySave, onPersonalityTest, onCreatePersonality, workflow, onWorkflowPatch, byok, onBYOKPatch, marketplaceWorkflowsUrl, mcpServers, mcpCatalog, mcpExplainer, mcpLoading, onMCPAdd, onMCPRemove, onMCPToggle, themeInspectorSlot, onOpenAuthoring, roleCatalog, onRolePatch, agentConfig, onAgentToggle, aiPolicy, onAIPolicyPatch, appModelSelections, onAppModelSelectionsChange, tiers, onTierBudgetPatch, tabVisibility, sharingConfig, onSharingPatch, collaborationConfig, onCollaborationPatch, aiActions, onAIActionsPatch, customTabs, onAddCustomTab, }: AppConfigurationPanelProps): import("react/jsx-runtime").JSX.Element;

@@ -6,6 +6,7 @@ export declare class InputRouter {
     private streamController;
     private apiBaseUrl;
     private endUserId;
-    constructor(store: MUIStore, streamController: StreamController, apiBaseUrl: string, endUserId?: string);
+    private personalityIdProvider;
+    constructor(store: MUIStore, streamController: StreamController, apiBaseUrl: string, endUserId?: string, personalityIdProvider?: () => string | null | undefined);
     dispatch(payload: GASInputPayload): Promise<void>;
 }

@@ -171,6 +171,10 @@ export interface DevShellProps {
     backlog: GoalBacklogEntry[];
     sprints: SprintRecord[];
     onWorkflowFormSubmit: (choices: Record<string, unknown>) => void;
+    /** Wizard back navigation — when wired, the wizard's action row shows
+     *  a Back button on the left. Host calls /devshell/navigate-back to
+     *  step the wizard one step earlier in the locked walk order. */
+    onWorkflowBack?: () => void;
     onRevisitDecision: (key: string) => void;
     onResolveBacklog: (id: string) => void;
     /** Optional backlog CRUD — when wired the Plan view's backlog adds
@@ -235,6 +239,10 @@ export interface DevShellProps {
         /** Shared personality list — the DevShell-assistant picker on the
          *  Preferences tab uses it (its own independent local selection). */
         personality?: import('@cactai-io/types').ProjectPersonalityResponse | null;
+        /** Per-provider chat_model + generative_model picks for the Providers
+         *  tab. Hydrated from project_state.decisions.model_selections_v1. */
+        modelSelections?: Partial<import('../panels/ProviderModelPanel.js').ProviderModelValue>;
+        onModelSelectionsChange?: (next: import('../panels/ProviderModelPanel.js').ProviderModelValue) => void;
     };
     /** URL of the Cactai platform dashboard. Passed by the host so this
      *  package carries no hardcoded environment URL. */
@@ -294,4 +302,4 @@ export interface DevShellProps {
      *  signal a per-step change — this counter does. */
     decisionLogVersion?: number;
 }
-export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, onRegisterNavigate, decisionLogVersion, }: DevShellProps): import("react/jsx-runtime").JSX.Element;
+export declare function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onWorkflowBack, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, onRegisterNavigate, decisionLogVersion, }: DevShellProps): import("react/jsx-runtime").JSX.Element;

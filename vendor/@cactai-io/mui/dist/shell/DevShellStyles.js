@@ -57,13 +57,12 @@ export const DEVSHELL_CSS = `
     var(--g-stop-1) 0%, var(--g-stop-2) 35%,
     var(--g-stop-3) 65%, var(--g-stop-4) 100%));
 
-  /* Glow — derived from the active section's solid accent. Falls back to
-     the brand accent if no section is bound. Pure colored glow, IDENTICAL
-     in light and dark: the prior --ds-glow-hover appended --elev-2 (a
-     black drop-shadow) which made light mode read as a shadow and dark as
-     a glow. Dropped so the effect is the same colored profile in both. */
-  --ds-glow:       0 0 8px color-mix(in srgb, var(--accent-solid, var(--c-accent)) 45%, transparent);
-  --ds-glow-hover: 0 0 14px color-mix(in srgb, var(--accent-solid, var(--c-accent)) 60%, transparent);
+  /* Legacy --ds-glow / --ds-glow-hover removed 2026-06-10 per the locked
+     spec: glow lives only on the nav rail and uses --glow-accent. Every
+     other surface (.ds-btn-primary, .ds-avatar, .ds-send-btn, etc.) was
+     dropped to outline-only because the broad-diffusion glow read as
+     messy on smaller surfaces and brightness-filter activation flipped
+     it toward white on press. */
   /* Behind-icon light layer — the blurred sunset gradient that sits under
      a translucent icon and lights up on hover (dim) / active (bright).
      The button needs no border: this glow's soft edge defines its shape. */
@@ -275,7 +274,10 @@ body.cactai-shell-body-lock {
 }
 [data-cactai-shell] .ds-view-btn:hover:not(.ds-view-active):not(:disabled),
 [data-cactai-shell] .ds-view-btn:focus-visible:not(.ds-view-active):not(:disabled) {
-  border-color: var(--ds-text-3);
+  /* Match the chat-input + wizard accent-ring focus treatment so the
+     topbar reads as part of the same product as the rest of DevShell. */
+  border-color: var(--accent-solid, var(--c-accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-solid, var(--c-accent)) 10%, transparent);
   color: var(--ds-text);
   outline: none;
 }
@@ -378,14 +380,11 @@ body.cactai-shell-body-lock {
   cursor: pointer;
   letter-spacing: 0.02em;
   border: 1px solid var(--ds-btn-edge);
-  box-shadow: var(--ds-glow);
-  transition: transform var(--d-fast) var(--ease),
-              box-shadow var(--d-fast) var(--ease);
+  transition: transform var(--d-fast) var(--ease);
 }
 [data-cactai-shell] .ds-avatar:hover,
 [data-cactai-shell] .ds-avatar:focus-visible {
   transform: translateY(-1px);
-  box-shadow: var(--ds-glow-hover);
   outline: none;
 }
 
@@ -402,13 +401,11 @@ body.cactai-shell-body-lock {
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: var(--ds-glow);
   display: inline-flex;
   align-items: center;
   gap: 6px;
   letter-spacing: -0.005em;
   transition: transform var(--d-fast) var(--ease),
-              box-shadow var(--d-fast) var(--ease),
               filter var(--d-fast) var(--ease);
   text-shadow: 0 1px 2px rgba(0,0,0,0.2);
   white-space: nowrap;
@@ -417,13 +414,11 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-btn-primary:hover:not(:disabled),
 [data-cactai-shell] .ds-btn-primary:focus-visible:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: var(--ds-glow-hover);
   outline: none;
 }
 [data-cactai-shell] .ds-btn-primary:active:not(:disabled) {
   transform: translateY(0);
   filter: brightness(1.18);
-  box-shadow: var(--ds-glow);
 }
 [data-cactai-shell] .ds-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
@@ -449,7 +444,6 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-btn-ghost:focus-visible:not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
   color: var(--ds-text);
   outline: none;
 }
@@ -545,18 +539,31 @@ body.cactai-shell-body-lock {
               background var(--d-base) var(--ease);
   flex-shrink: 0;
 }
+/* Nav rail button — restrained accent treatment.
+   Idle:   transparent, ds-text-3 icon.
+   Hover:  accent OUTLINE only (no glow), icon shifts to flat accent
+           stroke, button lifts 1px to read as "available."
+   Press:  drops 1px below baseline for a tactile press, glow appears
+           tight underneath. Release returns to hover/lifted.
+   Active: persistent outline + tight glow + flat-accent icon, sitting on
+           a neutral elevated surface (no accent-tinted fill — outline +
+           glow + flat icon already mark "selected").
+   Sunset gradient stroke is removed everywhere — the icon paints flat
+   accent so the whole button speaks one color. */
 [data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active):not(:disabled),
 [data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active):not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
   color: var(--ds-text);
   outline: none;
 }
 [data-cactai-shell] .ds-rail-btn:hover:not(.ds-rail-active) svg,
-[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active) svg { stroke: url(#ds-sunset); }
-[data-cactai-shell] .ds-rail-btn:active:not(:disabled) { transform: translateY(0); }
-[data-cactai-shell] .ds-rail-active svg { stroke: url(#ds-sunset); }
+[data-cactai-shell] .ds-rail-btn:focus-visible:not(.ds-rail-active) svg { stroke: var(--accent-solid, var(--c-accent)); }
+[data-cactai-shell] .ds-rail-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--glow-accent);
+}
+[data-cactai-shell] .ds-rail-active svg { stroke: var(--accent-solid, var(--c-accent)); }
 [data-cactai-shell] .ds-rail-active {
   border-color: var(--accent-solid, var(--c-accent));
   box-shadow: var(--glow-accent);
@@ -909,18 +916,15 @@ body.cactai-shell-body-lock {
   color: white;
   cursor: pointer;
   font-size: 13px;
-  box-shadow: var(--ds-glow);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--d-fast) var(--ease),
-              box-shadow var(--d-fast) var(--ease);
+  transition: transform var(--d-fast) var(--ease);
 }
 [data-cactai-shell] .ds-send-btn:hover,
 [data-cactai-shell] .ds-send-btn:focus-visible {
   transform: translateY(-1px);
-  box-shadow: var(--ds-glow-hover);
   outline: none;
 }
 [data-cactai-shell] .ds-send-btn:active { transform: translateY(0); filter: brightness(1.18); }
@@ -1722,7 +1726,6 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-option-btn:focus-visible:not(.ds-option-selected):not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
   outline: none;
 }
 [data-cactai-shell] .ds-option-btn.ds-option-selected {
@@ -2272,7 +2275,6 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-panel-header-commit:hover:not(:disabled),
 [data-cactai-shell] .ds-panel-header-commit:focus-visible:not(:disabled) {
   border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
   outline: none;
 }
 [data-cactai-shell] .ds-panel-header-commit:disabled {
@@ -2403,7 +2405,6 @@ body.cactai-shell-body-lock {
 [data-cactai-shell] .ds-commit-modal-btn:hover:not(:disabled),
 [data-cactai-shell] .ds-commit-modal-btn:focus-visible:not(:disabled) {
   border-color: var(--accent-solid, var(--c-accent));
-  box-shadow: var(--glow-accent);
   outline: none;
 }
 [data-cactai-shell] .ds-commit-modal-btn:disabled {

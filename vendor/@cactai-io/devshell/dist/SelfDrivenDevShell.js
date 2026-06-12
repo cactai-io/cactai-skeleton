@@ -63,6 +63,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     // a local user-message entry); the chat panel inside DevShell renders
     // user echoes from its own internal state when the input is submitted.
     const [messages, setMessages] = useState([]);
+    // Chat history seeded from the most-recent thread on the persisted session
+    // (see the openSession block below). Lives in a ref so the store-subscribe
+    // sync() reads the latest value without going stale on dep changes.
+    const historicalMessagesRef = React.useRef([]);
     const [streamingContent, setStreamingContent] = useState('');
     const [agentState, setAgentState] = useState('idle');
     // Active turn error (e.g. the proxy's no_provider_configured 412). The store
@@ -152,6 +156,10 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
     const [byok, setByok] = useState(null);
     const [appConfig, setAppConfig] = useState(null);
     const [personality, setPersonality] = useState(null);
+    // Per-provider chat_model + generative_model picks for the Providers tab
+    // and (next) the wizard provider step. Hydrated by the model-selections
+    // effect below from project_state.decisions.model_selections_v1.
+    const [modelSelections, setModelSelections] = useState({});
     const [workflowSettings, setWorkflowSettings] = useState(null);
     const [capabilityConfig, setCapabilityConfig] = useState(null);
     const [capabilityCat, setCapabilityCat] = useState([]);
@@ -176,19 +184,76 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     base_url: cactaiBase,
                     project_id: projectId,
                 });
-                const session = await c.openSession({
-                    shell: 'dev',
-                    user_id: userId,
-                    user_email: userEmail,
-                    viewport: typeof window === 'undefined' ? null : {
-                        width: window.screen.width,
-                        height: window.screen.height,
-                        dpr: window.devicePixelRatio,
-                    },
-                });
-                if (cancelled)
-                    return;
-                const sid = session.session_id;
+                // Session reuse: localStorage caches the last session_id per project so
+                // a page reload doesn't drop chat context. GET the cached session first;
+                // if the server says 404 the cache is stale (project deleted, session
+                // pruned), so we fall through to creating a fresh one.
+                const sessionCacheKey = `cactai_devshell_session_${projectId}`;
+                let sid = null;
+                if (typeof window !== 'undefined') {
+                    try {
+                        const raw = window.localStorage.getItem(sessionCacheKey);
+                        if (raw) {
+                            const parsed = JSON.parse(raw);
+                            if (parsed.session_id) {
+                                const probe = await fetch(`${cactaiBase}/v1/sessions/${parsed.session_id}`);
+                                if (probe.ok)
+                                    sid = parsed.session_id;
+                                else
+                                    window.localStorage.removeItem(sessionCacheKey);
+                            }
+                        }
+                    }
+                    catch { /* cache parse / fetch failure — fall through to fresh session */ }
+                }
+                if (!sid) {
+                    const session = await c.openSession({
+                        shell: 'dev',
+                        user_id: userId,
+                        user_email: userEmail,
+                        viewport: typeof window === 'undefined' ? null : {
+                            width: window.screen.width,
+                            height: window.screen.height,
+                            dpr: window.devicePixelRatio,
+                        },
+                    });
+                    if (cancelled)
+                        return;
+                    sid = session.session_id;
+                    if (typeof window !== 'undefined') {
+                        window.localStorage.setItem(sessionCacheKey, JSON.stringify({ session_id: sid }));
+                    }
+                    // initial_tree is delivered on the fresh openSession response.
+                    if (session.initial_tree)
+                        setPrimitiveTree(session.initial_tree);
+                }
+                // Seed historicalMessagesRef from the session's most recent thread.
+                // Best-effort — a failed fetch leaves history empty, the developer can
+                // keep chatting and new turns render fine.
+                try {
+                    const tRes = await fetch(`${cactaiBase}/v1/sessions/${sid}/threads`);
+                    if (tRes.ok) {
+                        const body = await tRes.json();
+                        const threads = body.threads ?? [];
+                        if (threads.length > 0) {
+                            const mostRecent = [...threads].sort((a, b) => (b.last_accessed_at ?? '').localeCompare(a.last_accessed_at ?? ''))[0];
+                            const fullRes = await fetch(`${cactaiBase}/v1/threads/${mostRecent.id}`);
+                            if (fullRes.ok) {
+                                const thread = await fullRes.json();
+                                const restored = (thread.messages ?? []).map(m => ({
+                                    id: m.id,
+                                    role: m.role === 'user' ? 'user' : 'agent',
+                                    content: m.content,
+                                    timestamp: m.created_at,
+                                }));
+                                historicalMessagesRef.current = restored;
+                                if (restored.length > 0)
+                                    setMessages(restored);
+                            }
+                        }
+                    }
+                }
+                catch { /* history restore is non-blocking */ }
                 const mui = await MUIShell.init({
                     session_id: sid,
                     project_id: projectId,
@@ -205,6 +270,14 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                     // every dispatch.
                     end_user_id: userId,
                     role: userRole,
+                    // DevShell-scope personality override (set via Preferences modal,
+                    // mirrored from the chat-header resolution below). Mid-session
+                    // switches reach the next turn without a remount.
+                    personality_id_provider: () => {
+                        if (typeof window === 'undefined')
+                            return null;
+                        return window.localStorage.getItem('cactai_devshell_personality') ?? null;
+                    },
                 });
                 // Discard render output for Phase 1 — DevShell renders its own
                 // panel tree, MUI's per-turn render callback isn't wired into
@@ -216,13 +289,9 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 setSessionId(sid);
                 setShell(mui);
                 setClient(c);
-                // Seed the platform-emitted primitive tree with whatever the
-                // DevShell Orchestrator produced for this project's current
-                // build_phase. On first open this is the purpose_capture
-                // welcome surface; on resume it's whatever phase/step the
-                // project's last session left off at.
-                if (session.initial_tree)
-                    setPrimitiveTree(session.initial_tree);
+                // initial_tree handling moved up into the openSession branch — on
+                // resumed sessions we'd need a separate GET to fetch it from the
+                // server, which is out of scope for this caching pass.
             }
             catch (err) {
                 if (cancelled)
@@ -317,6 +386,9 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
         const sync = () => {
             const s = store.getState();
             const agentMessages = s.conversation.messages
+                // The MUI output type declares { text, artifacts } but the orchestration
+                // engine writes `message` at runtime (see core/OrchestrationEngine.ts).
+                // Cast to access the runtime field until the public type catches up.
                 .filter(m => m.status === 'complete' && m.output?.message)
                 .map(m => ({
                 id: m.request_id,
@@ -324,7 +396,15 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 content: m.output?.message ?? '',
                 timestamp: m.completed_at ?? new Date().toISOString(),
             }));
-            setMessages(agentMessages);
+            // Prepend any restored historical messages (from the persisted-session
+            // thread fetch in the openSession block). De-dup by id so a new turn
+            // that lands in both arrays doesn't render twice.
+            const seen = new Set(agentMessages.map(m => m.id));
+            const merged = [
+                ...historicalMessagesRef.current.filter(m => !seen.has(m.id)),
+                ...agentMessages,
+            ];
+            setMessages(merged);
             setStreamingContent(s.conversation.streaming
                 ? s.conversation.stream_buffer.map(d => d.delta).join('')
                 : '');
@@ -568,6 +648,18 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                 setByok(byokBody);
             if (personalityBody)
                 setPersonality(personalityBody);
+            // One-shot fetch for the chat + generative model selections.
+            // Fire-and-forget — the Providers tab renders fine when this fails;
+            // the picker shows "Required" placeholders and the dev can pick.
+            try {
+                const msRes = await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/model-selections?owner=dev`, { cache: 'no-store' });
+                if (msRes.ok) {
+                    const ms = await msRes.json();
+                    if (ms.value)
+                        setModelSelections(ms.value);
+                }
+            }
+            catch { /* non-fatal */ }
             if (workflowBody)
                 setWorkflowSettings(workflowBody);
             if (capsBody) {
@@ -1435,7 +1527,14 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         ...prev.filter(p => p.path !== path),
                         { path, operation: 'delete', linesAdded: 0, linesRemoved: 0, lastEditedAt: new Date().toISOString() },
                     ]);
-                }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, decisionLogVersion: decisionLogVersion, workflowForm: workflowForm ?? undefined, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowFormSubmit: async (choices) => {
+                }, treeNodes: treeNodes, activeFilePath: activeFilePath, fileContent: fileContent, fileLoading: fileLoading, onFileSelect: onFileSelect, onExitFileView: onExitFileView, workflowStep: workflowStep, decisionLogVersion: decisionLogVersion, workflowForm: workflowForm ?? undefined, decisions: decisions, backlog: backlog, sprints: sprints, onWorkflowBack: async () => {
+                    try {
+                        await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/navigate-back`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                        // The 5s workflow poll picks up the new current_step. No client
+                        // state mutation needed — the orchestrator is the source of truth.
+                    }
+                    catch { /* best-effort */ }
+                }, onWorkflowFormSubmit: async (choices) => {
                     // Form submit → synthetic stage_step input. Builds the canonical
                     // token shape Branch 1 already handles:
                     //   __event__:select:stage_step:<step_id> <json-payload>
@@ -1897,6 +1996,18 @@ export function SelfDrivenDevShell({ cactaiBase, projectId, projectName = 'App',
                         // Shared personality list for the DevShell-assistant picker on the
                         // Preferences tab (its selection is independent + stored locally).
                         personality,
+                        // Per-provider chat_model + generative_model selections for the
+                        // Providers tab. Hydrated by the modelSelections effect below;
+                        // saved through the model-selections PATCH endpoint.
+                        modelSelections,
+                        onModelSelectionsChange: async (next) => {
+                            setModelSelections(next);
+                            try {
+                                await fetch(`${cactaiBase.replace(/\/$/, '')}/v1/projects/${projectId}/devshell/model-selections`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ owner: 'dev', value: next }) });
+                            }
+                            catch { /* best-effort; UI keeps the optimistic state */ }
+                        },
                     }
                     : undefined }), _jsx(FetchErrorBadge, { errors: fetchErrors }), _jsx(OnboardingModal, { open: onboardingOpen, onClose: dismissOnboarding, personalityName: agentDisplayName }), _jsx(WorkflowCompletionModal, { open: completionOpen, onClose: dismissCompletion, productionUrl: productionUrl, topRankRoleName: topRankRoleName ?? undefined, autoPromoteOnFirstSignup: autoPromoteOnFirstSignup }), _jsx(UpdateAvailableModal, { open: updateModalOpen, onClose: () => setUpdateModalOpen(false), currentPlatformSha: updateStatus?.current_platform_sha ?? undefined, latestPlatformSha: updateStatus?.latest_platform_sha, onApply: applyUpdate }), capPrompt && (_jsx(ProviderKeyModal, { detail: capPrompt.detail, onSaved: capPrompt.retry, onDismiss: () => setCapPrompt(null), endpoints: { cactaiBase, projectId } }))] }));
 }

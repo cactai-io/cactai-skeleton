@@ -53,7 +53,7 @@ export class MUIShell {
         // Initialize input router. end_user_id flows through to every
         // turn POST so the platform's submitTurnSchema (user_id required)
         // gets a value without forcing the proxy to inject identity.
-        this.inputRouter = new InputRouter(this.store, this.streamController, config.api_base_url, config.end_user_id);
+        this.inputRouter = new InputRouter(this.store, this.streamController, config.api_base_url, config.end_user_id, config.personality_id_provider);
         // Load configured Skills packages
         for (const manifest of config.skills_packages) {
             this.skillRegistry.loadPackage(manifest);

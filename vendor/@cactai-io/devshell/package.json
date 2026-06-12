@@ -1,6 +1,6 @@
 {
   "name": "@cactai-io/devshell",
-  "version": "1.4.8",
+  "version": "1.4.9",
   "private": true,
   "description": "Cactai DevShell — the IDE client mounted at /dev in preview deployments of the skeleton. Distributed as a private package; consumed via dynamic import gated on VERCEL_ENV !== 'production' so the code is never present in production builds.",
   "type": "module",

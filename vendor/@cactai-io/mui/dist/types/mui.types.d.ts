@@ -115,6 +115,7 @@ export interface MUIConfig {
     ssr: boolean;
     platform_api_key?: string;
     end_user_id?: string;
+    personality_id_provider?: () => string | null | undefined;
     client_bridge?: {
         onMarketplaceSkillLoaded: (cb: (skill: {
             item_id: string;

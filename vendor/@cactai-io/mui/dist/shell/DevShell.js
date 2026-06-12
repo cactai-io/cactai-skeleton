@@ -147,7 +147,7 @@ function RailBtn({ section, active, onClick }) {
     const tooltip = S_TOOLTIP[section] ?? S_LABEL[section];
     return (_jsx("button", { className: `ds-rail-btn${active ? ' ds-rail-active' : ''}`, onClick: onClick, title: tooltip, "aria-label": tooltip, children: _jsx("svg", { width: "19", height: "19", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", children: _jsx("path", { d: S_ICON[section] }) }) }));
 }
-export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, onRegisterNavigate, decisionLogVersion, }) {
+export function DevShell({ shell, projectId, projectName, branch, syncState, pendingFiles, developerInitials, developerName, agentDisplayName, agentState, character, messages, streamingContent, chatError, availableRoles, onRoleSwitch, hasPublicSignup = false, onCommitToDev, onRevertCommit, onDiscardPendingFile, onDiscardAllPending, onCreateFile, onRenameFile, onDeleteFile, onSaveFile, deployBearerToken, platformBaseUrl, vercelPreviewUrl, githubRepoUrl, vercelDashUrl, treeNodes, activeFilePath, fileContent, fileLoading, onFileSelect, onExitFileView, workflowStep, workflowForm, decisions, backlog, sprints, onWorkflowFormSubmit, onWorkflowBack, onRevisitDecision, onResolveBacklog, onCreateBacklog, onUpdateBacklog, onDeleteBacklog, onRenameSprint, onDeleteSprint, notes, onCreateNote, onUpdateNote, onDeleteNote, workspaceProps, buildProps, skills, schemaProps, appConfigProps, devshellPreferences, dashboardUrl, apiBaseUrl, studioPreviewUrl, buildSurfaceSlot, chatGuideSlot, filesGuideSlot, onOpenFileGuide, onOpenGuide, onAuthoringAssist, onAuthoringSave, onOpenPendingGuide, pendingGuideSlot, children, onSectionChange, onViewChange, onRegisterNavigate, decisionLogVersion, }) {
     useEffect(() => { injectDevShellStyles(); }, []);
     // Body lock while the DevShell IDE is mounted. Pre-fix the browser
     // could scroll the entire page past [data-cactai-shell]'s 100vh
@@ -292,6 +292,29 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // step so the dock stays in lock-step with the surface. Mirrors the
     // ThemeInspector cookie-auth fetch pattern (credentials: 'include').
     const [decisionLogStages, setDecisionLogStages] = useState([]);
+    // Persistent revisit state — server hydrates these from
+    // project_state.decisions._revisit_state on every decision-log fetch and
+    // on every revise response, so amber outlines + grayouts survive reloads.
+    const [revisitPending, setRevisitPending] = useState([]);
+    const [revisitCleared, setRevisitCleared] = useState([]);
+    // Click-to-navigate from any decision log card. Forward-jump and back-jump
+    // share this path — the server just sets project_state.current_step +
+    // build_phase, and the host's existing workflow read picks up the new
+    // step on the next refresh.
+    const navigateToStep = useCallback(async (step) => {
+        try {
+            const res = await fetch(`${apiBaseUrl}/v1/projects/${projectId}/devshell/navigate-to-step`, { method: 'POST', credentials: 'include',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ step }) });
+            if (res.ok) {
+                // Force the workflow surface into the wizard view so the dev sees
+                // the targeted step's form. The SelfDrivenDevShell's 5s workflow
+                // poll picks up the new current_step on its next tick.
+                setView('build');
+            }
+        }
+        catch { /* best-effort */ }
+    }, [apiBaseUrl, projectId]);
     useEffect(() => {
         // Fetch for the live Active dock (Build during the wizard) and for the
         // History tab (the full Running decision log + chat).
@@ -304,6 +327,14 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                 if (!res.ok)
                     return;
                 const json = await res.json();
+                if (json.revisit_state) {
+                    setRevisitPending(json.revisit_state.pending_steps ?? []);
+                    setRevisitCleared(json.revisit_state.cleared_steps ?? []);
+                }
+                else {
+                    setRevisitPending([]);
+                    setRevisitCleared([]);
+                }
                 if (!cancelled && Array.isArray(json.stages))
                     setDecisionLogStages(json.stages);
             }
@@ -332,6 +363,10 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                 setDecisionFlagged(json.flagged);
             const affected = Array.isArray(json.affected) ? json.affected : [];
             setReviseWarning(affected.length > 0 ? { affected, resumeStep: json.resume_step ?? null } : null);
+            if (json.revisit_state) {
+                setRevisitPending(json.revisit_state.pending_steps ?? []);
+                setRevisitCleared(json.revisit_state.cleared_steps ?? []);
+            }
         }
         catch { /* best-effort */ }
     }, [apiBaseUrl, projectId]);
@@ -681,13 +716,13 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
             // running (Build view, not complete). Plan view already carries the
             // full Running log inside WorkflowSurface, so it gets no dock.
             const showActiveDock = view === 'build' && workflowStep !== 'complete';
-            return (_jsxs("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden', display: 'flex', minWidth: 0 }, children: [_jsx("div", { style: { flex: 1, overflow: 'hidden', minWidth: 0 }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog, onCreateBacklog: onCreateBacklog, onUpdateBacklog: onUpdateBacklog, onDeleteBacklog: onDeleteBacklog, onRenameSprint: onRenameSprint, onDeleteSprint: onDeleteSprint, notes: notes, onCreateNote: onCreateNote, onUpdateNote: onUpdateNote, onDeleteNote: onDeleteNote }) }), showActiveDock && decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged }) }))] }));
+            return (_jsxs("div", { style: { ...bindSection(`${view}-view`, grad), flex: 1, overflow: 'hidden', display: 'flex', minWidth: 0 }, children: [_jsx("div", { style: { flex: 1, overflow: 'hidden', minWidth: 0 }, children: _jsx(WorkflowSurface, { activeForm: view === 'plan' ? undefined : workflowForm, decisions: decisions, backlog: backlog, sprints: sprints, onFormSubmit: onWorkflowFormSubmit, onBack: onWorkflowBack, onRevisit: onRevisitDecision, onResolveBacklog: onResolveBacklog, onCreateBacklog: onCreateBacklog, onUpdateBacklog: onUpdateBacklog, onDeleteBacklog: onDeleteBacklog, onDiscussBacklog: (d) => { void shell?.submitInput(d); }, onRenameSprint: onRenameSprint, onDeleteSprint: onDeleteSprint, notes: notes, onCreateNote: onCreateNote, onUpdateNote: onUpdateNote, onDeleteNote: onDeleteNote }) }), showActiveDock && decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged, pendingRevisitSteps: revisitPending, clearedSteps: revisitCleared, onNavigateToStep: navigateToStep }) }))] }));
         }
         if (view === 'history') {
             // History = the full Running decision log (every wizard answer + its
             // free-text chat), distinct from Plan (backlog/notes). Fed by the
             // authed /decision-log endpoint.
-            return (_jsx("div", { style: { ...bindSection('history-view', 'indigo'), flex: 1, overflow: 'auto' }, children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "running", onRevise: reviseDecision, flagged: decisionFlagged }) }));
+            return (_jsx("div", { style: { ...bindSection('history-view', 'indigo'), flex: 1, overflow: 'auto' }, children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "running", onRevise: reviseDecision, flagged: decisionFlagged, pendingRevisitSteps: revisitPending, clearedSteps: revisitCleared, onNavigateToStep: navigateToStep }) }));
         }
         if (view === 'test_drive') {
             // Test Drive renders one of two preview lenses:
@@ -806,7 +841,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
                                     flex: 1, minWidth: 0, overflow: 'auto',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     padding: '24px 32px',
-                                }, children: _jsx("div", { style: { width: '100%', maxWidth: 760 }, children: buildSurfaceSlot }) }), decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged }) }))] }))
+                                }, children: _jsx("div", { style: { width: '100%', maxWidth: 760 }, children: buildSurfaceSlot }) }), decisionLogStages.length > 0 && (_jsx(ResizableDock, { projectId: projectId, label: "Decisions", children: _jsx(DecisionLogPanel, { stages: decisionLogStages, variant: "active", onRevise: reviseDecision, flagged: decisionFlagged, pendingRevisitSteps: revisitPending, clearedSteps: revisitCleared, onNavigateToStep: navigateToStep }) }))] }))
                     : (_jsx(WorkspacePanel, { ...workspaceProps, projectName: projectName, githubRepoUrl: githubRepoUrl, vercelDashUrl: vercelDashUrl, vercelPreviewUrl: vercelPreviewUrl, syncState: syncState, onViewPendingEdits: () => openPendingEdits() })));
             case 'build':
                 return wrap(_jsx(BuildPanel, { ...buildProps, skills: skills }));
@@ -825,7 +860,7 @@ export function DevShell({ shell, projectId, projectName, branch, syncState, pen
     // and returns via its own Back affordance or any rail/view navigation.
     function renderPrefsPage() {
         if (devshellPreferences) {
-            return (_jsx(DevShellPreferencesModal, { variant: "page", catalogue: devshellPreferences.catalogue, config: devshellPreferences.config, onPatch: devshellPreferences.onPatch, mcp: devshellPreferences.mcp, byok: devshellPreferences.byok, onBYOKPatch: devshellPreferences.onBYOKPatch, personality: devshellPreferences.personality, onClose: () => setPrefsOpen(false) }));
+            return (_jsx(DevShellPreferencesModal, { variant: "page", catalogue: devshellPreferences.catalogue, config: devshellPreferences.config, onPatch: devshellPreferences.onPatch, mcp: devshellPreferences.mcp, byok: devshellPreferences.byok, onBYOKPatch: devshellPreferences.onBYOKPatch, personality: devshellPreferences.personality, modelSelections: devshellPreferences.modelSelections, onModelSelectionsChange: devshellPreferences.onModelSelectionsChange, onClose: () => setPrefsOpen(false) }));
         }
         // Page-styled stub when the host hasn't wired the prefs data yet.
         return (_jsxs("div", { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--ds-elevated)' }, children: [_jsxs("div", { style: {

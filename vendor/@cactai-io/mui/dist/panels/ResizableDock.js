@@ -95,7 +95,7 @@ export function ResizableDock({ projectId, label = 'Decisions', defaultWidth = 3
                     position: 'absolute', top: 0, left: -2, bottom: 0, width: 5,
                     cursor: 'col-resize', zIndex: 2,
                 }, title: "Drag to resize" }), _jsx("button", { type: "button", onClick: () => setCollapsed(true), title: `Collapse ${label.toLowerCase()}`, style: {
-                    position: 'absolute', top: 6, right: 6, zIndex: 3,
+                    position: 'absolute', top: 6, left: 6, zIndex: 3,
                     background: 'transparent', border: 'none', cursor: 'pointer',
                     padding: 4, color: 'var(--ds-text-3, #9A9AAE)', fontSize: 14, lineHeight: 1,
                 }, children: "\u203A" }), _jsx("div", { style: { flex: 1, minHeight: 0, overflow: 'auto' }, children: children })] }));

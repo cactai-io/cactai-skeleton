@@ -25,11 +25,16 @@ export class InputRouter {
     // requires user_id) is satisfied without forcing the proxy to
     // re-derive identity per request.
     endUserId;
-    constructor(store, streamController, apiBaseUrl, endUserId) {
+    // Resolved at dispatch time, not bound at construction — the developer can
+    // switch personality from the DevShell Preferences modal mid-session, so we
+    // pull a fresh value from the host each turn rather than capturing once.
+    personalityIdProvider;
+    constructor(store, streamController, apiBaseUrl, endUserId, personalityIdProvider) {
         this.store = store;
         this.streamController = streamController;
         this.apiBaseUrl = apiBaseUrl;
         this.endUserId = endUserId;
+        this.personalityIdProvider = personalityIdProvider;
     }
     // Translation path for nl_text (v1 primary path)
     // 1. Read turn_count — becomes TurnRequest.turn_number
@@ -64,9 +69,11 @@ export class InputRouter {
         if (!this.endUserId) {
             console.warn('[InputRouter] end_user_id missing — chat turn will submit with empty user_id. Check the DevShell mount wiring.');
         }
+        const personalityId = this.personalityIdProvider?.() ?? null;
         const turnRequest = {
             input: payload.content,
             turn_number: turnNumber,
+            ...(personalityId ? { personality_id: personalityId } : {}),
             metadata: {
                 input_type: payload.input_type,
                 timestamp: payload.timestamp,

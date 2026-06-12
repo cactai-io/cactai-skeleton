@@ -125,6 +125,7 @@ export { WorkspacePanel, BuildPanel, SchemaPanel, AppConfigurationPanel,
  } from './panels/index.js';
 export { CapabilityListPanel } from './panels/CapabilityListPanel.js';
 export { PersonalityPickerPanel } from './panels/PersonalityPickerPanel.js';
+export { ProviderModelPanel, isProviderModelComplete, DEFAULT_SELECTIONS } from './panels/ProviderModelPanel.js';
 export { PersonalityEditor } from './panels/PersonalityEditor.js';
 export { OnboardingModal } from './panels/OnboardingModal.js';
 export { DecisionLogPanel } from './panels/DecisionLogPanel.js';
