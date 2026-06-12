@@ -26,7 +26,7 @@
     "@cactai-io/client": "^1.4.0",
     "@cactai-io/primitives": "^1.4.0",
     "@cactai-io/themes": "^1.4.0",
-    "@cactai-io/types": "^1.4.0",
+    "@cactai-io/types": "^1.4.9",
     "@cactai-io/mui": "file:../mui"
   },
   "peerDependencies": {
