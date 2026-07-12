@@ -1,0 +1,38 @@
+[
+  {
+    "$comment": "The placeholder capability (stage 4c-lite): ONE minimal internal data op proving the invoke-through-gates path end to end. The real starter capability set ships with the future library pursuit \u2014 do not grow this file; author real capabilities through DevShell.",
+    "id": "app.note_add",
+    "kind": "tool",
+    "name": "Add note",
+    "description": "Write one note into the app audit log (tenant-scoped in the multi variant, D-T80). The seed capability a provisioned app invokes through Gate 1/2.",
+    "domain_or_category": "app",
+    "source": "developer_authored",
+    "input_fields": [
+      {
+        "name": "note",
+        "type": "string",
+        "required": true,
+        "description": "the note text"
+      }
+    ],
+    "output_fields": [
+      {
+        "name": "event_id",
+        "type": "string",
+        "required": true,
+        "description": "the written audit row id"
+      }
+    ],
+    "side_effect_scope": "internal",
+    "is_reversible": true,
+    "execution_weight": "light",
+    "is_async": false,
+    "emittable_events": [],
+    "output_primitive_declarations": [],
+    "criteria_template_ref": null,
+    "default_model_lane": {
+      "capability": "reasoning",
+      "tier": "cheap"
+    }
+  }
+]

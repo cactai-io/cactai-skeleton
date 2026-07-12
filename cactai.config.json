@@ -20,5 +20,6 @@
   },
   "media": {
     "image_domains": []
-  }
+  },
+  "registrations": "config/registrations.json"
 }
