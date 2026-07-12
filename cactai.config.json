@@ -1,0 +1,24 @@
+{
+  "$comment": "cactai.config \u2014 the app's declared shape. The provisioning wizard writes tenancy (multi | single) here and prunes the template to match (D-T80); null means provisioning has not completed.",
+  "framework_version": "2.0.0",
+  "app": {
+    "name": "My Cactai App",
+    "description": "Built on Cactai",
+    "url": ""
+  },
+  "tenancy": null,
+  "auth": {
+    "providers": [
+      "cactai"
+    ]
+  },
+  "personality": {
+    "active": "sam"
+  },
+  "theme": {
+    "active": "default"
+  },
+  "media": {
+    "image_domains": []
+  }
+}

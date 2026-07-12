@@ -1,137 +1,86 @@
-// src/app/app/AppShellProvider.tsx
-// App-shell client. Wraps the developer's deployed app for end users.
-// Owns no agent logic — the developer's pages render whatever the
-// platform sends back as a primitive tree, and forward user events.
+// The AppShell host (client): wraps the app's GAS mount in the shell chrome
+// (@cactai-io/shell-ui AppShellHost) and binds the platform session through
+// @cactai-io/platform-client. The default profile renders until the developer
+// authors their own (@cactai-io/profile-scaffold DEFAULT_PROFILE_MANIFEST).
+// The tenant switcher block below is prune-gated: the provisioning wizard's
+// recorded tenancy answer selects the variant (D-T80).
 
 'use client';
 
-import { endpoints } from '@/lib/endpoints';
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { CactaiClient } from '@cactai-io/client';
-import { PrimitiveTreeRenderer, type PrimitiveNode } from '@cactai-io/primitives';
+import { useEffect, useMemo, useState, type JSX } from 'react';
+import { CactaiClient, type PrimitiveNode } from '@cactai-io/platform-client';
+import { AppShellHost, type ShellTenancy, type ShellTokens } from '@cactai-io/shell-ui';
+import { PrimitiveTreeRenderer } from '@cactai-io/primitives';
 import { SAMTheme } from '@cactai-io/themes';
-import { SupportLauncher } from './SupportLauncher.client';
-import type { SessionUser } from '@/lib/auth';
+import { DEFAULT_PROFILE_MANIFEST } from '@cactai-io/profile-scaffold';
+import { cactaiConfig } from '@/lib/config';
+import { endpoints } from '@/lib/endpoints';
+// @prune:tenancy.multi:start
+import { TenantSwitcher } from '@/components/tenant-switcher/TenantSwitcher';
+import { useActiveTenant } from '@/lib/tenancy';
+// @prune:tenancy.multi:end
 
-interface AppShellProviderProps {
-  user:           SessionUser;
-  supportEnabled: boolean;
-  children:       React.ReactNode;
-}
+const SHELL_TOKENS: ShellTokens = {
+  bg: 'var(--bg, #ffffff)', bgRaised: 'var(--bg-raised, #f6f6f6)', border: 'var(--border, #e2e2e2)',
+  text: 'var(--text, #111111)', textMuted: 'var(--text-muted, #555555)', textSubtle: 'var(--text-subtle, #888888)',
+  hoverBg: 'var(--hover, #eeeeee)', focusRing: 'var(--focus, #3366ff)',
+  info: '#2563eb', warning: '#d97706', error: '#dc2626', blocking: '#7f1d1d',
+  radius: '8px', font: 'system-ui, sans-serif',
+};
 
-export function AppShellProvider({ user, supportEnabled, children }: AppShellProviderProps) {
-  const [client,    setClient]    = useState<CactaiClient | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [tree,      setTree]      = useState<PrimitiveNode | null>(null);
-  const initialised = useRef(false);
-
-  useEffect(() => {
-    if (initialised.current) return;
-    initialised.current = true;
-    const c = new CactaiClient({
-      base_url:   endpoints.cactaiBase,
-      project_id: endpoints.projectId,
-    });
-    setClient(c);
-    (async () => {
-      try {
-        const session = await c.openSession({
-          shell:      'app',
-          user_id:    user.id,
-          user_role:  user.active_lens ?? undefined,
-          tenant_id:  user.tenant_id ?? undefined,
-          viewport:   typeof window === 'undefined' ? null : {
-            width:  window.screen.width,
-            height: window.screen.height,
-            dpr:    window.devicePixelRatio,
-          },
-        });
-        setSessionId(session.session_id);
-        setTree(session.initial_tree ?? null);
-      } catch (err) {
-        console.error('AppShell session open failed:', err);
-      }
-    })();
-  }, [user]);
-
-  const postEvent = useCallback(async (target_id: string, payload?: unknown) => {
-    if (!client || !sessionId) return;
-    try {
-      const next = await client.postEvent({ session_id: sessionId, target_id, payload });
-      if (next.tree) setTree(next.tree);
-    } catch (err) {
-      console.error('Event post failed:', err);
-    }
-  }, [client, sessionId]);
-
-  // v1.3.5 — Report and Regenerate callbacks wired into the primitive
-  // runtime so the skill_envelope's buttons reach the platform. Report
-  // does not change what the user sees; Regenerate replaces only the
-  // rendered tree's matching skill in place (no version history kept).
-  const onReportSkill = useCallback(
-    async (
-      meta: { skill_id: string; source: string; artifact_type?: string; platform?: string },
-      note: string | null,
-    ) => {
-      if (!client) return;
-      try {
-        await client.reportSkill({
-          skill_id:      meta.skill_id,
-          skill_source:  meta.source as Parameters<typeof client.reportSkill>[0]['skill_source'],
-          artifact_type: meta.artifact_type,
-          platform:      meta.platform,
-          session_id:    sessionId ?? undefined,
-          note,
-        });
-      } catch (err) {
-        console.error('reportSkill failed:', err);
-      }
-    },
-    [client, sessionId],
-  );
-  const onRegenerateSkill = useCallback(
-    async (_meta: { skill_id: string; source: string; artifact_type?: string; platform?: string }) => {
-      // v1: Regenerate is wired through but the deployed-app needs the
-      // original surface inputs to replay generation. Those are owned by
-      // the skill renderer that produced the current view, not by the
-      // envelope. A follow-up will plumb the regenerate_payload through
-      // skill_meta; for v1 we surface the button (visibility correct) and
-      // ship the network method on CactaiClient (CactaiClient#regenerateSkill).
-      // Skipping a no-op call here means click currently surfaces a
-      // user-visible "Regenerated." confirmation only when the host has
-      // actually wired the payload — leaving room to layer it on without
-      // changing the envelope or the runtime contract.
-    },
+export function AppShellProvider(): JSX.Element {
+  const config = cactaiConfig();
+  const client = useMemo(
+    () => new CactaiClient({ base_url: endpoints.api, project_id: endpoints.projectId }),
     [],
   );
+  const [tree, setTree] = useState<PrimitiveNode | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // The developer's app pages render alongside the agent's primitive tree.
-  // Children come from the developer's own page code; the tree is what the
-  // platform sends back per turn. Layout below is the developer's choice.
+  useEffect(() => {
+    void client
+      .openSession({ shell: 'app', user_id: 'session', viewport: null })
+      .then((session) => {
+        setSessionId(session.session_id);
+        setTree(session.initial_tree ?? null);
+      });
+  }, [client]);
+
+  let tenancy: ShellTenancy | null = null;
+  // @prune:tenancy.multi:start
+  const activeTenant = useActiveTenant();
+  tenancy = activeTenant === null ? null : { active_tenant_label: activeTenant.display_name, switch_items: [] };
+  // @prune:tenancy.multi:end
+
   return (
-    <div style={{
-      minHeight:  '100vh',
-      fontFamily: 'system-ui, sans-serif',
-      background: 'var(--app-bg, #ffffff)',
-      color:      'var(--app-text, #111111)',
-    }}>
-      {children}
-      {tree && (
+    <AppShellHost
+      tokens={SHELL_TOKENS}
+      appName={config.app.name}
+      identity={{ display_name: 'You', initials: 'Y' }}
+      nav={[{ label: 'Home', href: '/app', active: true }]}
+      tenancy={tenancy}
+      accountMenu={[
+        { kind: 'link', label: 'Manage users', href: '/manage/users' },
+        // @prune:tenancy.multi
+        { kind: 'link', label: 'Tenants', href: '/manage/tenants' },
+        { kind: 'divider' },
+        { kind: 'button', label: 'Sign out', onClick: () => { void fetch('/auth/sign-out', { method: 'POST' }); } },
+      ]}
+    >
+      {tree !== null && sessionId !== null ? (
         <PrimitiveTreeRenderer
           root={tree}
-          theme={SAMTheme.tokens}
-          postEvent={postEvent}
-          onReportSkill={onReportSkill}
-          onRegenerateSkill={onRegenerateSkill}
+          theme={SAMTheme}
+          postEvent={async (targetId, payload) => {
+            const next = await client.postEvent({ session_id: sessionId, target_id: targetId, payload: payload as Record<string, unknown> | undefined });
+            if (next.tree !== undefined) setTree(next.tree);
+          }}
         />
+      ) : (
+        <p style={{ padding: '2rem' }}>
+          Starting {config.app.name} on the {DEFAULT_PROFILE_MANIFEST.intents.length}-intent default profile…
+        </p>
       )}
-      {/* Minimum-required support affordance: a self-contained launcher →
-          create-ticket + two-way chat modal. The developer can relocate this
-          into their own app's avatar menu; it ships on by default so every app
-          has support discoverable on day one. Gated by the `support` feature
-          flag — toggle off in App Configuration, or Remove at build to prune
-          the launcher + its routes + schema entirely. */}
-      {supportEnabled && <SupportLauncher />}
-    </div>
+    </AppShellHost>
   );
 }

@@ -1,24 +1,24 @@
 name: Refresh @cactai-io lockfile
 
-# Re-resolves the seven published @cactai-io/* deps to the newest version
-# within the committed ^1.4.0 range and commits the refreshed pnpm-lock.yaml,
+# Re-resolves the published @cactai-io/* deps to the newest version
+# within the committed ^2.0.0 range and commits the refreshed pnpm-lock.yaml,
 # so a freshly-forked app installs the latest SDK without anyone hand-running
 # the update. Only the lockfile's resolved `version:` lines move; the
-# `specifier: ^1.4.0` lines and package.json ranges are left untouched.
+# `specifier: ^2.0.0` lines and package.json ranges are left untouched.
 #
 # IMPORTANT: this uses `pnpm update` (NOT `pnpm install`, NOT `--latest`).
 #   - `pnpm install` is a no-op for version bumps: if the locked version
-#     already satisfies the range (1.4.1 satisfies ^1.4.0), pnpm keeps it
-#     and never advances to 1.4.3. That is the bug this file used to have.
+#     already satisfies the range (1.4.1 satisfies ^2.0.0), pnpm keeps it
+#     and never advances to 2.0.3. That is the bug this file used to have.
 #   - `pnpm update` (no --latest) advances the resolved version to the
-#     highest within the existing ^1.4.0 range. It DOES, however, rewrite
-#     the package.json specifier to the new version (e.g. ^1.4.0 -> ^1.4.3),
+#     highest within the existing ^2.0.0 range. It DOES, however, rewrite
+#     the package.json specifier to the new version (e.g. ^2.0.0 -> ^2.0.3),
 #     which would let the floor creep and, if left uncommitted, desync
 #     package.json from the lockfile (ERR_PNPM_OUTDATED_LOCKFILE on the next
 #     frozen install). So the run step restores package.json after the
 #     update and reconciles the lockfile's importer specifiers back to
-#     ^1.4.0 with a lockfile-only install — the freshly resolved versions
-#     survive because they still satisfy ^1.4.0.
+#     ^2.0.0 with a lockfile-only install — the freshly resolved versions
+#     survive because they still satisfy ^2.0.0.
 #   - `--latest` is even more aggressive (ignores the range entirely). Never
 #     use it here.
 # Scoped to "@cactai-io/*" so third-party deps (and their minimum-release-age

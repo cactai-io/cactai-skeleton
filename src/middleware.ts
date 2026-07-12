@@ -1,95 +1,17 @@
-// src/middleware.ts
-// Next.js middleware. Two responsibilities:
-//   1. Refresh the Supabase session cookie on every request.
-//   2. Propagate the X-Cactai-Lens header into a request-scoped header
-//      that server components and route handlers read. This is how
-//      per-tab lens overrides reach RLS-scoped queries.
-//
-// The header value is NOT validated here; validation happens at
-// supabase.server.ts setLensSetting() which checks the user's actual
-// tenant_members rows before applying.
+// Route guard: the signed-in region requires the app-side session cookie
+// (Sign in with Cactai). Verification happens in the callback route and on
+// server reads; this middleware only gates navigation.
 
-import { endpoints } from '@/lib/endpoints';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const VALID_LENS_PATTERN = /^[a-zA-Z0-9_]{1,32}$/;
-
-export async function middleware(request: NextRequest) {
-  // Forward the lens header into a request-scoped header so downstream
-  // server code can pick it up via headers().get('x-cactai-lens').
-  // We strip any value that doesn't match the safe pattern.
-  let response = NextResponse.next({ request });
-  // Header first; else ?lens= from the URL. The Test Drive preview iframe
-  // navigates to <app>?lens=<role> on the initial GET (no header yet), and the
-  // SSR render needs the lens too. Validation still happens in
-  // resolveEffectiveLens (only a developer can lens to a catalog role they
-  // don't hold), so propagating the param here grants nothing on its own.
-  const lensIn = request.headers.get('x-cactai-lens') ?? request.nextUrl.searchParams.get('lens');
-  if (lensIn && VALID_LENS_PATTERN.test(lensIn)) {
-    const reqHeaders = new Headers(request.headers);
-    reqHeaders.set('x-cactai-lens', lensIn);
-    response = NextResponse.next({ request: { headers: reqHeaders } });
+export function middleware(request: NextRequest) {
+  const hasSession = request.cookies.has('cactai_app_token');
+  if (!hasSession && (request.nextUrl.pathname.startsWith('/app') || request.nextUrl.pathname.startsWith('/manage'))) {
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
-
-  const supabase = createServerClient(
-    endpoints.supabaseUrl,
-    endpoints.supabaseAnonKey,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll(); },
-        setAll(toSet: Array<{ name: string; value: string; options?: CookieOptions }>) {
-          for (const { name, value } of toSet) {
-            request.cookies.set(name, value);
-          }
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of toSet) {
-            response.cookies.set(name, value, options);
-          }
-        },
-      },
-    },
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // On Vercel preview deployments only (the dev-branch deploys the wizard
-  // captures into projects.preview_url), bounce unauthenticated navigation
-  // back to the platform so the developer lands in DevShell instead of the
-  // public app's sign-in. Paths that would interrupt the handoff itself
-  // (the inbound /api/preview-auth carrying the token, /auth/* callbacks
-  // that finish OAuth, and Next internals) are exempt. Production deploys
-  // (VERCEL_ENV='production') keep their normal sign-in flow — end users
-  // land on /, log in, and bootstrap claims tenant ownership the first
-  // time.
-  if (process.env.VERCEL_ENV === 'preview' && !user) {
-    const path = request.nextUrl.pathname;
-    // Only the auth-bridge routes are exempt from the bounce. /auth/login,
-    // /auth/signup etc. should NEVER render on a preview deploy — preview
-    // is the developer's DevShell surface, not the customer-facing app, so
-    // landing on a customer login page from preview is always wrong. If
-    // session install fails (e.g. /api/preview-auth couldn't grant the
-    // dev role), bouncing back through devshell-redirect at least makes
-    // the failure visible (it surfaces the platform's 500 with the upsert
-    // error) instead of silently dropping the dev on the customer login.
-    const isExempt =
-      path.startsWith('/api/preview-auth') ||  // inbound handoff token + token consume
-      path.startsWith('/api/auth')         ||  // /api/auth/set-session install
-      path.startsWith('/auth/handoff')     ||  // implicit-flow hash bridge
-      path.startsWith('/auth/callback')    ||  // PKCE flow bridge
-      path === '/favicon.ico';
-    if (!isExempt) {
-      const dashboardBounce =
-        `${endpoints.cactaiBase.replace(/\/$/, '')}/v1/projects/${endpoints.projectId}/devshell-redirect`;
-      return NextResponse.redirect(dashboardBounce, 302);
-    }
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/app/:path*', '/manage/:path*'],
 };

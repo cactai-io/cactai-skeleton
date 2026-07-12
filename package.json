@@ -1,51 +1,34 @@
 {
   "name": "cactai-skeleton",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Cactai app template. Fork this repo to start building. You own this code after forking. Imports rendering primitives and the platform HTTP client; all agent logic and IP lives on the Cactai platform server.",
-  "packageManager": "pnpm@11.3.0",
-  "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
-  },
+  "description": "The Cactai app skeleton (GitHub template): a thin developer app \u2014 your routes, cactai.config, the AppShell host, PWA packaging, and @cactai-io/platform-client with your per-project key. No Cactai private source ships here (D-T68); the DevShell is platform-hosted and never present in this repo.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx scripts/seed.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@babel/runtime": "^7.24.0",
-    "@cactai-io/brand-tokens": "^1.4.0",
-    "@cactai-io/client": "^1.4.0",
-    "@cactai-io/devshell": "file:vendor/@cactai-io/devshell",
-    "@cactai-io/mui": "file:vendor/@cactai-io/mui",
-    "@cactai-io/primitives": "^1.4.0",
-    "@cactai-io/shell-ui": "^1.4.0",
-    "@cactai-io/themes": "^1.4.0",
-    "@cactai-io/types": "^1.4.0",
-    "@supabase/ssr": "^0.5.0",
-    "@supabase/supabase-js": "^2.43.0",
-    "html-to-image": "^1.11.13",
+    "@cactai-io/brand-tokens": "^2.0.0",
+    "@cactai-io/identity-client": "^2.0.0",
+    "@cactai-io/platform-client": "^2.0.0",
+    "@cactai-io/primitives": "^2.0.0",
+    "@cactai-io/profile-scaffold": "^2.0.0",
+    "@cactai-io/shell-ui": "^2.0.0",
+    "@cactai-io/themes": "^2.0.0",
     "next": "^15.0.0",
-    "pg": "^8.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "server-only": "^0.0.1",
-    "stripe": "^17.0.0"
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/pg": "^8.11.0",
+    "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitest/coverage-v8": "^2.1.0",
-    "tsx": "^4.11.0",
-    "typescript": "^5.5.0",
-    "vitest": "^2.1.0"
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -1,40 +1,8 @@
+# Not a monorepo — this file carries pnpm settings only.
+# @cactai-io/* installs from GitHub Packages (see .npmrc); the freshness check
+# is excluded for the first-party scope so a fresh publish installs immediately.
 allowBuilds:
-  # Next.js build pipeline needs esbuild (bundler) and sharp (image
-  # optimization) to actually compile their native binaries at install
-  # time. pnpm 11 added the ignore-by-default policy; we opt in for both
-  # since they're required for the customer Vercel build to succeed.
   esbuild: true
   sharp: true
-
-# Even though the skeleton is a single-package repo (not a multi-package
-# workspace), pnpm 11 moved its policy/config keys here as the canonical
-# location. The .npmrc kebab-case form is no longer reliably honored for
-# array values like minimum-release-age-exclude. This file holds only the
-# policy settings; no `packages:` block — pnpm reads the settings without
-# treating the repo as a workspace.
-
-# pnpm 11 ships a supply-chain freshness check (minimumReleaseAge) that
-# rejects packages published within the configured window. The default
-# protection is appropriate for third-party deps. Our own @cactai-io
-# scope is first-party — we publish it ourselves — so it shouldn't be
-# blocked by the delay; every fresh publish would otherwise stall every
-# customer Vercel build. First-party scope only; third-party protection
-# stays intact.
 minimumReleaseAgeExclude:
   - '@cactai-io/*'
-
-# Force every @cactai-io/* dep across the tree to track the same release
-# line. Without these overrides, the vendored devshell + mui packages pin
-# their own (older) @cactai-io/client versions via "^1.3.7"-style ranges,
-# and pnpm's lockfile preserves the older resolution even after a top-level
-# bump — leaving two copies of CactaiClient in the bundle. The vendored
-# devshell ends up using the stale copy, missing the fetch-binding fix and
-# any other forward-only change. Overrides force fresh re-resolution to the
-# range below for every transitive reference.
-overrides:
-  '@cactai-io/client':       '^1.4.0'
-  '@cactai-io/primitives':   '^1.4.0'
-  '@cactai-io/themes':       '^1.4.0'
-  '@cactai-io/types':        '^1.4.0'
-  '@cactai-io/shell-ui':     '^1.4.0'
-  '@cactai-io/brand-tokens': '^1.4.0'
